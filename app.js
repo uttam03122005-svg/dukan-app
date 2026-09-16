@@ -61,9 +61,7 @@ function getUpi() {
 /* ================== LOAD ================== */
 async function loadData() {
   try {
-    const res = await fetch(DATA_URL + '?_=' + Date.now() + Math.random(), {
-      cache: 'no-store'
-    });
+    const res = await fetch(DATA_URL + '?_=' + Date.now() + Math.random());
     if (!res.ok) throw new Error('Data not found');
     const j = await res.json();
     j.products = j.products || [];
@@ -81,9 +79,7 @@ async function loadData() {
 
 async function loadCustomers() {
   try {
-    const res = await fetch(CUST_URL + '?_=' + Date.now() + Math.random(), {
-      cache: 'no-store'
-    });
+    const res = await fetch(CUST_URL + '?_=' + Date.now() + Math.random());
     if (!res.ok) throw new Error('Customers not found');
     const j = await res.json();
     j.users = j.users || [];
@@ -98,7 +94,6 @@ async function loadCustomers() {
 async function saveData(data) {
   const token = await getActiveToken();
   if (!token) throw new Error('Token set nahi hai. Owner login karo.');
-  // settings ensure karo
   data.settings = data.settings || {};
   return await _githubSave(CONFIG.GITHUB_REPO, CONFIG.GITHUB_FILE, data, token);
 }
@@ -111,14 +106,12 @@ async function saveCustomers(data) {
 async function _githubSave(repo, file, data, token, retry = 0) {
   const apiUrl = `https://api.github.com/repos/${CONFIG.GITHUB_USER}/${repo}/contents/${file}`;
 
-  // Fresh sha — cache bypass
+  // Fresh sha — sirf Authorization aur Accept headers (CORS safe)
   const getRes = await fetch(apiUrl + '?ref=main&_=' + Date.now() + Math.random(), {
     headers: {
       Authorization: `token ${token}`,
-      Accept: 'application/vnd.github+json',
-      'Cache-Control': 'no-cache'
-    },
-    cache: 'no-store'
+      Accept: 'application/vnd.github+json'
+    }
   });
 
   let sha = null;
