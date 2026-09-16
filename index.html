@@ -3,11 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Dukan App - Login</title>
+  <title>Dukan App</title>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#2e7d32">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <link rel="apple-touch-icon" href="icon-192.png">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -16,7 +14,7 @@
   <div class="container">
     <div class="card center">
       <h2 style="color:#2e7d32;">Welcome!</h2>
-      <p style="color:#666;font-size:14px;">Login karo — Owner ya Customer</p>
+      <p style="color:#666;font-size:14px;">Login karo</p>
     </div>
 
     <div class="card" style="display:flex;padding:0;">
@@ -24,33 +22,31 @@
       <button id="tabOwner" class="primary" style="border-radius:0;background:#ccc;color:#333;">Owner</button>
     </div>
 
-    <!-- USER LOGIN -->
     <div id="userForm" class="card">
       <h3>Customer Login</h3>
-      <input id="uName" placeholder="Apna naam (jaise Ramesh)" autocomplete="off">
-      <input id="uPhone" placeholder="Phone number (10 digit)" inputmode="numeric" maxlength="10">
+      <input id="uName" placeholder="Apna naam" autocomplete="off">
+      <input id="uPhone" placeholder="Phone (10 digit)" inputmode="numeric" maxlength="10">
       <button class="primary" onclick="userLogin()">Login / Register</button>
-      <p class="center" style="font-size:12px;color:#888;margin-top:8px;">
-        Pehli baar? Bas naam aur phone daalo
-      </p>
     </div>
 
-    <!-- OWNER LOGIN -->
     <div id="ownerForm" class="card hidden">
       <h3>Owner Login</h3>
       <input id="oId" placeholder="Owner ID">
       <input id="oPass" type="password" placeholder="Password">
-      <input id="oToken" placeholder="GitHub Token (ghp_...)">
-      <input id="oImgbb" placeholder="ImgBB API Key">
+      <input id="oToken" placeholder="GitHub Token">
+      <input id="oImgbb" placeholder="ImgBB Key">
       <button class="primary" onclick="ownerLogin()">Login</button>
     </div>
   </div>
 
   <script src="app.js"></script>
   <script>
-    const s = getSession();
-    if (s && s.role === 'owner') location.href = 'owner.html';
-    if (s && s.role === 'user') location.href = 'user.html';
+    // 🔒 SESSION CHECK — pehle check karo, seedha panel bhejo
+    (function() {
+      const s = getSession();
+      if (s && s.role === 'owner') { location.replace('owner.html'); return; }
+      if (s && s.role === 'user')  { location.replace('user.html');  return; }
+    })();
 
     const tabU = document.getElementById('tabUser');
     const tabO = document.getElementById('tabOwner');
@@ -67,7 +63,7 @@
       document.getElementById('userForm').classList.add('hidden');
     };
 
-    /* ---------- CUSTOMER: login + auto-register ---------- */
+    /* ---------- CUSTOMER LOGIN ---------- */
     async function userLogin() {
       const name = document.getElementById('uName').value.trim();
       const phone = document.getElementById('uPhone').value.trim();
@@ -75,52 +71,57 @@
 
       toast('Login ho raha hai...');
 
-      // Step 1: Customer list load karo
+      // 1. customers.json se
       const cData = await loadCustomers();
-
-      // Step 2: Dhundho
       let user = cData.users.find(u =>
         u.name.toLowerCase() === name.toLowerCase() && u.phone === phone
       );
 
-      // Step 3: Naya? → auto register
+      // 2. local se bhi check
       if (!user) {
-        user = {
-          id: uid(),
-          name: name,
-          phone: phone,
-          created_at: new Date().toISOString()
-        };
-        cData.users.push(user);
-
-        try {
-          await saveCustomers(cData);   // ✅ sirf customers.json me save
-          toast('✅ Register ho gaya!');
-        } catch (e) {
-          console.warn('Register fail:', e);
-          toast('Register fail — dobara try karo');
-          return;
-        }
-      } else {
-        toast('Wapas swagat, ' + user.name + '!');
+        const local = JSON.parse(localStorage.getItem('my_users') || '[]');
+        user = local.find(u =>
+          u.name.toLowerCase() === name.toLowerCase() && u.phone === phone
+        );
       }
 
-      // Owner ke data.json me agar ye user already add kiya ho to uska price_type milega
-      const oData = await loadData();
-      const ownerUser = oData.users.find(u =>
-        u.name.toLowerCase() === user.name.toLowerCase() && u.phone === user.phone
-      );
+      // 3. naya user
+      if (!user) {
+        user = {
+          id: uid(), name, phone,
+          created_at: new Date().toISOString()
+        };
 
+        // local me hamesha save karo (fallback)
+        const local = JSON.parse(localStorage.getItem('my_users') || '[]');
+        local.push(user);
+        localStorage.setItem('my_users', JSON.stringify(local));
+
+        // GitHub pe try karo
+        try {
+          cData.users.push(user);
+          await saveCustomers(cData);
+          toast('✅ Register ho gaya!');
+        } catch (e) {
+          console.warn('GitHub save fail:', e);
+          toast('✅ Login ho gaya (offline)');
+        }
+      } else {
+        toast('Wapas swagat, ' + user.name);
+      }
+
+      // 4. session save
+      const oData = await loadData();
+      const ownerUser = oData.users.find(u => u.phone === user.phone);
       saveSession('user', {
         id: user.id,
         name: user.name,
         phone: user.phone,
-        // agar owner ne special price ya wholesale diya hai to wahi, warna retail default
         price_type: ownerUser?.price_type || 'retail',
         special_prices: ownerUser?.special_prices || {}
       });
 
-      setTimeout(() => location.href = 'user.html', 400);
+      setTimeout(() => location.replace('user.html'), 300);
     }
 
     /* ---------- OWNER LOGIN ---------- */
@@ -129,7 +130,8 @@
       const pass = document.getElementById('oPass').value.trim();
       const token = document.getElementById('oToken').value.trim();
       const imgbb = document.getElementById('oImgbb').value.trim();
-      if (!id || !pass || !token) return toast('Sab field bharo');
+
+      if (!id || !pass || !token) return toast('Sab bharo');
       if (!imgbb) return toast('ImgBB key bhi daalo');
 
       const data = await loadData();
@@ -139,9 +141,9 @@
 
       localStorage.setItem('gh_token', token);
       localStorage.setItem('imgbb_key', imgbb);
-      saveSession('owner', { id: id });
+      saveSession('owner', { id });
       toast('Owner login ho gaya');
-      setTimeout(() => location.href = 'owner.html', 400);
+      setTimeout(() => location.replace('owner.html'), 300);
     }
   </script>
 </body>
