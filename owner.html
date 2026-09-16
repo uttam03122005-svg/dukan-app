@@ -86,7 +86,7 @@
       const ok = await waitForFirebase();
       if (!ok) { alert('Firebase ready nahi'); return; }
 
-      const uid = getAuthUid();
+      const uid = await waitForAuth();
       if (!uid) { alert('Session expire'); location.replace('index.html'); return; }
 
       DATA = await loadData();
