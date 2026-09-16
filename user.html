@@ -10,10 +10,12 @@
   <link rel="stylesheet" href="style.css">
   <style>
     .modal-bg { position:fixed; inset:0; background:rgba(0,0,0,.5); display:flex; align-items:center; justify-content:center; z-index:500; }
-    .modal { background:#fff; border-radius:12px; padding:16px; width:90%; max-width:400px; max-height:90vh; overflow-y:auto; }
+    .modal { background:#fff; border-radius:12px; padding:16px; width:90%; max-width:420px; max-height:90vh; overflow-y:auto; }
     .unit-row { display:flex; align-items:center; gap:8px; padding:10px; border:2px solid #eee; border-radius:8px; margin-bottom:8px; cursor:pointer; }
     .unit-row.selected { border-color:#2e7d32; background:#f1f8e9; }
     .qty-btn { width:40px; height:40px; border-radius:50%; font-size:20px; font-weight:bold; }
+    .pay-opt { padding:14px; border:2px solid #eee; border-radius:10px; text-align:center; cursor:pointer; flex:1; }
+    .pay-opt.selected { border-color:#2e7d32; background:#f1f8e9; }
   </style>
 </head>
 <body>
@@ -31,7 +33,7 @@
     <div id="tab-cart" class="hidden">
       <h3>🛒 Cart</h3>
       <div id="cartList"></div>
-      <button class="primary" onclick="placeOrder()">📤 Order Karo</button>
+      <button class="primary" onclick="openPaymentModal()">📤 Order Karo</button>
     </div>
 
     <div id="tab-orders" class="hidden">
@@ -67,15 +69,24 @@
     async function init() {
       DATA = await loadData();
       const local = JSON.parse(localStorage.getItem('my_users') || '[]');
-      local.forEach(lu => { if (!DATA.users.find(u => u.id === lu.id)) DATA.users.push(lu); });
+      local.forEach(lu => { if (!DATA.users.find(u => u.phone === lu.phone)) DATA.users.push(lu); });
 
       const ownerUser = DATA.users.find(u => u.phone === s.data.phone);
       ME = {
-        id: s.data.id, name: s.data.name, phone: s.data.phone,
+        id: s.data.id, name: ownerUser?.name || s.data.name,
+        phone: s.data.phone,
         price_type: ownerUser?.price_type || s.data.price_type || 'retail',
         special_prices: ownerUser?.special_prices || s.data.special_prices || {}
       };
       saveSession('user', ME);
+
+      // load UPI config
+      if (localStorage.getItem('upi_id')) CONFIG.UPI_ID = localStorage.getItem('upi_id');
+      if (localStorage.getItem('upi_name')) CONFIG.UPI_NAME = localStorage.getItem('upi_name');
+      // agar data.json me settings.upi hai to wahi use karo
+      if (DATA.settings?.upi_id) CONFIG.UPI_ID = DATA.settings.upi_id;
+      if (DATA.settings?.upi_name) CONFIG.UPI_NAME = DATA.settings.upi_name;
+
       renderGrid(); renderCart(); renderOrders(); renderProfile(); updateCartBadge();
     }
 
@@ -210,6 +221,16 @@
     function saveCart() { localStorage.setItem('cart', JSON.stringify(CART)); updateCartBadge(); }
     function updateCartBadge() { document.getElementById('cartCount').textContent = Object.keys(CART).length; }
 
+    function cartTotal() {
+      let t = 0;
+      Object.keys(CART).forEach(key => {
+        const [pid, ul] = key.split('::');
+        const p = DATA.products.find(x => x.id === pid);
+        if (p) t += getUnitPrice(p, ul, ME) * CART[key];
+      });
+      return t;
+    }
+
     function renderCart() {
       const list = document.getElementById('cartList');
       const keys = Object.keys(CART);
@@ -257,24 +278,125 @@
       saveCart(); renderCart();
     }
 
-    async function placeOrder() {
+    /* ---------- PAYMENT MODAL ---------- */
+    let payState = { mode: 'cash', cashPaid: 0, onlinePaid: 0 };
+
+    function openPaymentModal() {
       const keys = Object.keys(CART);
       if (!keys.length) return toast('Cart khali');
+      payState = { mode: 'cash', cashPaid: 0, onlinePaid: 0 };
+      renderPaymentModal();
+    }
+
+    function renderPaymentModal() {
+      const total = cartTotal();
+      const cash = payState.cashPaid || 0;
+      const online = Math.max(0, total - cash);
+
+      const qrUrl = online > 0 ? getUpiUrl(online, 'Dukan Order') : '';
+      const qrImg = qrUrl ? `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrUrl)}` : '';
+
+      document.getElementById('modalRoot').innerHTML = `
+        <div class="modal-bg" onclick="if(event.target===this) closePayment()">
+          <div class="modal">
+            <h3>💰 Payment</h3>
+            <div style="font-size:18px;font-weight:bold;color:#2e7d32;margin-bottom:10px;">Total: ${inr(total)}</div>
+
+            <p style="font-size:13px;color:#666;margin:8px 0;">Kaise pay karoge?</p>
+            <div style="display:flex;gap:8px;">
+              <div class="pay-opt ${payState.mode==='cash'?'selected':''}" onclick="setPayMode('cash')">
+                💵<br><b>Cash</b>
+              </div>
+              <div class="pay-opt ${payState.mode==='online'?'selected':''}" onclick="setPayMode('online')">
+                📱<br><b>Online</b>
+              </div>
+              <div class="pay-opt ${payState.mode==='split'?'selected':''}" onclick="setPayMode('split')">
+                🔀<br><b>Split</b>
+              </div>
+            </div>
+
+            ${payState.mode === 'split' ? `
+              <div style="margin-top:12px;background:#f9f9f9;padding:10px;border-radius:8px;">
+                <label style="font-size:13px;">💵 Cash diya:</label>
+                <input type="number" inputmode="numeric" value="${cash}" onchange="setCash(this.value)" placeholder="0">
+                <div style="font-size:13px;margin-top:6px;">📱 Online bachega: <b style="color:#2e7d32;">${inr(online)}</b></div>
+              </div>
+            ` : ''}
+
+            ${payState.mode === 'online' || (payState.mode === 'split' && online > 0) ? `
+              <div style="margin-top:12px;text-align:center;">
+                <div style="font-size:14px;margin-bottom:6px;">📱 QR scan karke <b>${inr(online)}</b> pay karo</div>
+                ${qrImg ? `<img src="${qrImg}" style="width:200px;height:200px;border:1px solid #eee;border-radius:8px;">` : '<div>QR generate nahi ho paya</div>'}
+                <div style="font-size:12px;color:#888;margin-top:6px;">UPI: ${CONFIG.UPI_ID}</div>
+              </div>
+            ` : ''}
+
+            ${payState.mode === 'cash' ? `
+              <div style="margin-top:12px;text-align:center;font-size:14px;color:#666;">
+                Saman lene aake <b>${inr(total)}</b> cash doge
+              </div>
+            ` : ''}
+
+            <div class="row mt" style="margin-top:16px;">
+              <button class="primary" style="background:#777;" onclick="closePayment()">Cancel</button>
+              <button class="primary" onclick="confirmOrder()">✅ Confirm Order</button>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    function setPayMode(m) {
+      payState.mode = m;
+      if (m === 'cash') payState.cashPaid = cartTotal();
+      else if (m === 'online') payState.cashPaid = 0;
+      renderPaymentModal();
+    }
+    function setCash(val) {
+      const v = Math.max(0, parseFloat(val) || 0);
+      payState.cashPaid = v;
+      renderPaymentModal();
+    }
+    function closePayment() { document.getElementById('modalRoot').innerHTML = ''; }
+
+    async function confirmOrder() {
+      const keys = Object.keys(CART);
+      if (!keys.length) return toast('Cart khali');
+
+      const total = cartTotal();
+      let cashPaid = 0, onlinePaid = 0;
+      if (payState.mode === 'cash') { cashPaid = total; }
+      else if (payState.mode === 'online') { onlinePaid = total; }
+      else if (payState.mode === 'split') {
+        cashPaid = Math.min(payState.cashPaid || 0, total);
+        onlinePaid = total - cashPaid;
+      }
+
       const items = keys.map(key => {
         const [pid, ul] = key.split('::');
         const p = DATA.products.find(x => x.id === pid);
         return { product_id: pid, product_name: p.name, unit: ul, qty: CART[key], price: getUnitPrice(p, ul, ME) };
       });
-      const total = items.reduce((a,b) => a + b.qty*b.price, 0);
-      DATA.orders.push({
-        id: uid(), user_id: ME.id, user_name: ME.name, user_phone: ME.phone,
-        items, total, status: 'pending', payment: 'pending',
+
+      const order = {
+        id: uid(),
+        user_id: ME.id, user_name: ME.name, user_phone: ME.phone,
+        items, total,
+        payment_mode: payState.mode,
+        cash_paid: cashPaid,
+        online_paid: onlinePaid,
+        status: 'pending',
+        payment: 'pending',
         created_at: new Date().toISOString()
-      });
+      };
+
+      DATA.orders.push(order);
       try {
         await saveData(DATA);
         CART = {}; saveCart(); renderCart();
+        closePayment();
         toast('✅ Order place');
+        // orders tab pe switch
+        document.querySelector('.bottom-nav a[data-tab="orders"]').click();
       } catch (e) { toast('❌ ' + e.message); }
     }
 
@@ -289,6 +411,7 @@
           return `<div style="font-size:13px;">• ${p.name} — ${it.qty} ${it.unit} × ${inr(it.price)} = ${inr(it.qty*it.price)}</div>`;
         }).join('');
         const badge = o.status==='delivered'?'✅':o.status==='packed'?'📦':'⏳';
+        const isPaid = o.payment === 'paid';
         return `
           <div class="card">
             <div style="display:flex;justify-content:space-between;">
@@ -297,7 +420,10 @@
             </div>
             <div class="mt">${items}</div>
             <div style="font-weight:bold;color:#2e7d32;margin-top:4px;">Total: ${inr(o.total)}</div>
-            <div style="font-size:12px;color:#666;">Payment: ${o.payment}</div>
+            <div style="font-size:12px;color:${isPaid?'#2e7d32':'#e65100'};">
+              Payment: <b>${isPaid?'✅ PAID':'⏳ '+(o.payment_mode||'cash').toUpperCase()+' PENDING'}</b>
+            </div>
+            ${o.payment_mode === 'split' ? `<div style="font-size:11px;color:#666;">💵 ${inr(o.cash_paid||0)} + 📱 ${inr(o.online_paid||0)}</div>` : ''}
           </div>`;
       }).join('');
     }
@@ -306,9 +432,9 @@
     function renderProfile() {
       const myOrders = DATA.orders.filter(o => o.user_id === ME.id);
       const totalSpent = myOrders.reduce((a, o) => a + o.total, 0);
-      const totalOrders = myOrders.length;
+      const totalPaid = myOrders.filter(o => o.payment === 'paid').reduce((a, o) => a + o.total, 0);
+      const pending = totalSpent - totalPaid;
 
-      // Kitna kya kharida — summary
       const summary = {};
       myOrders.forEach(o => {
         o.items.forEach(it => {
@@ -335,8 +461,9 @@
         </div>
         <div class="card">
           <div style="display:flex;justify-content:space-around;text-align:center;">
-            <div><div style="font-size:22px;font-weight:bold;color:#2e7d32;">${totalOrders}</div><div style="font-size:12px;color:#666;">Orders</div></div>
+            <div><div style="font-size:22px;font-weight:bold;color:#2e7d32;">${myOrders.length}</div><div style="font-size:12px;color:#666;">Orders</div></div>
             <div><div style="font-size:22px;font-weight:bold;color:#2e7d32;">${inr(totalSpent)}</div><div style="font-size:12px;color:#666;">Total</div></div>
+            <div><div style="font-size:22px;font-weight:bold;color:${pending>0?'#e65100':'#2e7d32'};">${inr(pending)}</div><div style="font-size:12px;color:#666;">Bakaya</div></div>
           </div>
         </div>
         <div class="card">
