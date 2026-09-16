@@ -4,20 +4,19 @@ const CONFIG = {
   GITHUB_REPO: 'dukan-data',
   GITHUB_BRANCH: 'main',
   GITHUB_FILE: 'data.json',
-  GITHUB_TOKEN: '',
 
   CUST_REPO: 'dukan-customers',
   CUST_FILE: 'customers.json',
   CUST_BRANCH: 'main',
-  CUST_TOKEN: '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',
 
+  GITHUB_TOKEN: '',
   IMGBB_KEY: ''
 };
 
 const DATA_URL = `https://raw.githubusercontent.com/${CONFIG.GITHUB_USER}/${CONFIG.GITHUB_REPO}/${CONFIG.GITHUB_BRANCH}/${CONFIG.GITHUB_FILE}`;
 const CUST_URL = `https://raw.githubusercontent.com/${CONFIG.GITHUB_USER}/${CONFIG.CUST_REPO}/${CONFIG.CUST_BRANCH}/${CONFIG.CUST_FILE}`;
 
-const DEFAULT_DATA = { products: [], users: [], orders: [], owner: { id: 'owner', password: 'owner123' } };
+const DEFAULT_DATA = { products: [], users: [], orders: [], owner: { id: 'owner', password: 'owner123' }, settings: {} };
 const DEFAULT_CUST = { users: [] };
 
 /* ================== TOAST ================== */
@@ -27,10 +26,15 @@ function toast(msg) {
   t.textContent = msg;
   t.classList.add('show');
   clearTimeout(t._tm);
-  t._tm = setTimeout(() => t.classList.remove('show'), 2200);
+  t._tm = setTimeout(() => t.classList.remove('show'), 2400);
 }
 
-/* ================== LOAD ================== */
+/* ================== GET TOKEN ================== */
+function getToken() {
+  return localStorage.getItem('gh_token') || CONFIG.GITHUB_TOKEN;
+}
+
+/* ================== LOAD data.json ================== */
 async function loadData() {
   try {
     const res = await fetch(DATA_URL + '?t=' + Date.now());
@@ -40,6 +44,7 @@ async function loadData() {
     j.users = j.users || [];
     j.orders = j.orders || [];
     j.owner = j.owner || { id: 'owner', password: 'owner123' };
+    j.settings = j.settings || {};
     return j;
   } catch (e) {
     console.warn('loadData fail:', e);
@@ -47,6 +52,7 @@ async function loadData() {
   }
 }
 
+/* ================== LOAD customers.json ================== */
 async function loadCustomers() {
   try {
     const res = await fetch(CUST_URL + '?t=' + Date.now());
@@ -62,13 +68,15 @@ async function loadCustomers() {
 
 /* ================== SAVE ================== */
 async function saveData(data) {
-  const token = localStorage.getItem('gh_token') || CONFIG.GITHUB_TOKEN;
-  if (!token) throw new Error('Owner token nahi mila. Login karo.');
+  const token = getToken();
+  if (!token) throw new Error('Token nahi mila. Owner login karo.');
   return await _githubSave(CONFIG.GITHUB_REPO, CONFIG.GITHUB_FILE, data, token);
 }
 
 async function saveCustomers(data) {
-  return await _githubSave(CONFIG.CUST_REPO, CONFIG.CUST_FILE, data, CONFIG.CUST_TOKEN);
+  const token = getToken();
+  if (!token) throw new Error('Token nahi mila.');
+  return await _githubSave(CONFIG.CUST_REPO, CONFIG.CUST_FILE, data, token);
 }
 
 async function _githubSave(repo, file, data, token, retry = 0) {
@@ -111,13 +119,13 @@ async function _githubSave(repo, file, data, token, retry = 0) {
     }
     if (putRes.status === 401) throw new Error('Token galat ya expire');
     if (putRes.status === 403) throw new Error('Permission nahi');
-    if (putRes.status === 409) throw new Error('Conflict — page refresh karke dobara try karo');
+    if (putRes.status === 409) throw new Error('Conflict — refresh karo');
     throw new Error('Save fail: ' + (err.message || putRes.status));
   }
   return true;
 }
 
-/* ================== IMAGE UPLOAD ================== */
+/* ================== IMAGE ================== */
 async function uploadImage(file) {
   const key = localStorage.getItem('imgbb_key') || CONFIG.IMGBB_KEY;
   if (!key) throw new Error('ImgBB key nahi mili');
@@ -145,43 +153,30 @@ function logout() {
   localStorage.removeItem('session');
   localStorage.removeItem('gh_token');
   localStorage.removeItem('imgbb_key');
-  location.href = 'index.html';
+  location.replace('index.html');
 }
 
-/* ================== UNIT HELPERS ================== */
+/* ================== UNITS ================== */
 const UNIT_LABEL = {
   kg:'kg', gram:'g', liter:'L', ml:'ml', piece:'pc',
   packet:'pkt', box:'box', dozen:'doz', strip:'strip', bottle:'bottle'
 };
-// Har unit ka step (kitna increment)
 const UNIT_STEP = {
   kg: 0.25, gram: 50, liter: 0.25, ml: 50,
   piece: 1, packet: 1, box: 1, dozen: 1, strip: 1, bottle: 1
 };
 
-/* ================== PRICE LOGIC ================== */
-// Product me units array hai — user ne jo unit select kiya uska price return
+/* ================== PRICE ================== */
 function getUnitPrice(product, unitLabel, user) {
   const u = product.units?.find(x => x.label === unitLabel);
   if (!u) return 0;
-
-  // Special price check (per product + unit) — owner ne diya ho
   if (user && user.special_prices) {
     const key = product.id + ':' + unitLabel;
     if (user.special_prices[key] != null) return user.special_prices[key];
-    // fallback: purana format (product only)
     if (user.special_prices[product.id] != null) return user.special_prices[product.id];
   }
-
   if (user && user.price_type === 'wholesale') return u.wholesale;
   return u.retail;
-}
-
-// Product ka "default" (pehla) unit ka price
-function getDefaultUnitPrice(product, user) {
-  const first = product.units?.[0];
-  if (!first) return 0;
-  return getUnitPrice(product, first.label, user);
 }
 
 /* ================== HELPERS ================== */
