@@ -30,24 +30,12 @@
 
     <div id="ownerForm" class="card hidden">
       <h3>Owner Login</h3>
-      <input id="oId" placeholder="Owner ID">
-      <input id="oPass" type="password" placeholder="Password">
-
-      <div id="ownerExtra">
-        <input id="oToken" placeholder="GitHub Token">
-        <input id="oImgbb" placeholder="ImgBB Key">
-        <input id="oUpi" placeholder="UPI ID (jaise 9876543210@paytm)">
-        <input id="oUpiName" placeholder="UPI Name (dukan ka naam)">
-        <p style="font-size:12px;color:#888;margin-top:4px;">
-          Ye sab sirf pehli baar. Agli baar sirf ID + Password.
-        </p>
-      </div>
-
-      <div id="ownerSetupDone" class="hidden" style="font-size:12px;color:#2e7d32;margin-top:4px;">
-        ✅ Setup already done — sirf ID + Password daalo
-      </div>
-
+      <input id="oId" placeholder="Owner ID (default: owner)">
+      <input id="oPass" type="password" placeholder="Password (default: owner123)">
       <button class="primary" onclick="ownerLogin()">Login</button>
+      <p class="center" style="font-size:12px;color:#888;margin-top:8px;">
+        Baaki settings login ke baad Settings tab me daal dena
+      </p>
     </div>
   </div>
 
@@ -72,22 +60,9 @@
       tabU.style.background = '#ccc'; tabU.style.color = '#333';
       document.getElementById('ownerForm').classList.remove('hidden');
       document.getElementById('userForm').classList.add('hidden');
-      checkOwnerSetup();
     };
 
-    async function checkOwnerSetup() {
-      try {
-        const d = await loadData();
-        if (d.settings && d.settings.gh_token) {
-          document.getElementById('ownerExtra').classList.add('hidden');
-          document.getElementById('ownerSetupDone').classList.remove('hidden');
-        } else {
-          document.getElementById('ownerExtra').classList.remove('hidden');
-          document.getElementById('ownerSetupDone').classList.add('hidden');
-        }
-      } catch (e) {}
-    }
-
+    /* ---------- CUSTOMER ---------- */
     async function userLogin() {
       const phone = document.getElementById('uPhone').value.trim();
       if (phone.length !== 10) return toast('10 digit phone daalo');
@@ -132,63 +107,22 @@
       setTimeout(() => location.replace('user.html'), 300);
     }
 
+    /* ---------- OWNER — SIRF ID + PASSWORD ---------- */
     async function ownerLogin() {
       const id = document.getElementById('oId').value.trim();
       const pass = document.getElementById('oPass').value.trim();
       if (!id || !pass) return toast('ID aur password daalo');
 
-      // ⚠️ Pehle purana data load karo
+      // Check: ID aur password data.json me
       const data = await loadData();
       if (id !== data.owner.id || pass !== data.owner.password) {
         return toast('Galat ID ya password');
       }
 
-      const hasSetup = data.settings && data.settings.gh_token;
-
-      if (!hasSetup) {
-        const token = document.getElementById('oToken').value.trim();
-        const imgbb = document.getElementById('oImgbb').value.trim();
-        const upi = document.getElementById('oUpi').value.trim();
-        const upiName = document.getElementById('oUpiName').value.trim();
-
-        if (!token) return toast('GitHub Token daalo');
-        if (!imgbb) return toast('ImgBB Key daalo');
-        if (!upi) return toast('UPI ID daalo');
-
-        // Token local me daalo (saveData ke liye)
-        localStorage.setItem('gh_token', token);
-        localStorage.setItem('imgbb_key', imgbb);
-        localStorage.setItem('upi_id', upi);
-        localStorage.setItem('upi_name', upiName || 'Dukan');
-
-        // Data me settings daalo
-        data.settings = data.settings || {};
-        data.settings.gh_token = token;
-        data.settings.imgbb_key = imgbb;
-        data.settings.upi_id = upi;
-        data.settings.upi_name = upiName || 'Dukan';
-
-        // CACHED_DATA bhi update
-        CACHED_DATA = data;
-
-        try {
-          toast('Setup save ho raha hai...');
-          await saveData(data);
-          toast('✅ Setup save ho gaya!');
-        } catch (e) {
-          console.error('Setup save error:', e);
-          return toast('❌ Setup save fail: ' + e.message);
-        }
-      } else {
-        localStorage.setItem('gh_token', data.settings.gh_token);
-        if (data.settings.imgbb_key) localStorage.setItem('imgbb_key', data.settings.imgbb_key);
-        if (data.settings.upi_id) localStorage.setItem('upi_id', data.settings.upi_id);
-        if (data.settings.upi_name) localStorage.setItem('upi_name', data.settings.upi_name);
-        toast('Owner login ho gaya');
-      }
-
+      // Bas login — koi GitHub save nahi
       saveSession('owner', { id });
-      setTimeout(() => location.replace('owner.html'), 400);
+      toast('✅ Owner login ho gaya');
+      setTimeout(() => location.replace('owner.html'), 300);
     }
   </script>
 </body>
