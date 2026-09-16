@@ -75,7 +75,8 @@
       const ok = await waitForFirebase();
       if (!ok) { alert('Firebase ready nahi'); return; }
 
-      const uid = getAuthUid();
+      // ⭐ Auth state ready hone ka wait
+      const uid = await waitForAuth();
       if (!uid) {
         alert('Session expire. Dobara login karo.');
         location.replace('index.html');
@@ -379,6 +380,11 @@
         closePayment();
         toast('✅ Order place — owner approval pending');
         document.querySelector('.bottom-nav a[data-tab="orders"]').click();
+        // refresh orders
+        const uid2 = getAuthUid();
+        const d = await loadMyData(uid2);
+        MY_ORDERS = d.myOrders || [];
+        renderOrders();
       } catch (e) { toast('❌ ' + e.message); }
     }
 
@@ -441,7 +447,7 @@
           <div style="display:flex;justify-content:space-around;text-align:center;">
             <div>
               <div style="font-size:20px;font-weight:bold;color:#2e7d32;">${inr(stats.total_orders)}</div>
-              <div style="font-size:12px;color:#666;">Total Kharida</div>
+              <div style="font-size:12px;color:#666;">Total</div>
             </div>
             <div>
               <div style="font-size:20px;font-weight:bold;color:#2e7d32;">${inr(stats.total_paid)}</div>
@@ -472,8 +478,9 @@
         await fbSaveUser(ME);
         saveSession('user', ME);
         toast('✅ Profile save');
-        const data = await loadMyData(ME.id);
-        ME = data.me;
+        const uid2 = getAuthUid();
+        const data = await loadMyData(uid2);
+        ME = data.me || ME;
         renderProfile();
       } catch (e) { toast('❌ ' + e.message); }
     }
