@@ -20,41 +20,23 @@
       <button class="primary tabBtn" data-tab="orders" style="border-radius:0;background:#ccc;color:#333;">Orders</button>
     </div>
 
-    <!-- PRODUCTS -->
+    <!-- PRODUCTS TAB -->
     <div id="tab-products">
       <div class="card">
         <h3 id="pFormTitle">➕ Naya Product</h3>
         <input type="hidden" id="pId">
-        <input id="pName" placeholder="Product name (jaise Aata, Gold Flake)">
+        <input id="pName" placeholder="Product name (jaise Gold Flake, Aata)">
         <input id="pImg" type="file" accept="image/*">
         <img id="pPreview" style="max-width:100%;margin-top:6px;border-radius:6px;display:none;">
+        <input id="pCat" placeholder="Category (smoking, grocery, snacks)">
 
-        <label style="font-size:13px;color:#666;margin-top:8px;display:block;">Kaise bechte ho? (Unit)</label>
-        <select id="pUnit">
-          <option value="kg">⚖️ KG (किलो — tolne wala)</option>
-          <option value="gram">⚖️ Gram (ग्राम)</option>
-          <option value="liter">🥤 Liter (लीटर — naapne wala)</option>
-          <option value="ml">🥤 ML</option>
-          <option value="piece">📦 Piece (नग — ginti wala)</option>
-          <option value="packet">🛍️ Packet (पैकेट)</option>
-          <option value="box">📦 Box / Dibba (डिब्बा)</option>
-          <option value="dozen">🔢 Dozen (दर्जन)</option>
-          <option value="strip">💊 Strip</option>
-          <option value="bottle">🍾 Bottle</option>
-        </select>
+        <label style="font-size:14px;font-weight:bold;margin-top:10px;display:block;color:#2e7d32;">
+          💰 Units aur Price (ek se zyada unit add kar sakte ho)
+        </label>
 
-        <label style="font-size:13px;color:#666;margin-top:6px;display:block;">Price per unit</label>
-        <div class="row">
-          <input id="pRetail" placeholder="Retail ₹" inputmode="decimal">
-          <input id="pWhole" placeholder="Wholesale ₹" inputmode="decimal">
-        </div>
+        <div id="unitList"></div>
 
-        <label style="font-size:13px;color:#666;margin-top:6px;display:block;">Stock aur Category</label>
-        <div class="row">
-          <input id="pStock" placeholder="Stock qty" inputmode="decimal">
-          <input id="pCat" placeholder="Category">
-        </div>
-
+        <button class="primary" style="background:#1976d2;" onclick="addUnit()">➕ Unit Add Karo</button>
         <button class="primary" onclick="saveProduct()">💾 Save Product</button>
         <button class="primary" style="background:#777;" onclick="resetProductForm()">Reset</button>
       </div>
@@ -63,13 +45,13 @@
       <div id="productList"></div>
     </div>
 
-    <!-- USERS -->
+    <!-- USERS TAB -->
     <div id="tab-users" class="hidden">
       <input class="search-bar" id="uSearch" placeholder="🔍 Customer search (naam / phone)">
       <div id="userList"></div>
     </div>
 
-    <!-- ORDERS -->
+    <!-- ORDERS TAB -->
     <div id="tab-orders" class="hidden">
       <div id="orderList"></div>
     </div>
@@ -80,27 +62,20 @@
     const s = getSession();
     if (!s || s.role !== 'owner') location.href = 'index.html';
 
-    let DATA = null;       // owner data.json
-    let CUST = null;       // customers.json (public)
+    let DATA = null;
+    let CUST = null;
     let editingImageUrl = '';
-
-    const UNIT_LABEL = {
-      kg:'kg', gram:'g', liter:'L', ml:'ml', piece:'pc',
-      packet:'pkt', box:'box', dozen:'doz', strip:'strip', bottle:'bottle'
-    };
+    let currentUnits = []; // [{label, retail, wholesale, stock}]
 
     async function init() {
-      DATA = await loadData();          // owner ke products, orders, aur "upgraded users"
-      CUST = await loadCustomers();     // sab registered customers
+      DATA = await loadData();
+      CUST = await loadCustomers();
 
-      // Merge: data.json me jo user upgrade hue hai (wholesale/special) unka info
-      // aur customers.json me jo sab register hue hai — dono mila ke dikhao
+      // Merge: customers.json (sab registered) + data.json (owner-upgraded)
       DATA.users = CUST.users.map(cu => {
-        const ou = DATA.users.find(u => u.id === cu.id || (u.phone === cu.phone));
+        const ou = DATA.users.find(u => u.phone === cu.phone || u.id === cu.id);
         return {
-          id: cu.id,
-          name: cu.name,
-          phone: cu.phone,
+          id: cu.id, name: cu.name, phone: cu.phone,
           price_type: ou?.price_type || 'retail',
           special_prices: ou?.special_prices || {},
           created_at: cu.created_at
@@ -110,6 +85,7 @@
       renderProducts();
       renderUsers();
       renderOrders();
+      resetProductForm();
     }
 
     document.querySelectorAll('.tabBtn').forEach(btn => {
@@ -124,7 +100,7 @@
       };
     });
 
-    /* PRODUCTS */
+    /* ---------- PRODUCT FORM ---------- */
     document.getElementById('pImg').onchange = e => {
       const f = e.target.files[0];
       if (f) {
@@ -134,26 +110,72 @@
       }
     };
 
+    function addUnit(data) {
+      const u = data || { label: 'piece', retail: '', wholesale: '', stock: '' };
+      currentUnits.push(u);
+      renderUnits();
+    }
+
+    function removeUnit(i) {
+      currentUnits.splice(i, 1);
+      renderUnits();
+    }
+
+    function updateUnit(i, key, val) {
+      currentUnits[i][key] = val;
+    }
+
+    function renderUnits() {
+      const box = document.getElementById('unitList');
+      const UNIT_OPTIONS = ['kg','gram','liter','ml','piece','packet','box','dozen','strip','bottle'];
+
+      box.innerHTML = currentUnits.map((u, i) => `
+        <div style="background:#f9f9f9;padding:8px;border-radius:8px;margin-bottom:8px;border:1px solid #eee;">
+          <div class="row">
+            <select onchange="updateUnit(${i},'label',this.value)">
+              ${UNIT_OPTIONS.map(o => `<option value="${o}" ${u.label===o?'selected':''}>${o}</option>`).join('')}
+            </select>
+            <button class="primary small danger" style="flex:0;width:auto;" onclick="removeUnit(${i})">✕</button>
+          </div>
+          <div class="row">
+            <input placeholder="Retail ₹" inputmode="decimal" value="${u.retail}" onchange="updateUnit(${i},'retail',this.value)">
+            <input placeholder="Wholesale ₹" inputmode="decimal" value="${u.wholesale}" onchange="updateUnit(${i},'wholesale',this.value)">
+          </div>
+          <input placeholder="Stock" inputmode="decimal" value="${u.stock}" onchange="updateUnit(${i},'stock',this.value)">
+        </div>
+      `).join('');
+    }
+
     function resetProductForm() {
-      ['pId','pName','pRetail','pWhole','pStock','pCat'].forEach(id => document.getElementById(id).value = '');
-      document.getElementById('pUnit').value = 'kg';
+      ['pId','pName','pCat'].forEach(id => document.getElementById(id).value = '');
       document.getElementById('pImg').value = '';
       document.getElementById('pPreview').style.display = 'none';
       editingImageUrl = '';
+      currentUnits = [];
+      addUnit({ label: 'kg', retail: '', wholesale: '', stock: '' });
       document.getElementById('pFormTitle').textContent = '➕ Naya Product';
     }
 
     async function saveProduct() {
       const name = document.getElementById('pName').value.trim();
-      const unit = document.getElementById('pUnit').value;
-      const retail = +document.getElementById('pRetail').value;
-      const whole = +document.getElementById('pWhole').value;
-      const stock = +document.getElementById('pStock').value;
       const cat = document.getElementById('pCat').value.trim();
       const file = document.getElementById('pImg').files[0];
       const editId = document.getElementById('pId').value;
 
-      if (!name || !retail) return toast('Naam aur retail price zaroori');
+      if (!name) return toast('Naam zaroori');
+      if (!currentUnits.length) return toast('Kam se kam ek unit add karo');
+
+      // validate
+      for (const u of currentUnits) {
+        if (!u.retail) return toast(`${u.label} ka retail price daalo`);
+      }
+
+      const units = currentUnits.map(u => ({
+        label: u.label,
+        retail: +u.retail || 0,
+        wholesale: +u.wholesale || +u.retail,
+        stock: +u.stock || 0
+      }));
 
       try {
         toast('Save ho raha hai...');
@@ -162,15 +184,11 @@
 
         if (editId) {
           const p = DATA.products.find(x => x.id === editId);
-          Object.assign(p, {
-            name, unit, retail_price: retail, wholesale_price: whole || retail,
-            stock: stock || 0, category: cat, image: imageUrl
-          });
+          Object.assign(p, { name, units, category: cat, image: imageUrl });
         } else {
           DATA.products.push({
-            id: uid(), name, unit, image: imageUrl,
-            retail_price: retail, wholesale_price: whole || retail,
-            stock: stock || 0, category: cat, hidden: false,
+            id: uid(), name, units, image: imageUrl,
+            category: cat, hidden: false,
             created_at: new Date().toISOString()
           });
         }
@@ -187,14 +205,13 @@
       if (!p) return;
       document.getElementById('pId').value = p.id;
       document.getElementById('pName').value = p.name;
-      document.getElementById('pUnit').value = p.unit || 'kg';
-      document.getElementById('pRetail').value = p.retail_price;
-      document.getElementById('pWhole').value = p.wholesale_price;
-      document.getElementById('pStock').value = p.stock;
       document.getElementById('pCat').value = p.category || '';
       editingImageUrl = p.image || '';
       const prev = document.getElementById('pPreview');
       if (p.image) { prev.src = p.image; prev.style.display = 'block'; }
+      currentUnits = (p.units || []).map(u => ({ ...u }));
+      if (!currentUnits.length) currentUnits = [{ label:'piece', retail:'', wholesale:'', stock:'' }];
+      renderUnits();
       document.getElementById('pFormTitle').textContent = '✏️ Edit Product';
       window.scrollTo(0, 0);
     }
@@ -218,18 +235,23 @@
       const list = document.getElementById('productList');
       const items = DATA.products.filter(p => p.name.toLowerCase().includes(q));
       if (!items.length) { list.innerHTML = '<div class="card center">Koi product nahi</div>'; return; }
+
       list.innerHTML = items.map(p => {
-        const u = UNIT_LABEL[p.unit] || 'kg';
+        const unitRows = (p.units || []).map(u => `
+          <div style="font-size:13px;color:#333;padding:2px 0;">
+            <b>${u.label}</b>: ${inr(u.retail)} <span style="color:#777;">(Whole ${inr(u.wholesale)})</span> — Stock: ${u.stock}
+          </div>
+        `).join('');
         return `
         <div class="card">
           <div class="row">
             <img src="${p.image || 'https://via.placeholder.com/80'}" style="width:80px;height:80px;object-fit:cover;border-radius:8px;flex:0 0 80px;">
             <div style="flex:1;">
               <div style="font-weight:600;">${p.name} ${p.hidden ? '<span style="color:#c62828;font-size:12px;">(Hidden)</span>' : ''}</div>
-              <div style="color:#2e7d32;font-weight:bold;">${inr(p.retail_price)}/${u} <span style="color:#777;font-weight:normal;font-size:12px;">| Whole ${inr(p.wholesale_price)}/${u}</span></div>
-              <div style="font-size:12px;color:#777;">Stock: ${p.stock} ${u} | ${p.category || '-'}</div>
+              <div style="font-size:12px;color:#777;">${p.category || '-'}</div>
             </div>
           </div>
+          <div class="mt">${unitRows}</div>
           <div class="row mt">
             <button class="primary small" onclick="editProduct('${p.id}')">✏️ Edit</button>
             <button class="primary small" style="background:#f57c00;" onclick="toggleHide('${p.id}')">${p.hidden ? '👁️ Show' : '🙈 Hide'}</button>
@@ -240,42 +262,32 @@
     }
     document.getElementById('pSearch').oninput = renderProducts;
 
-    /* USERS */
+    /* ---------- USERS ---------- */
     async function toggleWholesale(id) {
       const u = DATA.users.find(x => x.id === id);
       const newType = u.price_type === 'wholesale' ? 'retail' : 'wholesale';
       if (!confirm(`${u.name} ko ${newType.toUpperCase()} kar dein?`)) return;
 
       u.price_type = newType;
-      // data.json me ye user save karo (customers.json me nahi, kyunki wahan sirf register hai)
-      const ownerUser = DATA.users.find(x => x.id === id) || {};
-      // DATA.users me already update ho gaya, ab data.json me save karo
-      // Lekin dhyan: DATA.users me customers.json wale users bhi hain. Sirf owner wale save karo.
-      // Solution: ek alag ownerUsers list rakho
-      await saveOwnerUser(u);
-      renderUsers();
-    }
 
-    async function saveOwnerUser(user) {
-      // data.json me sirf owner-managed users rakho
+      // data.json me save karo
       const ownerData = await loadData();
-      let existing = ownerData.users.find(x => x.id === user.id || x.phone === user.phone);
+      let existing = ownerData.users.find(x => x.phone === u.phone);
       if (existing) {
-        existing.price_type = user.price_type;
-        existing.special_prices = user.special_prices;
+        existing.price_type = u.price_type;
+        existing.special_prices = u.special_prices;
       } else {
         ownerData.users.push({
-          id: user.id,
-          name: user.name,
-          phone: user.phone,
-          price_type: user.price_type,
-          special_prices: user.special_prices || {},
-          created_at: user.created_at || new Date().toISOString()
+          id: u.id, name: u.name, phone: u.phone,
+          price_type: u.price_type,
+          special_prices: u.special_prices || {},
+          created_at: u.created_at
         });
       }
       try {
         await saveData(ownerData);
-        toast(user.price_type === 'wholesale' ? '💼 Wholesale ho gaya' : '🛒 Retail kar diya');
+        toast(newType === 'wholesale' ? '💼 Wholesale ho gaya' : '🛒 Retail kar diya');
+        renderUsers();
       } catch (e) { toast('❌ ' + e.message); }
     }
 
@@ -286,15 +298,11 @@
         u.name.toLowerCase().includes(q) || u.phone.includes(q)
       );
       if (!items.length) {
-        list.innerHTML = '<div class="card center">Koi customer nahi. Customer jab pehli baar login karega, yahan aa jayega.</div>';
+        list.innerHTML = '<div class="card center">Koi customer nahi. Customer login karega to yahan aa jayega.</div>';
         return;
       }
       list.innerHTML = items.map(u => {
         const isWhole = u.price_type === 'wholesale';
-        const specials = Object.keys(u.special_prices || {}).map(pid => {
-          const p = DATA.products.find(x => x.id === pid);
-          return p ? `${p.name}: ${inr(u.special_prices[pid])}` : '';
-        }).filter(Boolean).join(', ');
         return `
           <div class="card">
             <div style="display:flex;justify-content:space-between;">
@@ -304,19 +312,17 @@
               </span>
             </div>
             <div style="font-size:13px;color:#666;">📞 ${u.phone}</div>
-            ${specials ? `<div style="font-size:12px;color:#f57c00;margin-top:4px;">⭐ Special: ${specials}</div>` : ''}
             <div class="row mt">
               <button class="primary small" style="background:${isWhole?'#2e7d32':'#f57c00'};" onclick="toggleWholesale('${u.id}')">
                 ${isWhole ? '🛒 Retail Karo' : '💼 Wholesale Karo'}
               </button>
             </div>
-          </div>
-        `;
+          </div>`;
       }).join('');
     }
     document.getElementById('uSearch').oninput = renderUsers;
 
-    /* ORDERS */
+    /* ---------- ORDERS ---------- */
     async function updateOrder(orderId, patch) {
       const o = DATA.orders.find(x => x.id === orderId);
       Object.assign(o, patch);
@@ -328,16 +334,14 @@
       const list = document.getElementById('orderList');
       if (!DATA.orders.length) { list.innerHTML = '<div class="card center">Koi order nahi</div>'; return; }
       list.innerHTML = DATA.orders.slice().reverse().map(o => {
-        const u = DATA.users.find(x => x.id === o.user_id) || { name: 'Unknown', phone: '' };
         const items = o.items.map(it => {
           const p = DATA.products.find(x => x.id === it.product_id) || { name: '?' };
-          const unit = UNIT_LABEL[p.unit] || it.unit || '';
-          return `<div style="font-size:13px;">• ${p.name} — ${it.qty} ${unit} × ${inr(it.price)} = ${inr(it.price * it.qty)}</div>`;
+          return `<div style="font-size:13px;">• ${p.name} — ${it.qty} ${it.unit} × ${inr(it.price)} = ${inr(it.price * it.qty)}</div>`;
         }).join('');
         return `
           <div class="card">
             <div style="display:flex;justify-content:space-between;">
-              <b>${u.name} <span style="font-size:11px;color:#666;">📞 ${u.phone || ''}</span></b>
+              <b>${o.user_name || 'Unknown'} <span style="font-size:11px;color:#666;">📞 ${o.user_phone || ''}</span></b>
               <span style="font-size:12px;color:#666;">${new Date(o.created_at).toLocaleString('hi-IN')}</span>
             </div>
             <div class="mt">${items}</div>
@@ -348,8 +352,7 @@
               <button class="primary small" onclick="updateOrder('${o.id}',{status:'delivered'})">✅ Delivered</button>
               <button class="primary small" style="background:#f57c00;" onclick="updateOrder('${o.id}',{payment:'paid'})">💰 Paid</button>
             </div>
-          </div>
-        `;
+          </div>`;
       }).join('');
     }
 
