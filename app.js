@@ -2,10 +2,14 @@
 const SECRET_URL = './secret.json';
 
 let SECRET = {
-  gh_token: '', imgbb_key: '', upi_id: '', upi_name: 'Dukan', firebase: {}
+  imgbb_key: '',
+  upi_id: '',
+  upi_name: 'Dukan',
+  firebase: {}
 };
 
 let FB = null;
+let AUTH = null;
 let FB_READY = false;
 let FB_READY_RESOLVE = null;
 const FB_READY_PROMISE = new Promise(r => { FB_READY_RESOLVE = r; });
@@ -28,16 +32,18 @@ async function loadSecret() {
 /* ================== FIREBASE ================== */
 async function initFirebase() {
   if (!SECRET.firebase || !SECRET.firebase.apiKey) {
-    console.warn('⚠️ Firebase config secret.json me nahi');
+    console.warn('⚠️ Firebase config nahi');
     FB_READY_RESOLVE(false);
     return;
   }
   if (typeof firebase === 'undefined') {
     await loadScript('https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js');
+    await loadScript('https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js');
     await loadScript('https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js');
   }
   if (firebase.apps.length === 0) firebase.initializeApp(SECRET.firebase);
   FB = firebase.firestore();
+  AUTH = firebase.auth();
   FB_READY = true;
   FB_READY_RESOLVE(true);
   console.log('✅ Firebase ready');
@@ -51,6 +57,32 @@ function loadScript(src) {
 }
 async function waitForFirebase() { return await FB_READY_PROMISE; }
 
+/* ================== AUTH HELPERS ================== */
+async function ownerSignIn(email, password) {
+  if (!AUTH) throw new Error('Firebase ready nahi');
+  const cred = await AUTH.signInWithEmailAndPassword(email, password);
+  console.log('✅ Owner signed in:', cred.user.uid);
+  return cred.user;
+}
+
+async function customerSignIn() {
+  if (!AUTH) throw new Error('Firebase ready nahi');
+  const cur = AUTH.currentUser;
+  if (cur) return cur;
+  const cred = await AUTH.signInAnonymously();
+  console.log('✅ Customer anonymous:', cred.user.uid);
+  return cred.user;
+}
+
+function getAuthUid() {
+  if (!AUTH || !AUTH.currentUser) return null;
+  return AUTH.currentUser.uid;
+}
+
+async function authSignOut() {
+  if (AUTH) await AUTH.signOut();
+}
+
 /* ================== TOAST ================== */
 function toast(msg) {
   let t = document.querySelector('.toast');
@@ -60,7 +92,7 @@ function toast(msg) {
   t._tm = setTimeout(() => t.classList.remove('show'), 2600);
 }
 
-/* ================== UPI / TOKEN ================== */
+/* ================== SETTINGS ================== */
 function getImgbbKey() { return SECRET.imgbb_key || null; }
 function getUpi() { return { id: SECRET.upi_id || '', name: SECRET.upi_name || 'Dukan' }; }
 
@@ -75,20 +107,36 @@ async function fbLoadAllUsers() {
   const snap = await FB.collection('users').get();
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
+async function fbLoadMyUser(uid) {
+  if (!FB_READY) return null;
+  const doc = await FB.collection('users').doc(uid).get();
+  return doc.exists ? { id: doc.id, ...doc.data() } : null;
+}
 async function fbLoadAllOrders() {
   if (!FB_READY) return [];
   const snap = await FB.collection('orders').orderBy('created_at', 'desc').get();
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
-async function fbGetOwner() {
-  if (!FB_READY) return { id: 'owner', password: 'owner123' };
-  const doc = await FB.collection('meta').doc('owner').get();
-  if (!doc.exists) {
-    const def = { id: 'owner', password: 'owner123' };
-    await FB.collection('meta').doc('owner').set(def);
-    return def;
-  }
-  return doc.data();
+async function fbLoadMyOrders(uid) {
+  if (!FB_READY) return [];
+  const snap = await FB.collection('orders').where('user_id', '==', uid).get();
+  const arr = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  arr.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+  return arr;
+}
+async function fbLoadAllUdhar() {
+  if (!FB_READY) return [];
+  const snap = await FB.collection('udhar').get();
+  const arr = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  arr.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+  return arr;
+}
+async function fbLoadMyUdhar(uid) {
+  if (!FB_READY) return [];
+  const snap = await FB.collection('udhar').where('user_id', '==', uid).get();
+  const arr = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  arr.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+  return arr;
 }
 
 async function fbSaveProduct(p) {
@@ -98,7 +146,6 @@ async function fbSaveProduct(p) {
   return p;
 }
 async function fbDeleteProduct(id) {
-  if (!FB_READY) throw new Error('Firebase ready nahi');
   await FB.collection('products').doc(id).delete();
 }
 async function fbSaveUser(u) {
@@ -114,64 +161,33 @@ async function fbSaveOrder(o) {
   return o;
 }
 async function fbUpdateOrder(id, patch) {
-  if (!FB_READY) throw new Error('Firebase ready nahi');
   await FB.collection('orders').doc(id).set(patch, { merge: true });
 }
-
-// ⭐ Udhar save
-async function fbSaveUdhar(udhar) {
+async function fbSaveUdhar(u) {
   if (!FB_READY) throw new Error('Firebase ready nahi');
-  if (!udhar.id) udhar.id = uid();
-  await FB.collection('udhar').doc(udhar.id).set(udhar, { merge: true });
-  return udhar;
-}
-async function fbLoadAllUdhar() {
-  if (!FB_READY) return [];
-  const snap = await FB.collection('udhar').orderBy('created_at', 'desc').get();
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  if (!u.id) u.id = uid();
+  await FB.collection('udhar').doc(u.id).set(u, { merge: true });
+  return u;
 }
 
 /* ================== LOAD ================== */
 async function loadData() {
-  if (!FB_READY) return { products: [], users: [], orders: [], udhar: [], owner: {id:'owner',password:'owner123'} };
-  const [products, users, orders, udhar, owner] = await Promise.all([
-    fbLoadAllProducts(), fbLoadAllUsers(), fbLoadAllOrders(),
-    fbLoadAllUdhar(), fbGetOwner()
+  if (!FB_READY) return { products: [], users: [], orders: [], udhar: [] };
+  const [products, users, orders, udhar] = await Promise.all([
+    fbLoadAllProducts(), fbLoadAllUsers(), fbLoadAllOrders(), fbLoadAllUdhar()
   ]);
-  return { products, users, orders, udhar, owner };
-}
-async function loadCustomers() {
-  if (!FB_READY) return { users: [] };
-  return { users: await fbLoadAllUsers() };
+  return { products, users, orders, udhar };
 }
 
-/* ================== USER KA HISAAB NIKALO ================== */
-function calculateUserStats(userId, orders, udhar) {
-  const myOrders = orders.filter(o => o.user_id === userId);
-  const total_orders = myOrders.reduce((a, o) => a + o.total, 0);
-  const total_paid = myOrders.filter(o => o.payment_status === 'paid').reduce((a, o) => a + o.total, 0);
-  const order_pending = total_orders - total_paid;
-
-  const myUdhar = udhar.filter(u => u.user_id === userId && u.status !== 'paid');
-  const udhar_pending = myUdhar.reduce((a, u) => a + u.amount, 0);
-
-  return {
-    total_orders,
-    total_paid,
-    order_pending,
-    udhar_pending,
-    total_pending: order_pending + udhar_pending,
-    order_count: myOrders.length,
-    udhar_count: myUdhar.length
-  };
-}
-
-/* ================== SAVE ================== */
-async function saveData(data) { return true; }
-async function saveCustomers(data) {
-  if (!FB_READY) throw new Error('Firebase ready nahi');
-  for (const u of data.users) await fbSaveUser(u);
-  return true;
+async function loadMyData(uid) {
+  if (!FB_READY) return { products: [], me: null, myOrders: [], myUdhar: [] };
+  const [products, me, myOrders, myUdhar] = await Promise.all([
+    fbLoadAllProducts(),
+    fbLoadMyUser(uid),
+    fbLoadMyOrders(uid),
+    fbLoadMyUdhar(uid)
+  ]);
+  return { products, me, myOrders, myUdhar };
 }
 
 /* ================== IMAGE ================== */
@@ -185,7 +201,7 @@ async function uploadImage(file) {
   return json.data.url;
 }
 
-/* ================== AUTH ================== */
+/* ================== AUTH SESSION ================== */
 function saveSession(role, payload) {
   localStorage.setItem('role', role);
   localStorage.setItem('session', JSON.stringify(payload));
@@ -196,26 +212,44 @@ function getSession() {
   try { return { role, data: JSON.parse(localStorage.getItem('session') || '{}') }; }
   catch { return null; }
 }
-function logout() {
-  localStorage.removeItem('role'); localStorage.removeItem('session');
+async function logout() {
+  await authSignOut();
+  localStorage.removeItem('role');
+  localStorage.removeItem('session');
   location.replace('index.html');
 }
-function logoutUser() {
-  localStorage.removeItem('role'); localStorage.removeItem('session');
+async function logoutUser() {
+  await authSignOut();
+  localStorage.removeItem('role');
+  localStorage.removeItem('session');
   location.replace('index.html');
 }
 
-/* ================== PHONE ACTIONS ================== */
-function callPhone(phone) {
-  window.location.href = 'tel:' + phone;
+/* ================== USER STATS ================== */
+function calculateUserStats(userId, orders, udhar) {
+  const myOrders = orders.filter(o => o.user_id === userId);
+  const total_orders = myOrders.reduce((a, o) => a + o.total, 0);
+  const total_paid = myOrders.filter(o => o.payment_status === 'paid').reduce((a, o) => a + o.total, 0);
+  const order_pending = total_orders - total_paid;
+
+  const myUdhar = (udhar || []).filter(u => u.user_id === userId && u.status !== 'paid');
+  const udhar_pending = myUdhar.reduce((a, u) => a + u.amount, 0);
+
+  return {
+    total_orders, total_paid, order_pending, udhar_pending,
+    total_pending: order_pending + udhar_pending,
+    order_count: myOrders.length,
+    udhar_count: myUdhar.length
+  };
 }
+
+/* ================== PHONE ACTIONS ================== */
+function callPhone(phone) { window.location.href = 'tel:' + phone; }
 function whatsappPhone(phone, msg) {
-  const text = encodeURIComponent(msg || 'Namaste, Dukan se — aapka order ready hai');
+  const text = encodeURIComponent(msg || 'Namaste, Dukan se');
   window.open(`https://wa.me/91${phone}?text=${text}`, '_blank');
 }
-function smsPhone(phone) {
-  window.location.href = 'sms:' + phone;
-}
+function smsPhone(phone) { window.location.href = 'sms:' + phone; }
 
 /* ================== UNITS ================== */
 const UNIT_LABEL = {
@@ -275,7 +309,7 @@ function getAppLinks(amount, note) {
 /* ================== BOOT ================== */
 loadSecret().then(async () => {
   await initFirebase();
-  console.log('BOOT:', { secret: !!SECRET.gh_token, firebase: FB_READY });
+  console.log('BOOT:', { secret: !!SECRET.imgbb_key, firebase: FB_READY });
 });
 
 if ('serviceWorker' in navigator) {
