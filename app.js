@@ -1,27 +1,24 @@
 /* ================== CONFIG ================== */
 const CONFIG = {
-  // Owner ka data (private repo)
   GITHUB_USER: 'uttam03122005-svg',
   GITHUB_REPO: 'dukan-data',
   GITHUB_BRANCH: 'main',
   GITHUB_FILE: 'data.json',
-  GITHUB_TOKEN: '',   // owner login se aayega
+  GITHUB_TOKEN: '',
 
-  // Customer registration (alag public repo)
   CUST_REPO: 'dukan-customers',
   CUST_FILE: 'customers.json',
   CUST_BRANCH: 'main',
-  // ⚠️ Ye token sirf dukan-customers repo ke liye hai
   CUST_TOKEN: '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',
 
   IMGBB_KEY: ''
 };
 
-const DATA_URL    = `https://raw.githubusercontent.com/${CONFIG.GITHUB_USER}/${CONFIG.GITHUB_REPO}/${CONFIG.GITHUB_BRANCH}/${CONFIG.GITHUB_FILE}`;
-const CUST_URL    = `https://raw.githubusercontent.com/${CONFIG.GITHUB_USER}/${CONFIG.CUST_REPO}/${CONFIG.CUST_BRANCH}/${CONFIG.CUST_FILE}`;
+const DATA_URL = `https://raw.githubusercontent.com/${CONFIG.GITHUB_USER}/${CONFIG.GITHUB_REPO}/${CONFIG.GITHUB_BRANCH}/${CONFIG.GITHUB_FILE}`;
+const CUST_URL = `https://raw.githubusercontent.com/${CONFIG.GITHUB_USER}/${CONFIG.CUST_REPO}/${CONFIG.CUST_BRANCH}/${CONFIG.CUST_FILE}`;
 
-const DEFAULT_DATA     = { products: [], users: [], orders: [], owner: { id: 'owner', password: 'owner123' } };
-const DEFAULT_CUST     = { users: [] };
+const DEFAULT_DATA = { products: [], users: [], orders: [], owner: { id: 'owner', password: 'owner123' } };
+const DEFAULT_CUST = { users: [] };
 
 /* ================== TOAST ================== */
 function toast(msg) {
@@ -33,7 +30,7 @@ function toast(msg) {
   t._tm = setTimeout(() => t.classList.remove('show'), 2200);
 }
 
-/* ================== LOAD: Owner data ================== */
+/* ================== LOAD ================== */
 async function loadData() {
   try {
     const res = await fetch(DATA_URL + '?t=' + Date.now());
@@ -50,7 +47,6 @@ async function loadData() {
   }
 }
 
-/* ================== LOAD: Customer list ================== */
 async function loadCustomers() {
   try {
     const res = await fetch(CUST_URL + '?t=' + Date.now());
@@ -64,24 +60,21 @@ async function loadCustomers() {
   }
 }
 
-/* ================== SAVE: Owner data ================== */
+/* ================== SAVE ================== */
 async function saveData(data) {
   const token = localStorage.getItem('gh_token') || CONFIG.GITHUB_TOKEN;
   if (!token) throw new Error('Owner token nahi mila. Login karo.');
   return await _githubSave(CONFIG.GITHUB_REPO, CONFIG.GITHUB_FILE, data, token);
 }
 
-/* ================== SAVE: Customer list ================== */
 async function saveCustomers(data) {
   return await _githubSave(CONFIG.CUST_REPO, CONFIG.CUST_FILE, data, CONFIG.CUST_TOKEN);
 }
 
-/* ================== Generic GitHub save ================== */
-async function _githubSave(repo, file, data, token) {
+async function _githubSave(repo, file, data, token, retry = 0) {
   const apiUrl = `https://api.github.com/repos/${CONFIG.GITHUB_USER}/${repo}/contents/${file}`;
 
-  // current sha
-  const getRes = await fetch(apiUrl + '?ref=main', {
+  const getRes = await fetch(apiUrl + '?ref=main&t=' + Date.now(), {
     headers: { Authorization: `token ${token}`, Accept: 'application/vnd.github+json' }
   });
   let sha = null;
@@ -112,9 +105,13 @@ async function _githubSave(repo, file, data, token) {
 
   if (!putRes.ok) {
     const err = await putRes.json().catch(() => ({}));
+    if (putRes.status === 409 && retry < 3) {
+      await new Promise(r => setTimeout(r, 500 * (retry + 1)));
+      return await _githubSave(repo, file, data, token, retry + 1);
+    }
     if (putRes.status === 401) throw new Error('Token galat ya expire');
     if (putRes.status === 403) throw new Error('Permission nahi');
-    if (putRes.status === 409) throw new Error('Conflict — dobara try karo');
+    if (putRes.status === 409) throw new Error('Conflict — page refresh karke dobara try karo');
     throw new Error('Save fail: ' + (err.message || putRes.status));
   }
   return true;
@@ -151,14 +148,40 @@ function logout() {
   location.href = 'index.html';
 }
 
+/* ================== UNIT HELPERS ================== */
+const UNIT_LABEL = {
+  kg:'kg', gram:'g', liter:'L', ml:'ml', piece:'pc',
+  packet:'pkt', box:'box', dozen:'doz', strip:'strip', bottle:'bottle'
+};
+// Har unit ka step (kitna increment)
+const UNIT_STEP = {
+  kg: 0.25, gram: 50, liter: 0.25, ml: 50,
+  piece: 1, packet: 1, box: 1, dozen: 1, strip: 1, bottle: 1
+};
+
 /* ================== PRICE LOGIC ================== */
-function getUserPrice(product, user) {
-  if (!user) return product.retail_price;
-  if (user.special_prices && user.special_prices[product.id] != null) {
-    return user.special_prices[product.id];
+// Product me units array hai — user ne jo unit select kiya uska price return
+function getUnitPrice(product, unitLabel, user) {
+  const u = product.units?.find(x => x.label === unitLabel);
+  if (!u) return 0;
+
+  // Special price check (per product + unit) — owner ne diya ho
+  if (user && user.special_prices) {
+    const key = product.id + ':' + unitLabel;
+    if (user.special_prices[key] != null) return user.special_prices[key];
+    // fallback: purana format (product only)
+    if (user.special_prices[product.id] != null) return user.special_prices[product.id];
   }
-  if (user.price_type === 'wholesale') return product.wholesale_price;
-  return product.retail_price;
+
+  if (user && user.price_type === 'wholesale') return u.wholesale;
+  return u.retail;
+}
+
+// Product ka "default" (pehla) unit ka price
+function getDefaultUnitPrice(product, user) {
+  const first = product.units?.[0];
+  if (!first) return 0;
+  return getUnitPrice(product, first.label, user);
 }
 
 /* ================== HELPERS ================== */
