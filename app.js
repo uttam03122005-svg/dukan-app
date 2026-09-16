@@ -79,6 +79,30 @@ function getAuthUid() {
   return AUTH.currentUser.uid;
 }
 
+// ⭐ Auth state ready hone ka wait — max 5 sec
+function waitForAuth() {
+  return new Promise(resolve => {
+    if (!AUTH) { resolve(null); return; }
+    if (AUTH.currentUser) { resolve(AUTH.currentUser.uid); return; }
+
+    let done = false;
+    const unsub = AUTH.onAuthStateChanged(user => {
+      if (done) return;
+      done = true;
+      try { unsub(); } catch (e) {}
+      resolve(user ? user.uid : null);
+    });
+
+    setTimeout(() => {
+      if (!done) {
+        done = true;
+        try { unsub(); } catch (e) {}
+        resolve(AUTH.currentUser ? AUTH.currentUser.uid : null);
+      }
+    }, 5000);
+  });
+}
+
 async function authSignOut() {
   if (AUTH) await AUTH.signOut();
 }
