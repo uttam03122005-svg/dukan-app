@@ -18,40 +18,11 @@
       <button class="primary tabBtn" data-tab="products" style="border-radius:0;font-size:12px;">Products</button>
       <button class="primary tabBtn" data-tab="users" style="border-radius:0;background:#ccc;color:#333;font-size:12px;">Customers</button>
       <button class="primary tabBtn" data-tab="orders" style="border-radius:0;background:#ccc;color:#333;font-size:12px;">Orders</button>
-      <button class="primary tabBtn" data-tab="settings" style="border-radius:0;background:#ccc;color:#333;font-size:12px;">⚙️</button>
-    </div>
-
-    <!-- SETTINGS -->
-    <div id="tab-settings">
-      <div class="card">
-        <h3>⚙️ Settings</h3>
-        <p style="font-size:13px;color:#666;margin-bottom:8px;">
-          Ye settings <b>data.json</b> me save hongi — sab customers ko automatically milegi.
-        </p>
-
-        <label style="font-size:13px;color:#666;font-weight:bold;">GitHub Token</label>
-        <input id="setToken" placeholder="ghp_... ya github_pat_...">
-
-        <label style="font-size:13px;color:#666;font-weight:bold;margin-top:6px;display:block;">ImgBB Key</label>
-        <input id="setImgbb" placeholder="ImgBB API key">
-
-        <label style="font-size:13px;color:#666;font-weight:bold;margin-top:6px;display:block;">UPI ID</label>
-        <input id="setUpi" placeholder="9876543210@paytm">
-
-        <label style="font-size:13px;color:#666;font-weight:bold;margin-top:6px;display:block;">UPI Name</label>
-        <input id="setUpiName" placeholder="Uttam Kumar">
-
-        <button class="primary" onclick="saveSettings()">💾 Save Settings</button>
-        <button class="primary" style="background:#f57c00;" onclick="testToken()">🧪 Test Token</button>
-      </div>
-      <div class="card">
-        <b>📋 Current Settings:</b>
-        <div id="curSet" style="font-size:12px;color:#555;margin-top:6px;"></div>
-      </div>
+      <button class="primary tabBtn" data-tab="info" style="border-radius:0;background:#ccc;color:#333;font-size:12px;">ℹ️</button>
     </div>
 
     <!-- PRODUCTS -->
-    <div id="tab-products" class="hidden">
+    <div id="tab-products">
       <div class="card">
         <h3 id="pFormTitle">➕ Naya Product</h3>
         <input type="hidden" id="pId">
@@ -79,6 +50,20 @@
     <div id="tab-orders" class="hidden">
       <div id="orderList"></div>
     </div>
+
+    <!-- INFO (secret.json values read-only) -->
+    <div id="tab-info" class="hidden">
+      <div class="card">
+        <h3>ℹ️ Info</h3>
+        <p style="font-size:13px;color:#666;margin-bottom:8px;">
+          Ye values <b>secret.json</b> file se aa rahi hain.
+        </p>
+        <div id="secretInfo" style="font-size:13px;color:#555;"></div>
+        <p style="font-size:12px;color:#888;margin-top:10px;">
+          Change karne ke liye GitHub pe <b>secret.json</b> edit karo.
+        </p>
+      </div>
+    </div>
   </div>
 
   <script src="app.js"></script>
@@ -89,8 +74,12 @@
     let DATA = null, CUST = null, editingImageUrl = '', currentUnits = [];
 
     async function init() {
+      // Secret load hone ka wait karo
+      await loadSecret();
+
       DATA = await loadData();
       CUST = await loadCustomers();
+
       DATA.users = CUST.users.map(cu => {
         const ou = DATA.users.find(u => u.phone === cu.phone);
         return {
@@ -102,11 +91,17 @@
           created_at: cu.created_at
         };
       });
-      renderSettings();
+
       renderProducts();
       renderUsers();
       renderOrders();
+      renderInfo();
       resetProductForm();
+
+      // Token check
+      if (!SECRET.gh_token) {
+        toast('⚠️ secret.json me token nahi hai');
+      }
     }
 
     function switchTab(t) {
@@ -117,7 +112,7 @@
           b.style.background = '#ccc'; b.style.color = '#333';
         }
       });
-      ['products','users','orders','settings'].forEach(x => {
+      ['products','users','orders','info'].forEach(x => {
         document.getElementById('tab-'+x).classList.toggle('hidden', x !== t);
       });
     }
@@ -126,97 +121,19 @@
       btn.onclick = () => switchTab(btn.dataset.tab);
     });
 
-    /* ============ SETTINGS ============ */
-    function renderSettings() {
-      const st = DATA.settings || {};
-      // Priority: localStorage > data.json
-      const t = localStorage.getItem('gh_token') || st.gh_token || '';
-      const ib = localStorage.getItem('imgbb_key') || st.imgbb_key || '';
-      const upi = localStorage.getItem('upi_id') || st.upi_id || '';
-      const upiN = localStorage.getItem('upi_name') || st.upi_name || '';
+    /* ============ INFO ============ */
+    function renderInfo() {
+      const t = SECRET.gh_token || '';
+      const ib = SECRET.imgbb_key || '';
+      const upi = SECRET.upi_id || '';
+      const upiN = SECRET.upi_name || '';
 
-      document.getElementById('setToken').value = t;
-      document.getElementById('setImgbb').value = ib;
-      document.getElementById('setUpi').value = upi;
-      document.getElementById('setUpiName').value = upiN;
-
-      document.getElementById('curSet').innerHTML = `
-        <div>Token: ${t ? t.substring(0,20)+'...' : '❌ not set'}</div>
-        <div>ImgBB: ${ib ? ib.substring(0,10)+'...' : '❌ not set'}</div>
-        <div>UPI: ${upi || '❌ not set'}</div>
-        <div>UPI Name: ${upiN || '❌ not set'}</div>
+      document.getElementById('secretInfo').innerHTML = `
+        <div style="padding:4px 0;">Token: ${t ? t.substring(0,25)+'...' : '❌ not set'}</div>
+        <div style="padding:4px 0;">ImgBB: ${ib ? ib.substring(0,15)+'...' : '❌ not set'}</div>
+        <div style="padding:4px 0;">UPI: ${upi || '❌ not set'}</div>
+        <div style="padding:4px 0;">UPI Name: ${upiN || '❌ not set'}</div>
       `;
-    }
-
-    async function saveSettings() {
-      const tk = document.getElementById('setToken').value.trim();
-      const ib = document.getElementById('setImgbb').value.trim();
-      const upi = document.getElementById('setUpi').value.trim();
-      const upiN = document.getElementById('setUpiName').value.trim();
-
-      if (!tk) return toast('Token daalo');
-      if (!upi) return toast('UPI ID daalo');
-
-      // 1. localStorage me daalo
-      localStorage.setItem('gh_token', tk);
-      localStorage.setItem('imgbb_key', ib);
-      localStorage.setItem('upi_id', upi);
-      localStorage.setItem('upi_name', upiN || 'Dukan');
-
-      // 2. data.json me save karo (customer ke liye)
-      // Fresh data laao
-      let freshData = await loadData();
-      freshData.settings = freshData.settings || {};
-      freshData.settings.gh_token = tk;
-      freshData.settings.imgbb_key = ib;
-      freshData.settings.upi_id = upi;
-      freshData.settings.upi_name = upiN || 'Dukan';
-
-      // DATA variable bhi update
-      DATA = freshData;
-      DATA.users = CUST.users.map(cu => {
-        const ou = DATA.users.find(u => u.phone === cu.phone);
-        return {
-          id: cu.id || ('U' + cu.phone),
-          name: ou?.name || cu.name || 'Customer',
-          phone: cu.phone,
-          price_type: ou?.price_type || 'retail',
-          special_prices: ou?.special_prices || {},
-          created_at: cu.created_at
-        };
-      });
-
-      try {
-        toast('Save ho raha hai...');
-        await saveData(freshData);
-        toast('✅ Settings data.json me save ho gayi!');
-        renderSettings();
-      } catch (e) {
-        console.error('Save fail:', e);
-        toast('❌ ' + e.message);
-      }
-    }
-
-    async function testToken() {
-      const tk = document.getElementById('setToken').value.trim() || localStorage.getItem('gh_token');
-      if (!tk) return toast('Token daalo');
-
-      toast('Test ho raha hai...');
-      try {
-        const r1 = await fetch(`https://api.github.com/repos/${CONFIG.GITHUB_USER}/${CONFIG.GITHUB_REPO}`, {
-          headers: { Authorization: `token ${tk}`, Accept: 'application/vnd.github+json' }
-        });
-        const r2 = await fetch(`https://api.github.com/repos/${CONFIG.GITHUB_USER}/${CONFIG.CUST_REPO}`, {
-          headers: { Authorization: `token ${tk}`, Accept: 'application/vnd.github+json' }
-        });
-        const j1 = await r1.json();
-        const j2 = await r2.json();
-
-        if (r1.ok && r2.ok) toast('✅ Dono repos ka access hai');
-        else if (r1.ok) toast('⚠️ dukan-data OK, dukan-customers nahi');
-        else if (r2.ok) toast('⚠️ dukan-customers OK, dukan-data nahi');
-        else toast('❌ Access nahi — ' + (j1.message || 'unknown'));
-      } catch (e) { toast('❌ ' + e.message); }
     }
 
     /* ============ PRODUCTS ============ */
@@ -314,6 +231,7 @@
       renderUnits();
       document.getElementById('pFormTitle').textContent = '✏️ Edit';
       switchTab('products');
+      window.scrollTo(0,0);
     }
 
     async function deleteProduct(id) {
@@ -406,7 +324,7 @@
       const newType = u.price_type === 'wholesale' ? 'retail' : 'wholesale';
       if (!confirm(`${u.name} → ${newType.toUpperCase()}?`)) return;
       u.price_type = newType;
-      try { await saveOwnerUser(u); toast(newType === 'wholesale' ? '💼' : '🛒'); renderUsers(); }
+      try { await saveOwnerUser(u); toast(newType === 'wholesale' ? '💼 Wholesale' : '🛒 Retail'); renderUsers(); }
       catch (e) { toast('❌ ' + e.message); }
     }
 
