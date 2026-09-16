@@ -21,19 +21,13 @@
       <button class="primary tabBtn" data-tab="settings" style="border-radius:0;background:#ccc;color:#333;font-size:12px;">⚙️</button>
     </div>
 
-    <!-- SETTINGS TAB (sabse zaroori) -->
+    <!-- SETTINGS -->
     <div id="tab-settings">
       <div class="card">
-        <h3>⚙️ Settings — Pehli Baar Yahan Sab Daalo</h3>
-
-        <div style="background:#fff3e0;padding:10px;border-radius:8px;margin-bottom:12px;font-size:13px;color:#e65100;">
-          <b>⚠️ Pehli baar yahan sab daalo:</b>
-          <ul style="margin-top:6px;padding-left:18px;">
-            <li>GitHub Token</li>
-            <li>ImgBB Key (image upload ke liye)</li>
-            <li>UPI ID (online payment ke liye)</li>
-          </ul>
-        </div>
+        <h3>⚙️ Settings</h3>
+        <p style="font-size:13px;color:#666;margin-bottom:8px;">
+          Ye settings <b>data.json</b> me save hongi — sab customers ko automatically milegi.
+        </p>
 
         <label style="font-size:13px;color:#666;font-weight:bold;">GitHub Token</label>
         <input id="setToken" placeholder="ghp_... ya github_pat_...">
@@ -41,7 +35,7 @@
         <label style="font-size:13px;color:#666;font-weight:bold;margin-top:6px;display:block;">ImgBB Key</label>
         <input id="setImgbb" placeholder="ImgBB API key">
 
-        <label style="font-size:13px;color:#666;font-weight:bold;margin-top:6px;display:block;">UPI ID (payment ke liye)</label>
+        <label style="font-size:13px;color:#666;font-weight:bold;margin-top:6px;display:block;">UPI ID</label>
         <input id="setUpi" placeholder="9876543210@paytm">
 
         <label style="font-size:13px;color:#666;font-weight:bold;margin-top:6px;display:block;">UPI Name</label>
@@ -50,7 +44,6 @@
         <button class="primary" onclick="saveSettings()">💾 Save Settings</button>
         <button class="primary" style="background:#f57c00;" onclick="testToken()">🧪 Test Token</button>
       </div>
-
       <div class="card">
         <b>📋 Current Settings:</b>
         <div id="curSet" style="font-size:12px;color:#555;margin-top:6px;"></div>
@@ -114,12 +107,6 @@
       renderUsers();
       renderOrders();
       resetProductForm();
-
-      // Check: agar token nahi hai to Settings tab pe redirect
-      if (!localStorage.getItem('gh_token') && !DATA.settings?.gh_token) {
-        toast('⚠️ Pehle Settings me Token daalo');
-        switchTab('settings');
-      }
     }
 
     function switchTab(t) {
@@ -142,15 +129,16 @@
     /* ============ SETTINGS ============ */
     function renderSettings() {
       const st = DATA.settings || {};
-      document.getElementById('setToken').value = localStorage.getItem('gh_token') || st.gh_token || '';
-      document.getElementById('setImgbb').value = localStorage.getItem('imgbb_key') || st.imgbb_key || '';
-      document.getElementById('setUpi').value = localStorage.getItem('upi_id') || st.upi_id || '';
-      document.getElementById('setUpiName').value = localStorage.getItem('upi_name') || st.upi_name || '';
-
+      // Priority: localStorage > data.json
       const t = localStorage.getItem('gh_token') || st.gh_token || '';
       const ib = localStorage.getItem('imgbb_key') || st.imgbb_key || '';
       const upi = localStorage.getItem('upi_id') || st.upi_id || '';
       const upiN = localStorage.getItem('upi_name') || st.upi_name || '';
+
+      document.getElementById('setToken').value = t;
+      document.getElementById('setImgbb').value = ib;
+      document.getElementById('setUpi').value = upi;
+      document.getElementById('setUpiName').value = upiN;
 
       document.getElementById('curSet').innerHTML = `
         <div>Token: ${t ? t.substring(0,20)+'...' : '❌ not set'}</div>
@@ -169,27 +157,43 @@
       if (!tk) return toast('Token daalo');
       if (!upi) return toast('UPI ID daalo');
 
-      // Pehle localStorage me daalo
+      // 1. localStorage me daalo
       localStorage.setItem('gh_token', tk);
       localStorage.setItem('imgbb_key', ib);
       localStorage.setItem('upi_id', upi);
       localStorage.setItem('upi_name', upiN || 'Dukan');
 
-      // Data.json me bhi save karo (agar possible ho)
-      DATA.settings = DATA.settings || {};
-      DATA.settings.gh_token = tk;
-      DATA.settings.imgbb_key = ib;
-      DATA.settings.upi_id = upi;
-      DATA.settings.upi_name = upiN || 'Dukan';
+      // 2. data.json me save karo (customer ke liye)
+      // Fresh data laao
+      let freshData = await loadData();
+      freshData.settings = freshData.settings || {};
+      freshData.settings.gh_token = tk;
+      freshData.settings.imgbb_key = ib;
+      freshData.settings.upi_id = upi;
+      freshData.settings.upi_name = upiN || 'Dukan';
+
+      // DATA variable bhi update
+      DATA = freshData;
+      DATA.users = CUST.users.map(cu => {
+        const ou = DATA.users.find(u => u.phone === cu.phone);
+        return {
+          id: cu.id || ('U' + cu.phone),
+          name: ou?.name || cu.name || 'Customer',
+          phone: cu.phone,
+          price_type: ou?.price_type || 'retail',
+          special_prices: ou?.special_prices || {},
+          created_at: cu.created_at
+        };
+      });
 
       try {
-        await saveData(DATA);
-        toast('✅ Settings save ho gayi');
+        toast('Save ho raha hai...');
+        await saveData(freshData);
+        toast('✅ Settings data.json me save ho gayi!');
         renderSettings();
       } catch (e) {
-        console.warn('GitHub save fail, but local me save:', e);
-        toast('✅ Local me save ho gayi (GitHub sync fail)');
-        renderSettings();
+        console.error('Save fail:', e);
+        toast('❌ ' + e.message);
       }
     }
 
@@ -205,7 +209,6 @@
         const r2 = await fetch(`https://api.github.com/repos/${CONFIG.GITHUB_USER}/${CONFIG.CUST_REPO}`, {
           headers: { Authorization: `token ${tk}`, Accept: 'application/vnd.github+json' }
         });
-
         const j1 = await r1.json();
         const j2 = await r2.json();
 
@@ -213,9 +216,7 @@
         else if (r1.ok) toast('⚠️ dukan-data OK, dukan-customers nahi');
         else if (r2.ok) toast('⚠️ dukan-customers OK, dukan-data nahi');
         else toast('❌ Access nahi — ' + (j1.message || 'unknown'));
-      } catch (e) {
-        toast('❌ ' + e.message);
-      }
+      } catch (e) { toast('❌ ' + e.message); }
     }
 
     /* ============ PRODUCTS ============ */
@@ -312,7 +313,7 @@
       if (!currentUnits.length) currentUnits = [{label:'piece',retail:'',wholesale:'',stock:''}];
       renderUnits();
       document.getElementById('pFormTitle').textContent = '✏️ Edit';
-      window.scrollTo(0,0);
+      switchTab('products');
     }
 
     async function deleteProduct(id) {
