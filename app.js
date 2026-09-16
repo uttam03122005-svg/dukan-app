@@ -9,7 +9,7 @@ const CONFIG = {
   CUST_REPO: 'dukan-customers',
   CUST_FILE: 'customers.json',
   CUST_BRANCH: 'main',
-  CUST_TOKEN: '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',
+  CUST_TOKEN: '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',
 
   IMGBB_KEY: ''
 };
