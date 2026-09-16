@@ -42,7 +42,7 @@
 
     <!-- USERS -->
     <div id="tab-users" class="hidden">
-      <input class="search-bar" id="uSearch" placeholder="🔍 Customer">
+      <input class="search-bar" id="uSearch" placeholder="🔍 Customer (phone se)">
       <div id="userList"></div>
     </div>
 
@@ -55,21 +55,19 @@
     <div id="tab-settings" class="hidden">
       <div class="card">
         <h3>⚙️ Settings</h3>
-        <p style="font-size:13px;color:#666;margin-bottom:8px;">
-          Yahan se token change karo — sab jagah automatic lag jayega.
-        </p>
-
         <label style="font-size:13px;color:#666;font-weight:bold;">GitHub Token</label>
-        <input id="setToken" placeholder="ghp_... ya github_pat_...">
-
+        <input id="setToken" placeholder="ghp_...">
         <label style="font-size:13px;color:#666;font-weight:bold;margin-top:6px;display:block;">ImgBB Key</label>
         <input id="setImgbb" placeholder="ImgBB key">
-
-        <button class="primary" onclick="saveSettings()">💾 Save Settings</button>
+        <label style="font-size:13px;color:#666;font-weight:bold;margin-top:6px;display:block;">UPI ID (online payment)</label>
+        <input id="setUpi" placeholder="jaise: 9876543210@paytm">
+        <label style="font-size:13px;color:#666;font-weight:bold;margin-top:6px;display:block;">UPI Name</label>
+        <input id="setUpiName" placeholder="Dukan ka naam">
+        <button class="primary" onclick="saveSettings()">💾 Save</button>
         <button class="primary" style="background:#f57c00;" onclick="testToken()">🧪 Test Token</button>
       </div>
       <div class="card">
-        <b style="font-size:14px;">Current:</b>
+        <b>Current:</b>
         <div id="curSet" style="font-size:12px;color:#555;margin-top:6px;"></div>
       </div>
     </div>
@@ -85,15 +83,21 @@
     async function init() {
       DATA = await loadData();
       CUST = await loadCustomers();
+      // merge — customers.json me sab, data.json me upgrade info
       DATA.users = CUST.users.map(cu => {
-        const ou = DATA.users.find(u => u.phone === cu.phone || u.id === cu.id);
+        const ou = DATA.users.find(u => u.phone === cu.phone);
         return {
-          id: cu.id, name: cu.name, phone: cu.phone,
+          id: cu.id || ('U' + cu.phone),
+          name: ou?.name || cu.name || 'Customer',
+          phone: cu.phone,
           price_type: ou?.price_type || 'retail',
           special_prices: ou?.special_prices || {},
           created_at: cu.created_at
         };
       });
+      // data.json me agar kuch extra users hain (customers.json me nahi) — unhe bhi dikhao
+      DATA.users_ownerOnly = DATA.users.filter(u => !CUST.users.find(c => c.phone === u.phone));
+
       renderProducts(); renderUsers(); renderOrders(); renderSettings(); resetProductForm();
     }
 
@@ -113,19 +117,32 @@
     function renderSettings() {
       document.getElementById('setToken').value = localStorage.getItem('gh_token') || '';
       document.getElementById('setImgbb').value = localStorage.getItem('imgbb_key') || '';
+      document.getElementById('setUpi').value = CONFIG.UPI_ID || '';
+      document.getElementById('setUpiName').value = CONFIG.UPI_NAME || '';
       const t = localStorage.getItem('gh_token') || '';
       document.getElementById('curSet').innerHTML = `
-        <div>Token: ${t ? t.substring(0,20) + '...' + t.slice(-6) : 'not set'}</div>
+        <div>Token: ${t ? t.substring(0,20)+'...' : 'not set'}</div>
         <div>ImgBB: ${(localStorage.getItem('imgbb_key')||'not set').substring(0,10)}...</div>
+        <div>UPI: ${CONFIG.UPI_ID || 'not set'}</div>
       `;
     }
 
-    async function saveSettings() {
+    function saveSettings() {
       const tk = document.getElementById('setToken').value.trim();
       const ib = document.getElementById('setImgbb').value.trim();
+      const upi = document.getElementById('setUpi').value.trim();
+      const upiN = document.getElementById('setUpiName').value.trim();
       if (tk) localStorage.setItem('gh_token', tk);
       if (ib) localStorage.setItem('imgbb_key', ib);
-      toast('✅ Settings save ho gayi');
+      if (upi) {
+        localStorage.setItem('upi_id', upi);
+        CONFIG.UPI_ID = upi;
+      }
+      if (upiN) {
+        localStorage.setItem('upi_name', upiN);
+        CONFIG.UPI_NAME = upiN;
+      }
+      toast('✅ Settings save');
       renderSettings();
     }
 
@@ -133,16 +150,12 @@
       const tk = document.getElementById('setToken').value.trim() || localStorage.getItem('gh_token');
       if (!tk) return toast('Token daalo');
       try {
-        const r1 = await fetch(`https://api.github.com/repos/${CONFIG.GITHUB_USER}/${CONFIG.GITHUB_REPO}`, {
-          headers: { Authorization: `token ${tk}` }
-        });
-        const r2 = await fetch(`https://api.github.com/repos/${CONFIG.GITHUB_USER}/${CONFIG.CUST_REPO}`, {
-          headers: { Authorization: `token ${tk}` }
-        });
-        if (r1.ok && r2.ok) toast('✅ Dono repos ka access hai');
+        const r1 = await fetch(`https://api.github.com/repos/${CONFIG.GITHUB_USER}/${CONFIG.GITHUB_REPO}`, { headers: { Authorization: `token ${tk}` }});
+        const r2 = await fetch(`https://api.github.com/repos/${CONFIG.GITHUB_USER}/${CONFIG.CUST_REPO}`, { headers: { Authorization: `token ${tk}` }});
+        if (r1.ok && r2.ok) toast('✅ Dono repos OK');
         else if (r1.ok) toast('⚠️ dukan-data OK, dukan-customers nahi');
         else if (r2.ok) toast('⚠️ dukan-customers OK, dukan-data nahi');
-        else toast('❌ Token me kisi bhi repo ka access nahi');
+        else toast('❌ Access nahi');
       } catch (e) { toast('❌ ' + e.message); }
     }
 
@@ -187,8 +200,7 @@
       ['pId','pName','pCat'].forEach(id => document.getElementById(id).value = '');
       document.getElementById('pImg').value = '';
       document.getElementById('pPreview').style.display = 'none';
-      editingImageUrl = '';
-      currentUnits = [];
+      editingImageUrl = ''; currentUnits = [];
       addUnit({ label:'piece', retail:'', wholesale:'', stock:'' });
       document.getElementById('pFormTitle').textContent = '➕ Naya Product';
     }
@@ -240,7 +252,7 @@
       currentUnits = (p.units||[]).map(u => ({...u}));
       if (!currentUnits.length) currentUnits = [{label:'piece',retail:'',wholesale:'',stock:''}];
       renderUnits();
-      document.getElementById('pFormTitle').textContent = '✏️ Edit Product';
+      document.getElementById('pFormTitle').textContent = '✏️ Edit';
       window.scrollTo(0,0);
     }
 
@@ -289,38 +301,57 @@
     document.getElementById('pSearch').oninput = renderProducts;
 
     /* ============ USERS ============ */
+    async function saveOwnerUser(user) {
+      // data.json me user ka info save karo (naam, price_type, special)
+      const ownerData = await loadData();
+      let ex = ownerData.users.find(x => x.phone === user.phone);
+      if (ex) {
+        ex.name = user.name;
+        ex.price_type = user.price_type;
+        ex.special_prices = user.special_prices;
+      } else {
+        ownerData.users.push({
+          id: user.id, name: user.name, phone: user.phone,
+          price_type: user.price_type,
+          special_prices: user.special_prices || {},
+          created_at: user.created_at
+        });
+      }
+      await saveData(ownerData);
+      DATA = ownerData;
+      // re-merge
+      DATA.users = CUST.users.map(cu => {
+        const ou = DATA.users.find(u => u.phone === cu.phone);
+        return {
+          id: cu.id || ('U' + cu.phone),
+          name: ou?.name || cu.name || 'Customer',
+          phone: cu.phone,
+          price_type: ou?.price_type || 'retail',
+          special_prices: ou?.special_prices || {},
+          created_at: cu.created_at
+        };
+      });
+    }
+
+    async function editCustomerName(id) {
+      const u = DATA.users.find(x => x.id === id);
+      const newName = prompt('Customer ka naam:', u.name);
+      if (!newName || !newName.trim()) return;
+      u.name = newName.trim();
+      try {
+        await saveOwnerUser(u);
+        toast('✅ Naam save');
+        renderUsers();
+      } catch (e) { toast('❌ ' + e.message); }
+    }
+
     async function toggleWholesale(id) {
       const u = DATA.users.find(x => x.id === id);
       const newType = u.price_type === 'wholesale' ? 'retail' : 'wholesale';
       if (!confirm(`${u.name} → ${newType.toUpperCase()}?`)) return;
       u.price_type = newType;
-
-      const ownerData = await loadData();
-      let ex = ownerData.users.find(x => x.phone === u.phone);
-      if (ex) {
-        ex.price_type = u.price_type;
-        ex.special_prices = u.special_prices;
-      } else {
-        ownerData.users.push({
-          id: u.id, name: u.name, phone: u.phone,
-          price_type: u.price_type,
-          special_prices: u.special_prices || {},
-          created_at: u.created_at
-        });
-      }
       try {
-        await saveData(ownerData);
-        DATA = ownerData;
-        // re-merge customers
-        DATA.users = CUST.users.map(cu => {
-          const ou = DATA.users.find(u => u.phone === cu.phone);
-          return {
-            id: cu.id, name: cu.name, phone: cu.phone,
-            price_type: ou?.price_type || 'retail',
-            special_prices: ou?.special_prices || {},
-            created_at: cu.created_at
-          };
-        });
+        await saveOwnerUser(u);
         toast(newType === 'wholesale' ? '💼' : '🛒');
         renderUsers();
       } catch (e) { toast('❌ ' + e.message); }
@@ -329,10 +360,13 @@
     function renderUsers() {
       const q = (document.getElementById('uSearch').value||'').toLowerCase();
       const list = document.getElementById('userList');
-      const items = DATA.users.filter(u => u.name.toLowerCase().includes(q) || u.phone.includes(q));
+      const items = DATA.users.filter(u =>
+        (u.name||'').toLowerCase().includes(q) || u.phone.includes(q)
+      );
       if (!items.length) { list.innerHTML = '<div class="card center">Koi customer nahi</div>'; return; }
       list.innerHTML = items.map(u => {
         const w = u.price_type === 'wholesale';
+        const orderCount = DATA.orders.filter(o => o.user_id === u.id).length;
         return `
           <div class="card">
             <div style="display:flex;justify-content:space-between;">
@@ -342,9 +376,11 @@
               </span>
             </div>
             <div style="font-size:13px;color:#666;">📞 ${u.phone}</div>
+            <div style="font-size:12px;color:#888;">📦 ${orderCount} orders</div>
             <div class="row mt">
+              <button class="primary small" style="background:#1976d2;" onclick="editCustomerName('${u.id}')">✏️ Naam</button>
               <button class="primary small" style="background:${w?'#2e7d32':'#f57c00'};" onclick="toggleWholesale('${u.id}')">
-                ${w ? '🛒 Retail Karo' : '💼 Wholesale Karo'}
+                ${w ? '🛒 Retail' : '💼 Wholesale'}
               </button>
             </div>
           </div>`;
@@ -356,7 +392,15 @@
     async function updateOrder(orderId, patch) {
       const o = DATA.orders.find(x => x.id === orderId);
       Object.assign(o, patch);
-      try { await saveData(DATA); renderOrders(); }
+      try { await saveData(DATA); renderOrders(); toast('✅ Updated'); }
+      catch (e) { toast('❌ ' + e.message); }
+    }
+
+    async function markPaymentDone(orderId) {
+      const o = DATA.orders.find(x => x.id === orderId);
+      o.payment_status = 'paid';
+      o.payment = 'paid';
+      try { await saveData(DATA); renderOrders(); toast('💰 Payment done'); }
       catch (e) { toast('❌ ' + e.message); }
     }
 
@@ -368,19 +412,33 @@
           const p = DATA.products.find(x => x.id === it.product_id) || { name: it.product_name || '?' };
           return `<div style="font-size:13px;">• ${p.name} — ${it.qty} ${it.unit} × ${inr(it.price)} = ${inr(it.price*it.qty)}</div>`;
         }).join('');
+        const isPaid = o.payment === 'paid';
+        const payMode = o.payment_mode || 'cash';
+        const cashPaid = o.cash_paid || 0;
+        const onlinePaid = o.online_paid || 0;
         return `
-          <div class="card">
+          <div class="card" style="border-left:4px solid ${isPaid?'#2e7d32':'#f57c00'};">
             <div style="display:flex;justify-content:space-between;">
               <b>${o.user_name||'?'} <span style="font-size:11px;color:#666;">📞 ${o.user_phone||''}</span></b>
               <span style="font-size:12px;color:#666;">${new Date(o.created_at).toLocaleString('hi-IN')}</span>
             </div>
             <div class="mt">${items}</div>
-            <div style="font-weight:bold;color:#2e7d32;margin-top:6px;">Total: ${inr(o.total)}</div>
-            <div style="font-size:13px;margin-top:4px;">Status: <b>${o.status}</b> | Payment: <b>${o.payment}</b></div>
+            <div style="font-weight:bold;color:#2e7d32;margin-top:6px;font-size:16px;">Total: ${inr(o.total)}</div>
+
+            <div style="font-size:13px;margin-top:6px;background:#f9f9f9;padding:8px;border-radius:6px;">
+              <div>Status: <b>${o.status.toUpperCase()}</b></div>
+              <div>Payment: <b style="color:${isPaid?'#2e7d32':'#e65100'};">${isPaid?'✅ PAID':'⏳ PENDING'}</b></div>
+              ${payMode === 'split' || payMode === 'cash' || payMode === 'online' ? `
+                <div>Mode: <b>${payMode.toUpperCase()}</b></div>
+                ${cashPaid ? `<div>💵 Cash: ${inr(cashPaid)}</div>` : ''}
+                ${onlinePaid ? `<div>📱 Online: ${inr(onlinePaid)}</div>` : ''}
+              ` : ''}
+            </div>
+
             <div class="row mt">
               <button class="primary small" onclick="updateOrder('${o.id}',{status:'packed'})">📦</button>
               <button class="primary small" onclick="updateOrder('${o.id}',{status:'delivered'})">✅</button>
-              <button class="primary small" style="background:#f57c00;" onclick="updateOrder('${o.id}',{payment:'paid'})">💰</button>
+              ${!isPaid ? `<button class="primary small" style="background:#2e7d32;" onclick="markPaymentDone('${o.id}')">💰 Paid</button>` : ''}
             </div>
           </div>`;
       }).join('');
