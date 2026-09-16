@@ -18,6 +18,10 @@
     .pay-opt.selected { border-color:#2e7d32; background:#f1f8e9; }
     .upi-apps { display:flex; gap:6px; margin-top:8px; }
     .upi-apps button { flex:1; padding:8px 2px; font-size:11px; border:none; border-radius:6px; color:#fff; font-weight:bold; }
+    .icon-btn { display:inline-flex; align-items:center; justify-content:center; width:36px; height:36px; border-radius:50%; border:none; cursor:pointer; font-size:18px; margin-right:4px; }
+    .btn-call { background:#2e7d32; color:#fff; }
+    .btn-wa { background:#25d366; color:#fff; }
+    .btn-sms { background:#1976d2; color:#fff; }
   </style>
 </head>
 <body>
@@ -44,7 +48,7 @@
     </div>
 
     <div id="tab-profile" class="hidden">
-      <h3>👤 Profile</h3>
+      <h3>👤 Meri Profile</h3>
       <div id="profileBox"></div>
     </div>
   </div>
@@ -70,16 +74,13 @@
 
     async function init() {
       const ok = await waitForFirebase();
-      if (!ok) { alert('Firebase ready nahi. Page refresh karo.'); return; }
+      if (!ok) { alert('Firebase ready nahi'); return; }
 
       DATA = await loadData();
       const myUser = DATA.users.find(u => u.phone === s.data.phone);
-      ME = {
-        id: myUser?.id || s.data.id,
-        name: myUser?.name || s.data.name || 'Customer',
-        phone: s.data.phone,
-        price_type: myUser?.price_type || 'retail',
-        special_prices: myUser?.special_prices || {}
+      ME = myUser || {
+        id: s.data.id, name: s.data.name || 'Customer', phone: s.data.phone,
+        price_type: 'retail', special_prices: {}
       };
       saveSession('user', ME);
       renderGrid(); renderCart(); renderOrders(); renderProfile(); updateCartBadge();
@@ -110,14 +111,13 @@
         const unit = first.label;
         const totalStock = (p.units||[]).reduce((a,b) => a + (+b.stock||0), 0);
         const out = totalStock <= 0;
-        const multi = (p.units?.length||0) > 1;
         return `
           <div class="product-card">
             <img src="${p.image || 'https://via.placeholder.com/150'}" alt="${p.name}">
             <div class="info">
               <div class="name">${p.name}</div>
               <div class="price">${inr(price)}/${unit}</div>
-              <div class="stock">${out ? '❌ Khatam' : (multi ? '📦 Multi units' : '✔ ' + totalStock + ' ' + unit)}</div>
+              <div class="stock">${out ? '❌ Khatam' : '✔ ' + totalStock + ' ' + unit}</div>
               <button class="primary small" style="margin-top:auto;" ${out?'disabled style="background:#ccc;"':''} onclick="openUnitPicker('${p.id}')">
                 ${out ? 'Khatam' : '🛒 Add'}
               </button>
@@ -128,14 +128,12 @@
     document.getElementById('search').oninput = renderGrid;
 
     let pickerState = null;
-
     function openUnitPicker(pid) {
       const p = DATA.products.find(x => x.id === pid);
       if (!p || !p.units?.length) return;
       pickerState = { productId: pid, unitLabel: p.units[0].label, qty: UNIT_STEP[p.units[0].label] || 1 };
       renderPickerModal();
     }
-
     function renderPickerModal() {
       const p = DATA.products.find(x => x.id === pickerState.productId);
       const u = p.units.find(x => x.label === pickerState.unitLabel);
@@ -181,12 +179,7 @@
           </div>
         </div>`;
     }
-
-    function selectUnit(label) {
-      pickerState.unitLabel = label;
-      pickerState.qty = UNIT_STEP[label] || 1;
-      renderPickerModal();
-    }
+    function selectUnit(label) { pickerState.unitLabel = label; pickerState.qty = UNIT_STEP[label] || 1; renderPickerModal(); }
     function changeQty(dir) {
       const p = DATA.products.find(x => x.id === pickerState.productId);
       const u = p.units.find(x => x.label === pickerState.unitLabel);
@@ -200,8 +193,7 @@
     function setPickerQty(val) {
       const v = Math.round(parseFloat(val)*100)/100;
       if (!v || v <= 0) return;
-      pickerState.qty = v;
-      renderPickerModal();
+      pickerState.qty = v; renderPickerModal();
     }
     function confirmAdd() {
       const key = pickerState.productId + '::' + pickerState.unitLabel;
@@ -255,12 +247,9 @@
           </div>`;
       }).join('') + `<div class="card center" style="font-weight:bold;font-size:18px;">Total: ${inr(total)}</div>`;
     }
-
     function changeCartQty(key, dir) {
-      const ul = key.split('::')[1];
-      const step = UNIT_STEP[ul] || 1;
-      let v = (CART[key]||0) + dir*step;
-      v = Math.round(v*100)/100;
+      const ul = key.split('::')[1]; const step = UNIT_STEP[ul] || 1;
+      let v = (CART[key]||0) + dir*step; v = Math.round(v*100)/100;
       if (v <= 0) delete CART[key]; else CART[key] = v;
       saveCart(); renderCart();
     }
@@ -271,21 +260,17 @@
     }
 
     let payState = { mode: 'cash', cashPaid: 0 };
-
     function openPaymentModal() {
-      const keys = Object.keys(CART);
-      if (!keys.length) return toast('Cart khali');
+      if (!Object.keys(CART).length) return toast('Cart khali');
       payState = { mode: 'cash', cashPaid: 0 };
       renderPaymentModal();
     }
-
     function renderPaymentModal() {
       const total = cartTotal();
       const cash = payState.cashPaid || 0;
       const online = Math.max(0, total - cash);
       const showOnline = payState.mode === 'online' || (payState.mode === 'split' && online > 0);
       const { id: upiId } = getUpi();
-
       let qrImg = '', appLinks = {};
       if (showOnline && upiId) {
         qrImg = getUpiQrImage(online, 'Dukan Order');
@@ -297,14 +282,12 @@
           <div class="modal">
             <h3>💰 Payment</h3>
             <div style="font-size:18px;font-weight:bold;color:#2e7d32;margin-bottom:10px;">Total: ${inr(total)}</div>
-
             <p style="font-size:13px;color:#666;margin:8px 0;">Kaise pay karoge?</p>
             <div style="display:flex;gap:8px;">
               <div class="pay-opt ${payState.mode==='cash'?'selected':''}" onclick="setPayMode('cash')">💵<br><b>Cash</b></div>
               <div class="pay-opt ${payState.mode==='online'?'selected':''}" onclick="setPayMode('online')">📱<br><b>Online</b></div>
               <div class="pay-opt ${payState.mode==='split'?'selected':''}" onclick="setPayMode('split')">🔀<br><b>Split</b></div>
             </div>
-
             ${payState.mode === 'split' ? `
               <div style="margin-top:12px;background:#f9f9f9;padding:10px;border-radius:8px;">
                 <label style="font-size:13px;">💵 Cash diya:</label>
@@ -312,31 +295,26 @@
                 <div style="font-size:13px;margin-top:6px;">📱 Online: <b style="color:#2e7d32;">${inr(online)}</b></div>
               </div>
             ` : ''}
-
             ${showOnline ? `
               <div style="margin-top:12px;text-align:center;">
                 <div style="font-size:14px;margin-bottom:8px;">📱 <b>${inr(online)}</b> pay karo</div>
-                ${upiId ? `<div style="font-size:11px;color:#888;margin-bottom:6px;">UPI: ${upiId}</div>` : '<div style="color:#c62828;padding:8px;background:#ffebee;border-radius:8px;font-size:12px;">❌ UPI set nahi hai</div>'}
                 ${qrImg ? `<img src="${qrImg}" style="width:220px;height:220px;border:1px solid #eee;border-radius:8px;margin-bottom:6px;">` : ''}
                 ${upiId ? `
-                  <div style="font-size:12px;color:#666;margin:8px 0;">📲 Ya seedha app me kholo:</div>
                   <div class="upi-apps">
                     ${appLinks.gpay ? `<button style="background:#1976d2;" onclick="openApp('${appLinks.gpay}')">GPay</button>` : ''}
                     ${appLinks.phonepe ? `<button style="background:#5f259f;" onclick="openApp('${appLinks.phonepe}')">PhonePe</button>` : ''}
                     ${appLinks.paytm ? `<button style="background:#00baf2;color:#000;" onclick="openApp('${appLinks.paytm}')">Paytm</button>` : ''}
                     ${appLinks.bhim ? `<button style="background:#f57c00;" onclick="openApp('${appLinks.bhim}')">BHIM</button>` : ''}
                   </div>
-                  ${appLinks.any ? `<button class="primary" style="margin-top:10px;background:#2e7d32;" onclick="openApp('${appLinks.any}')">📲 Koi bhi UPI App</button>` : ''}
+                  <button class="primary" style="margin-top:10px;background:#2e7d32;" onclick="openApp('${appLinks.any}')">📲 Koi bhi UPI App</button>
                 ` : ''}
               </div>
             ` : ''}
-
             ${payState.mode === 'cash' ? `
               <div style="margin-top:12px;text-align:center;font-size:14px;color:#666;padding:12px;background:#f1f8e9;border-radius:8px;">
                 Saman lene aake <b style="color:#2e7d32;">${inr(total)}</b> cash doge
               </div>
             ` : ''}
-
             <div class="row mt" style="margin-top:16px;">
               <button class="primary" style="background:#777;" onclick="closePayment()">Cancel</button>
               <button class="primary" onclick="confirmOrder()">✅ Confirm Order</button>
@@ -344,7 +322,6 @@
           </div>
         </div>`;
     }
-
     function setPayMode(m) {
       payState.mode = m;
       if (m === 'cash') payState.cashPaid = cartTotal();
@@ -352,8 +329,7 @@
       renderPaymentModal();
     }
     function setCash(val) {
-      const v = Math.max(0, parseFloat(val) || 0);
-      payState.cashPaid = v;
+      payState.cashPaid = Math.max(0, parseFloat(val) || 0);
       renderPaymentModal();
     }
     function closePayment() { document.getElementById('modalRoot').innerHTML = ''; }
@@ -362,41 +338,30 @@
     async function confirmOrder() {
       const keys = Object.keys(CART);
       if (!keys.length) return toast('Cart khali');
-
       const total = cartTotal();
       let cashPaid = 0, onlinePaid = 0;
-      if (payState.mode === 'cash') { cashPaid = total; }
-      else if (payState.mode === 'online') { onlinePaid = total; }
+      if (payState.mode === 'cash') cashPaid = total;
+      else if (payState.mode === 'online') onlinePaid = total;
       else if (payState.mode === 'split') {
         cashPaid = Math.min(payState.cashPaid || 0, total);
         onlinePaid = total - cashPaid;
       }
-
       const items = keys.map(key => {
         const [pid, ul] = key.split('::');
         const p = DATA.products.find(x => x.id === pid);
-        return {
-          product_id: pid, product_name: p.name,
-          unit: ul, qty: CART[key], price: getUnitPrice(p, ul, ME)
-        };
+        return { product_id: pid, product_name: p.name, unit: ul, qty: CART[key], price: getUnitPrice(p, ul, ME) };
       });
-
       const order = {
-        id: uid(),
-        user_id: ME.id, user_name: ME.name, user_phone: ME.phone,
-        items, total,
-        payment_mode: payState.mode,
-        cash_paid: cashPaid,
-        online_paid: onlinePaid,
-        payment_status: 'pending',
-        order_status: 'pending',
+        id: uid(), user_id: ME.id, user_name: ME.name, user_phone: ME.phone,
+        items, total, payment_mode: payState.mode,
+        cash_paid: cashPaid, online_paid: onlinePaid,
+        payment_status: 'pending', order_status: 'pending',
         owner_approved: false,
         user_confirmed_at: new Date().toISOString(),
         owner_confirmed_at: null,
         history: [{ at: new Date().toISOString(), by: 'user', action: 'order_placed' }],
         created_at: new Date().toISOString()
       };
-
       try {
         toast('Order place ho raha hai...');
         await fbSaveOrder(order);
@@ -404,10 +369,7 @@
         closePayment();
         toast('✅ Order place — owner approval pending');
         document.querySelector('.bottom-nav a[data-tab="orders"]').click();
-      } catch (e) {
-        console.error('Order fail:', e);
-        toast('❌ ' + e.message);
-      }
+      } catch (e) { toast('❌ ' + e.message); }
     }
 
     function renderOrders() {
@@ -439,46 +401,77 @@
       }).join('');
     }
 
+    /* ========== PROFILE (edit + bakaya + udhar) ========== */
     function renderProfile() {
-      const myOrders = DATA.orders.filter(o => o.user_id === ME.id);
-      const totalSpent = myOrders.reduce((a, o) => a + o.total, 0);
-      const totalPaid = myOrders.filter(o => o.payment_status === 'paid').reduce((a, o) => a + o.total, 0);
-      const pending = totalSpent - totalPaid;
+      const stats = calculateUserStats(ME.id, DATA.orders, DATA.udhar);
+      const myUdhar = DATA.udhar.filter(u => u.user_id === ME.id);
 
-      const summary = {};
-      myOrders.forEach(o => {
-        o.items.forEach(it => {
-          const key = it.product_name || 'Unknown';
-          if (!summary[key]) summary[key] = { qty: 0, unit: it.unit, total: 0 };
-          summary[key].qty += it.qty;
-          summary[key].total += it.qty * it.price;
-        });
-      });
-
-      const summaryRows = Object.entries(summary).map(([name, d]) =>
-        `<div style="font-size:13px;padding:4px 0;border-bottom:1px solid #f0f0f0;">
-          <b>${name}</b> — ${d.qty} ${d.unit} (${inr(d.total)})
-        </div>`
-      ).join('') || '<div style="font-size:13px;color:#888;">Abhi tak kuch nahi kharida</div>';
+      const udharRows = myUdhar.map(u => `
+        <div style="padding:6px 0;border-bottom:1px solid #f0f0f0;font-size:13px;">
+          <div style="display:flex;justify-content:space-between;">
+            <b>${new Date(u.created_at).toLocaleDateString('hi-IN')}</b>
+            <span style="color:${u.status==='paid'?'#2e7d32':'#e65100'};">
+              ${u.status === 'paid' ? '✅ Paid' : '⏳ Pending'}
+            </span>
+          </div>
+          <div>${u.note || 'Udhar'}</div>
+          <div style="font-weight:bold;">${inr(u.amount)}</div>
+        </div>`).join('') || '<div style="font-size:13px;color:#888;">Koi udhar nahi</div>';
 
       document.getElementById('profileBox').innerHTML = `
         <div class="card">
-          <div style="font-size:15px;font-weight:bold;">${ME.name}</div>
-          <div style="font-size:13px;color:#666;">📞 ${ME.phone}</div>
-          <div style="font-size:12px;color:#888;margin-top:4px;">Type: ${ME.price_type === 'wholesale' ? '💼 Wholesale' : '🛒 Retail'}</div>
+          <h3>Meri Info</h3>
+          <label style="font-size:13px;color:#666;">Naam</label>
+          <input id="meName" value="${ME.name || ''}" placeholder="Apna naam">
+          <label style="font-size:13px;color:#666;margin-top:6px;display:block;">Phone</label>
+          <input id="mePhone" value="${ME.phone || ''}" readonly style="background:#f5f5f5;">
+          <label style="font-size:13px;color:#666;margin-top:6px;display:block;">Address</label>
+          <input id="meAddr" value="${ME.address || ''}" placeholder="Ghar ka pata">
+          <button class="primary" onclick="saveMyProfile()">💾 Save</button>
         </div>
+
         <div class="card">
+          <h3>💰 Hisaab</h3>
           <div style="display:flex;justify-content:space-around;text-align:center;">
-            <div><div style="font-size:22px;font-weight:bold;color:#2e7d32;">${myOrders.length}</div><div style="font-size:12px;color:#666;">Orders</div></div>
-            <div><div style="font-size:22px;font-weight:bold;color:#2e7d32;">${inr(totalSpent)}</div><div style="font-size:12px;color:#666;">Total</div></div>
-            <div><div style="font-size:22px;font-weight:bold;color:${pending>0?'#e65100':'#2e7d32'};">${inr(pending)}</div><div style="font-size:12px;color:#666;">Bakaya</div></div>
+            <div>
+              <div style="font-size:20px;font-weight:bold;color:#2e7d32;">${inr(stats.total_orders)}</div>
+              <div style="font-size:12px;color:#666;">Total Kharida</div>
+            </div>
+            <div>
+              <div style="font-size:20px;font-weight:bold;color:#2e7d32;">${inr(stats.total_paid)}</div>
+              <div style="font-size:12px;color:#666;">Paid</div>
+            </div>
+            <div>
+              <div style="font-size:20px;font-weight:bold;color:${stats.total_pending > 0 ? '#e65100' : '#2e7d32'};">${inr(stats.total_pending)}</div>
+              <div style="font-size:12px;color:#666;">Bakaya</div>
+            </div>
+          </div>
+          <div style="font-size:12px;color:#888;margin-top:8px;text-align:center;">
+            (Order pending: ${inr(stats.order_pending)} + Udhar: ${inr(stats.udhar_pending)})
           </div>
         </div>
+
         <div class="card">
-          <b style="font-size:14px;">🧾 Kya kya kharida:</b>
-          <div class="mt">${summaryRows}</div>
+          <b style="font-size:14px;">📋 Udhar List</b>
+          <div class="mt">${udharRows}</div>
         </div>
       `;
+    }
+
+    async function saveMyProfile() {
+      const name = document.getElementById('meName').value.trim();
+      const addr = document.getElementById('meAddr').value.trim();
+      if (!name) return toast('Naam daalo');
+
+      ME.name = name;
+      ME.address = addr;
+      try {
+        await fbSaveUser(ME);
+        saveSession('user', ME);
+        toast('✅ Profile save');
+        DATA = await loadData();
+        renderProfile();
+      } catch (e) { toast('❌ ' + e.message); }
     }
 
     init();
