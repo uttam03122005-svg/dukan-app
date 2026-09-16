@@ -5,7 +5,7 @@ const CONFIG = {
   GITHUB_REPO: 'dukan-data',
   GITHUB_BRANCH: 'main',
   GITHUB_FILE: 'data.json',
-  GITHUB_TOKEN: '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', // owner login ke baad set hoga (localStorage me)
+  GITHUB_TOKEN: '', // owner login ke baad set hoga (localStorage me)
   IMGBB_KEY: '238cb4c7441c9d28d8566129315b5939' // https://api.imgbb.com/ se free lo
 };
 
