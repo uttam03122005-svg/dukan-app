@@ -83,6 +83,14 @@
       };
       saveSession('user', ME);
 
+      // ⭐⭐⭐ data.json settings se token + UPI load karo localStorage me ⭐⭐⭐
+      if (DATA.settings) {
+        if (DATA.settings.gh_token) localStorage.setItem('gh_token', DATA.settings.gh_token);
+        if (DATA.settings.imgbb_key) localStorage.setItem('imgbb_key', DATA.settings.imgbb_key);
+        if (DATA.settings.upi_id) localStorage.setItem('upi_id', DATA.settings.upi_id);
+        if (DATA.settings.upi_name) localStorage.setItem('upi_name', DATA.settings.upi_name);
+      }
+
       renderGrid(); renderCart(); renderOrders(); renderProfile(); updateCartBadge();
     }
 
@@ -99,6 +107,7 @@
       };
     });
 
+    /* ---------- GRID ---------- */
     function renderGrid() {
       const q = (document.getElementById('search').value||'').toLowerCase();
       const items = DATA.products.filter(p => !p.hidden && p.name.toLowerCase().includes(q));
@@ -128,6 +137,7 @@
     }
     document.getElementById('search').oninput = renderGrid;
 
+    /* ---------- UNIT PICKER ---------- */
     let pickerState = null;
 
     function openUnitPicker(pid) {
@@ -211,6 +221,7 @@
     }
     function closePicker() { document.getElementById('modalRoot').innerHTML = ''; pickerState = null; }
 
+    /* ---------- CART ---------- */
     function saveCart() { localStorage.setItem('cart', JSON.stringify(CART)); updateCartBadge(); }
     function updateCartBadge() { document.getElementById('cartCount').textContent = Object.keys(CART).length; }
 
@@ -271,6 +282,7 @@
       saveCart(); renderCart();
     }
 
+    /* ---------- PAYMENT MODAL ---------- */
     let payState = { mode: 'cash', cashPaid: 0 };
 
     function openPaymentModal() {
@@ -286,9 +298,16 @@
       const online = Math.max(0, total - cash);
 
       const showOnline = payState.mode === 'online' || (payState.mode === 'split' && online > 0);
-      const qrImg = showOnline ? getUpiQrImage(online, 'Dukan Order') : '';
-      const appLinks = showOnline ? getAppLinks(online, 'Dukan Order') : {};
-      const { id: upiId } = getUpi();
+      const { id: upiId, name: upiName } = getUpi();
+
+      let qrImg = '';
+      let appLinks = {};
+      if (showOnline) {
+        if (upiId) {
+          qrImg = getUpiQrImage(online, 'Dukan Order');
+          appLinks = getAppLinks(online, 'Dukan Order');
+        }
+      }
 
       document.getElementById('modalRoot').innerHTML = `
         <div class="modal-bg" onclick="if(event.target===this) closePayment()">
@@ -315,15 +334,26 @@
               <div style="margin-top:12px;text-align:center;">
                 <div style="font-size:14px;margin-bottom:8px;">📱 <b>${inr(online)}</b> pay karo</div>
                 ${upiId ? `<div style="font-size:11px;color:#888;margin-bottom:6px;">UPI: ${upiId}</div>` : ''}
-                ${qrImg ? `<img src="${qrImg}" style="width:220px;height:220px;border:1px solid #eee;border-radius:8px;margin-bottom:6px;">` : '<div style="color:#c62828;">QR set nahi hai — Owner Settings me UPI ID daalo</div>'}
-                <div style="font-size:12px;color:#666;margin:8px 0;">📲 Ya seedha app me kholo:</div>
-                <div class="upi-apps">
-                  ${appLinks.gpay ? `<button style="background:#1976d2;" onclick="openApp('${appLinks.gpay}')">GPay</button>` : ''}
-                  ${appLinks.phonepe ? `<button style="background:#5f259f;" onclick="openApp('${appLinks.phonepe}')">PhonePe</button>` : ''}
-                  ${appLinks.paytm ? `<button style="background:#00baf2;color:#000;" onclick="openApp('${appLinks.paytm}')">Paytm</button>` : ''}
-                  ${appLinks.bhim ? `<button style="background:#f57c00;" onclick="openApp('${appLinks.bhim}')">BHIM</button>` : ''}
-                </div>
-                ${appLinks.any ? `<button class="primary" style="margin-top:10px;background:#2e7d32;" onclick="openApp('${appLinks.any}')">📲 Koi bhi UPI App</button>` : ''}
+
+                ${!upiId ? `
+                  <div style="color:#c62828;padding:12px;background:#ffebee;border-radius:8px;font-size:13px;">
+                    ❌ UPI ID set nahi hai.<br>
+                    Owner se Settings me UPI daalne ko bolo.
+                  </div>
+                ` : ''}
+
+                ${qrImg ? `<img src="${qrImg}" style="width:220px;height:220px;border:1px solid #eee;border-radius:8px;margin-bottom:6px;">` : ''}
+
+                ${upiId ? `
+                  <div style="font-size:12px;color:#666;margin:8px 0;">📲 Ya seedha app me kholo:</div>
+                  <div class="upi-apps">
+                    ${appLinks.gpay ? `<button style="background:#1976d2;" onclick="openApp('${appLinks.gpay}')">GPay</button>` : ''}
+                    ${appLinks.phonepe ? `<button style="background:#5f259f;" onclick="openApp('${appLinks.phonepe}')">PhonePe</button>` : ''}
+                    ${appLinks.paytm ? `<button style="background:#00baf2;color:#000;" onclick="openApp('${appLinks.paytm}')">Paytm</button>` : ''}
+                    ${appLinks.bhim ? `<button style="background:#f57c00;" onclick="openApp('${appLinks.bhim}')">BHIM</button>` : ''}
+                  </div>
+                  ${appLinks.any ? `<button class="primary" style="margin-top:10px;background:#2e7d32;" onclick="openApp('${appLinks.any}')">📲 Koi bhi UPI App</button>` : ''}
+                ` : ''}
               </div>
             ` : ''}
 
@@ -358,6 +388,12 @@
     async function confirmOrder() {
       const keys = Object.keys(CART);
       if (!keys.length) return toast('Cart khali');
+
+      // Token check
+      const token = await getActiveToken();
+      if (!token) {
+        return toast('❌ Token set nahi. Owner se Settings me daalne ko bolo.');
+      }
 
       const total = cartTotal();
       let cashPaid = 0, onlinePaid = 0;
@@ -396,6 +432,7 @@
       } catch (e) { toast('❌ ' + e.message); }
     }
 
+    /* ---------- ORDERS ---------- */
     function renderOrders() {
       const mine = DATA.orders.filter(o => o.user_id === ME.id).reverse();
       const list = document.getElementById('myOrders');
@@ -423,6 +460,7 @@
       }).join('');
     }
 
+    /* ---------- PROFILE ---------- */
     function renderProfile() {
       const myOrders = DATA.orders.filter(o => o.user_id === ME.id);
       const totalSpent = myOrders.reduce((a, o) => a + o.total, 0);
