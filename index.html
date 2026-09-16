@@ -75,6 +75,37 @@
 
       toast('Login ho raha hai...');
 
+      // ⭐ STEP 1: data.json load karo (settings ke liye)
+      const oData = await loadData();
+      console.log('📦 data.json loaded:', {
+        products: oData.products.length,
+        users: oData.users.length,
+        orders: oData.orders.length,
+        settings: oData.settings
+      });
+
+      // ⭐ STEP 2: Settings localStorage me daalo
+      if (oData.settings) {
+        if (oData.settings.gh_token) {
+          localStorage.setItem('gh_token', oData.settings.gh_token);
+          console.log('✅ Token loaded:', oData.settings.gh_token.substring(0, 25) + '...');
+        } else {
+          console.warn('⚠️ Token data.json me nahi hai');
+        }
+        if (oData.settings.imgbb_key) localStorage.setItem('imgbb_key', oData.settings.imgbb_key);
+        if (oData.settings.upi_id) {
+          localStorage.setItem('upi_id', oData.settings.upi_id);
+          console.log('✅ UPI loaded:', oData.settings.upi_id);
+        } else {
+          console.warn('⚠️ UPI data.json me nahi hai');
+        }
+        if (oData.settings.upi_name) localStorage.setItem('upi_name', oData.settings.upi_name);
+      } else {
+        console.warn('⚠️ data.json me settings nahi hai');
+        toast('⚠️ Owner ne settings save nahi ki');
+      }
+
+      // ⭐ STEP 3: Customer register/login
       const cData = await loadCustomers();
       const local = JSON.parse(localStorage.getItem('my_users') || '[]');
 
@@ -100,15 +131,6 @@
         toast('Wapas swagat!');
       }
 
-      // ⭐⭐⭐ data.json se settings load karo localStorage me ⭐⭐⭐
-      const oData = await loadData();
-      if (oData.settings) {
-        if (oData.settings.gh_token) localStorage.setItem('gh_token', oData.settings.gh_token);
-        if (oData.settings.imgbb_key) localStorage.setItem('imgbb_key', oData.settings.imgbb_key);
-        if (oData.settings.upi_id) localStorage.setItem('upi_id', oData.settings.upi_id);
-        if (oData.settings.upi_name) localStorage.setItem('upi_name', oData.settings.upi_name);
-      }
-
       const ownerUser = oData.users.find(u => u.phone === phone);
       saveSession('user', {
         id: user.id,
@@ -132,7 +154,7 @@
         return toast('Galat ID ya password');
       }
 
-      // Owner ke localStorage me bhi settings daalo (agar hai to)
+      // Owner ke localStorage me bhi settings daalo
       if (data.settings) {
         if (data.settings.gh_token) localStorage.setItem('gh_token', data.settings.gh_token);
         if (data.settings.imgbb_key) localStorage.setItem('imgbb_key', data.settings.imgbb_key);
