@@ -10,7 +10,11 @@ const CONFIG = {
   CUST_BRANCH: 'main',
 
   GITHUB_TOKEN: '',
-  IMGBB_KEY: ''
+  IMGBB_KEY: '',
+
+  // UPI ID for online payment QR
+  UPI_ID: 'uttam@upi',         // 👈 apna UPI ID daalo
+  UPI_NAME: 'Uttam Store'       // 👈 apna naam
 };
 
 const DATA_URL = `https://raw.githubusercontent.com/${CONFIG.GITHUB_USER}/${CONFIG.GITHUB_REPO}/${CONFIG.GITHUB_BRANCH}/${CONFIG.GITHUB_FILE}`;
@@ -29,12 +33,10 @@ function toast(msg) {
   t._tm = setTimeout(() => t.classList.remove('show'), 2400);
 }
 
-/* ================== GET TOKEN ================== */
-function getToken() {
-  return localStorage.getItem('gh_token') || CONFIG.GITHUB_TOKEN;
-}
+/* ================== TOKEN ================== */
+function getToken() { return localStorage.getItem('gh_token') || CONFIG.GITHUB_TOKEN; }
 
-/* ================== LOAD data.json ================== */
+/* ================== LOAD ================== */
 async function loadData() {
   try {
     const res = await fetch(DATA_URL + '?t=' + Date.now());
@@ -52,7 +54,6 @@ async function loadData() {
   }
 }
 
-/* ================== LOAD customers.json ================== */
 async function loadCustomers() {
   try {
     const res = await fetch(CUST_URL + '?t=' + Date.now());
@@ -69,13 +70,12 @@ async function loadCustomers() {
 /* ================== SAVE ================== */
 async function saveData(data) {
   const token = getToken();
-  if (!token) throw new Error('Token nahi mila. Owner login karo.');
+  if (!token) throw new Error('Token nahi mila');
   return await _githubSave(CONFIG.GITHUB_REPO, CONFIG.GITHUB_FILE, data, token);
 }
-
 async function saveCustomers(data) {
   const token = getToken();
-  if (!token) throw new Error('Token nahi mila.');
+  if (!token) throw new Error('Token nahi mila');
   return await _githubSave(CONFIG.CUST_REPO, CONFIG.CUST_FILE, data, token);
 }
 
@@ -86,10 +86,8 @@ async function _githubSave(repo, file, data, token, retry = 0) {
     headers: { Authorization: `token ${token}`, Accept: 'application/vnd.github+json' }
   });
   let sha = null;
-  if (getRes.ok) {
-    const f = await getRes.json();
-    sha = f.sha;
-  } else if (getRes.status !== 404) {
+  if (getRes.ok) { const f = await getRes.json(); sha = f.sha; }
+  else if (getRes.status !== 404) {
     const err = await getRes.json().catch(() => ({}));
     throw new Error('Read fail: ' + (err.message || getRes.status));
   }
@@ -105,9 +103,7 @@ async function _githubSave(repo, file, data, token, retry = 0) {
     },
     body: JSON.stringify({
       message: 'update ' + file + ' ' + new Date().toISOString(),
-      content,
-      sha: sha || undefined,
-      branch: 'main'
+      content, sha: sha || undefined, branch: 'main'
     })
   });
 
@@ -182,6 +178,15 @@ function getUnitPrice(product, unitLabel, user) {
 /* ================== HELPERS ================== */
 function inr(n) { const v = Number(n) || 0; return '₹' + (v % 1 === 0 ? v : v.toFixed(2)); }
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+
+/* ================== UPI QR ================== */
+function getUpiUrl(amount, note) {
+  const upi = CONFIG.UPI_ID;
+  const name = encodeURIComponent(CONFIG.UPI_NAME);
+  const amt = Number(amount).toFixed(2);
+  const tn = encodeURIComponent(note || 'Dukan Order');
+  return `upi://pay?pa=${upi}&pn=${name}&am=${amt}&cu=INR&tn=${tn}`;
+}
 
 /* ================== SERVICE WORKER ================== */
 if ('serviceWorker' in navigator) {
