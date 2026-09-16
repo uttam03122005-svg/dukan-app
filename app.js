@@ -19,7 +19,7 @@ const CUST_URL = `https://raw.githubusercontent.com/${CONFIG.GITHUB_USER}/${CONF
 const DEFAULT_DATA = {
   products: [], users: [], orders: [],
   owner: { id: 'owner', password: 'owner123' },
-  settings: {} // 👈 isme token, imgbb, upi sab
+  settings: {}
 };
 const DEFAULT_CUST = { users: [] };
 
@@ -33,10 +33,10 @@ function toast(msg) {
   t._tm = setTimeout(() => t.classList.remove('show'), 2600);
 }
 
-/* ================== TOKEN SOURCE ================== */
-// Priority: localStorage > owner settings in data.json
-let CACHED_DATA = null; // last loaded data.json
+/* ================== CACHE ================== */
+let CACHED_DATA = null;
 
+/* ================== TOKEN / SETTINGS ================== */
 async function getActiveToken() {
   const local = localStorage.getItem('gh_token');
   if (local) return local;
@@ -44,7 +44,6 @@ async function getActiveToken() {
   if (CONFIG.GITHUB_TOKEN) return CONFIG.GITHUB_TOKEN;
   return null;
 }
-
 async function getImgbbKey() {
   const local = localStorage.getItem('imgbb_key');
   if (local) return local;
@@ -52,7 +51,6 @@ async function getImgbbKey() {
   if (CONFIG.IMGBB_KEY) return CONFIG.IMGBB_KEY;
   return null;
 }
-
 function getUpi() {
   return {
     id: localStorage.getItem('upi_id') || CACHED_DATA?.settings?.upi_id || '',
@@ -71,7 +69,7 @@ async function loadData() {
     j.orders = j.orders || [];
     j.owner = j.owner || { id: 'owner', password: 'owner123' };
     j.settings = j.settings || {};
-    CACHED_DATA = j; // 👈 cache me save
+    CACHED_DATA = j;
     return j;
   } catch (e) {
     console.warn('loadData fail:', e);
@@ -95,13 +93,12 @@ async function loadCustomers() {
 /* ================== SAVE ================== */
 async function saveData(data) {
   const token = await getActiveToken();
-  if (!token) throw new Error('Token set nahi hai. Owner login karo ya Settings me daalo.');
+  if (!token) throw new Error('Token set nahi hai. Owner login karo.');
   return await _githubSave(CONFIG.GITHUB_REPO, CONFIG.GITHUB_FILE, data, token);
 }
-
 async function saveCustomers(data) {
   const token = await getActiveToken();
-  if (!token) throw new Error('Token nahi mila');
+  if (!token) throw new Error('Token set nahi hai');
   return await _githubSave(CONFIG.CUST_REPO, CONFIG.CUST_FILE, data, token);
 }
 
@@ -179,7 +176,6 @@ function logout() {
   localStorage.removeItem('upi_name');
   location.replace('index.html');
 }
-// Sirf customer ka logout — token nahi hatega
 function logoutUser() {
   localStorage.removeItem('role');
   localStorage.removeItem('session');
@@ -213,8 +209,7 @@ function getUnitPrice(product, unitLabel, user) {
 function inr(n) { const v = Number(n) || 0; return '₹' + (v % 1 === 0 ? v : v.toFixed(2)); }
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
 
-/* ================== UPI LINKS ================== */
-// UPI deep link (app open)
+/* ================== UPI ================== */
 function getUpiLink(amount, note) {
   const { id, name } = getUpi();
   if (!id) return '';
@@ -224,15 +219,11 @@ function getUpiLink(amount, note) {
   const pa = encodeURIComponent(id);
   return `upi://pay?pa=${pa}&pn=${pn}&am=${amt}&cu=INR&tn=${tn}`;
 }
-
-// UPI QR image URL
 function getUpiQrImage(amount, note) {
   const link = getUpiLink(amount, note);
   if (!link) return '';
-  return `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(link)}`;
+  return `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(link)}`;
 }
-
-// Specific app deep links (fallback buttons)
 function getAppLinks(amount, note) {
   const { id, name } = getUpi();
   if (!id) return {};
