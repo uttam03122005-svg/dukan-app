@@ -38,8 +38,7 @@
 
   <script src="app.js"></script>
   <script>
-    // Session check
-    (function() {
+    (async function() {
       const s = getSession();
       if (s && s.role === 'owner') { location.replace('owner.html'); return; }
       if (s && s.role === 'user')  { location.replace('user.html');  return; }
@@ -60,30 +59,28 @@
       document.getElementById('userForm').classList.add('hidden');
     };
 
-    /* ---------- CUSTOMER ---------- */
     async function userLogin() {
       const phone = document.getElementById('uPhone').value.trim();
       if (phone.length !== 10) return toast('10 digit phone daalo');
 
       toast('Login ho raha hai...');
+      const ok = await waitForFirebase();
+      if (!ok) return toast('❌ Firebase ready nahi. Refresh karo.');
 
-      const oData = await loadData();
-      const cData = await loadCustomers();
-      const local = JSON.parse(localStorage.getItem('my_users') || '[]');
-
-      let user = cData.users.find(u => u.phone === phone);
-      if (!user) user = local.find(u => u.phone === phone);
+      const users = await fbLoadAllUsers();
+      let user = users.find(u => u.phone === phone);
 
       if (!user) {
-        user = { id: 'U' + phone, name: 'Customer', phone, created_at: new Date().toISOString() };
-        const l2 = JSON.parse(localStorage.getItem('my_users') || '[]');
-        if (!l2.find(u => u.phone === phone)) {
-          l2.push(user);
-          localStorage.setItem('my_users', JSON.stringify(l2));
-        }
+        user = {
+          id: 'U' + phone,
+          name: 'Customer',
+          phone: phone,
+          price_type: 'retail',
+          special_prices: {},
+          created_at: new Date().toISOString()
+        };
         try {
-          cData.users.push(user);
-          await saveCustomers(cData);
+          await fbSaveUser(user);
           toast('✅ Register ho gaya');
         } catch (e) {
           console.warn('Save fail:', e);
@@ -93,26 +90,28 @@
         toast('Wapas swagat!');
       }
 
-      const ownerUser = oData.users.find(u => u.phone === phone);
       saveSession('user', {
         id: user.id,
-        name: ownerUser?.name || user.name || 'Customer',
+        name: user.name || 'Customer',
         phone,
-        price_type: ownerUser?.price_type || 'retail',
-        special_prices: ownerUser?.special_prices || {}
+        price_type: user.price_type || 'retail',
+        special_prices: user.special_prices || {}
       });
 
       setTimeout(() => location.replace('user.html'), 300);
     }
 
-    /* ---------- OWNER ---------- */
     async function ownerLogin() {
       const id = document.getElementById('oId').value.trim();
       const pass = document.getElementById('oPass').value.trim();
       if (!id || !pass) return toast('ID aur password daalo');
 
-      const data = await loadData();
-      if (id !== data.owner.id || pass !== data.owner.password) {
+      toast('Login ho raha hai...');
+      const ok = await waitForFirebase();
+      if (!ok) return toast('❌ Firebase ready nahi. Refresh karo.');
+
+      const owner = await fbGetOwner();
+      if (id !== owner.id || pass !== owner.password) {
         return toast('Galat ID ya password');
       }
 
