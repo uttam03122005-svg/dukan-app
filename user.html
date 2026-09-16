@@ -3,28 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Dukan - Shop</title>
+  <title>Dukan</title>
   <link rel="manifest" href="manifest.json">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="theme-color" content="#2e7d32">
-  <link rel="apple-touch-icon" href="icon-192.png">
   <link rel="stylesheet" href="style.css">
   <style>
-    .modal-bg {
-      position: fixed; inset: 0; background: rgba(0,0,0,.5);
-      display: flex; align-items: center; justify-content: center; z-index: 500;
-    }
-    .modal {
-      background: #fff; border-radius: 12px; padding: 16px;
-      width: 90%; max-width: 400px; max-height: 90vh; overflow-y: auto;
-    }
-    .unit-row {
-      display: flex; align-items: center; gap: 8px;
-      padding: 10px; border: 2px solid #eee; border-radius: 8px; margin-bottom: 8px;
-      cursor: pointer;
-    }
-    .unit-row.selected { border-color: #2e7d32; background: #f1f8e9; }
-    .qty-btn { width: 40px; height: 40px; border-radius: 50%; font-size: 20px; font-weight: bold; }
+    .modal-bg { position:fixed; inset:0; background:rgba(0,0,0,.5); display:flex; align-items:center; justify-content:center; z-index:500; }
+    .modal { background:#fff; border-radius:12px; padding:16px; width:90%; max-width:400px; max-height:90vh; overflow-y:auto; }
+    .unit-row { display:flex; align-items:center; gap:8px; padding:10px; border:2px solid #eee; border-radius:8px; margin-bottom:8px; cursor:pointer; }
+    .unit-row.selected { border-color:#2e7d32; background:#f1f8e9; }
+    .qty-btn { width:40px; height:40px; border-radius:50%; font-size:20px; font-weight:bold; }
   </style>
 </head>
 <body>
@@ -38,14 +27,21 @@
       <input class="search-bar" id="search" placeholder="🔍 Product dhundo...">
       <div class="product-grid" id="grid"></div>
     </div>
+
     <div id="tab-cart" class="hidden">
-      <h3>🛒 Mera Cart</h3>
+      <h3>🛒 Cart</h3>
       <div id="cartList"></div>
-      <button class="primary" onclick="placeOrder()">📤 Order Place Karo</button>
+      <button class="primary" onclick="placeOrder()">📤 Order Karo</button>
     </div>
+
     <div id="tab-orders" class="hidden">
-      <h3>📦 Mere Orders</h3>
+      <h3>📦 Orders</h3>
       <div id="myOrders"></div>
+    </div>
+
+    <div id="tab-profile" class="hidden">
+      <h3>👤 Meri Profile</h3>
+      <div id="profileBox"></div>
     </div>
   </div>
 
@@ -53,25 +49,26 @@
     <a href="#" class="active" data-tab="home">🏠<br>Home</a>
     <a href="#" data-tab="cart">🛒<br>Cart <span class="cart-badge" id="cartCount">0</span></a>
     <a href="#" data-tab="orders">📦<br>Orders</a>
+    <a href="#" data-tab="profile">👤<br>Profile</a>
   </div>
 
-  <!-- Modal container -->
   <div id="modalRoot"></div>
 
   <script src="app.js"></script>
   <script>
     const s = getSession();
-    if (!s || s.role !== 'user') location.href = 'index.html';
+    if (!s || s.role !== 'user') location.replace('index.html');
 
-    let DATA = null;
-    let ME = null;
-    // Cart ab: { "productId::unit": qty }
+    let DATA = null, ME = null;
     let CART = JSON.parse(localStorage.getItem('cart') || '{}');
 
     document.getElementById('welcome').textContent = 'Namaste, ' + s.data.name;
 
     async function init() {
       DATA = await loadData();
+      const local = JSON.parse(localStorage.getItem('my_users') || '[]');
+      local.forEach(lu => { if (!DATA.users.find(u => u.id === lu.id)) DATA.users.push(lu); });
+
       const ownerUser = DATA.users.find(u => u.phone === s.data.phone);
       ME = {
         id: s.data.id, name: s.data.name, phone: s.data.phone,
@@ -79,11 +76,7 @@
         special_prices: ownerUser?.special_prices || s.data.special_prices || {}
       };
       saveSession('user', ME);
-
-      renderGrid();
-      renderCart();
-      renderOrders();
-      updateCartBadge();
+      renderGrid(); renderCart(); renderOrders(); renderProfile(); updateCartBadge();
     }
 
     document.querySelectorAll('.bottom-nav a').forEach(a => {
@@ -91,37 +84,36 @@
         e.preventDefault();
         document.querySelectorAll('.bottom-nav a').forEach(x => x.classList.remove('active'));
         a.classList.add('active');
-        ['home','cart','orders'].forEach(t => {
+        ['home','cart','orders','profile'].forEach(t => {
           document.getElementById('tab-'+t).classList.toggle('hidden', t !== a.dataset.tab);
         });
         if (a.dataset.tab === 'orders') renderOrders();
+        if (a.dataset.tab === 'profile') renderProfile();
       };
     });
 
     /* ---------- GRID ---------- */
     function renderGrid() {
-      const q = (document.getElementById('search').value || '').toLowerCase();
+      const q = (document.getElementById('search').value||'').toLowerCase();
       const items = DATA.products.filter(p => !p.hidden && p.name.toLowerCase().includes(q));
       const grid = document.getElementById('grid');
       if (!items.length) { grid.innerHTML = '<div class="card center">Koi product nahi</div>'; return; }
-
       grid.innerHTML = items.map(p => {
         const first = p.units?.[0];
         if (!first) return '';
         const price = getUnitPrice(p, first.label, ME);
         const unit = first.label;
-        const totalStock = (p.units || []).reduce((a, b) => a + (+b.stock || 0), 0);
+        const totalStock = (p.units||[]).reduce((a,b) => a + (+b.stock||0), 0);
         const out = totalStock <= 0;
-        const multiUnit = (p.units?.length || 0) > 1;
-
+        const multi = (p.units?.length||0) > 1;
         return `
           <div class="product-card">
             <img src="${p.image || 'https://via.placeholder.com/150'}" alt="${p.name}">
             <div class="info">
               <div class="name">${p.name}</div>
               <div class="price">${inr(price)}/${unit}</div>
-              <div class="stock">${out ? '❌ Khatam' : (multiUnit ? '📦 Multiple units' : '✔ ' + totalStock + ' ' + unit)}</div>
-              <button class="primary small" style="margin-top:auto;" ${out ? 'disabled style="background:#ccc;"' : ''} onclick="openUnitPicker('${p.id}')">
+              <div class="stock">${out ? '❌ Khatam' : (multi ? '📦 Multi units' : '✔ ' + totalStock + ' ' + unit)}</div>
+              <button class="primary small" style="margin-top:auto;" ${out?'disabled style="background:#ccc;"':''} onclick="openUnitPicker('${p.id}')">
                 ${out ? 'Khatam' : '🛒 Add'}
               </button>
             </div>
@@ -130,18 +122,13 @@
     }
     document.getElementById('search').oninput = renderGrid;
 
-    /* ---------- UNIT PICKER MODAL ---------- */
-    let pickerState = null; // { productId, unitLabel, qty }
+    /* ---------- UNIT PICKER ---------- */
+    let pickerState = null;
 
     function openUnitPicker(pid) {
       const p = DATA.products.find(x => x.id === pid);
       if (!p || !p.units?.length) return;
-
-      pickerState = {
-        productId: pid,
-        unitLabel: p.units[0].label,
-        qty: UNIT_STEP[p.units[0].label] || 1
-      };
+      pickerState = { productId: pid, unitLabel: p.units[0].label, qty: UNIT_STEP[p.units[0].label] || 1 };
       renderPickerModal();
     }
 
@@ -152,7 +139,7 @@
       const step = UNIT_STEP[u.label] || 1;
       const subtotal = price * pickerState.qty;
 
-      const unitRows = p.units.map(un => {
+      const rows = p.units.map(un => {
         const up = getUnitPrice(p, un.label, ME);
         const sel = un.label === pickerState.unitLabel ? 'selected' : '';
         return `
@@ -169,9 +156,9 @@
       document.getElementById('modalRoot').innerHTML = `
         <div class="modal-bg" onclick="if(event.target===this) closePicker()">
           <div class="modal">
-            <h3 style="margin-bottom:8px;">${p.name}</h3>
+            <h3>${p.name}</h3>
             <p style="font-size:13px;color:#666;margin-bottom:10px;">Unit select karo</p>
-            ${unitRows}
+            ${rows}
             <div style="margin-top:14px;padding-top:12px;border-top:1px solid #eee;">
               <div class="row" style="align-items:center;">
                 <button class="primary small qty-btn" onclick="changeQty(-1)">−</button>
@@ -185,125 +172,100 @@
             </div>
             <div class="row mt">
               <button class="primary" style="background:#777;" onclick="closePicker()">Cancel</button>
-              <button class="primary" onclick="confirmAdd()">🛒 Cart Me Daalo</button>
+              <button class="primary" onclick="confirmAdd()">🛒 Add</button>
             </div>
           </div>
-        </div>
-      `;
+        </div>`;
     }
 
     function selectUnit(label) {
       pickerState.unitLabel = label;
-      // reset qty to new step
       pickerState.qty = UNIT_STEP[label] || 1;
       renderPickerModal();
     }
-
     function changeQty(dir) {
       const p = DATA.products.find(x => x.id === pickerState.productId);
       const u = p.units.find(x => x.label === pickerState.unitLabel);
       const step = UNIT_STEP[u.label] || 1;
       let v = pickerState.qty + dir * step;
-      v = Math.round(v * 100) / 100;
+      v = Math.round(v*100)/100;
       if (v < step) v = step;
       pickerState.qty = v;
       renderPickerModal();
     }
-
     function setPickerQty(val) {
-      const v = Math.round(parseFloat(val) * 100) / 100;
+      const v = Math.round(parseFloat(val)*100)/100;
       if (!v || v <= 0) return;
       pickerState.qty = v;
       renderPickerModal();
     }
-
     function confirmAdd() {
-      const p = DATA.products.find(x => x.id === pickerState.productId);
-      const u = p.units.find(x => x.label === pickerState.unitLabel);
       const key = pickerState.productId + '::' + pickerState.unitLabel;
-      CART[key] = (CART[key] || 0) + pickerState.qty;
-      CART[key] = Math.round(CART[key] * 100) / 100;
-      saveCart();
-      closePicker();
-      toast('Cart me add ho gaya');
+      CART[key] = Math.round(((CART[key]||0) + pickerState.qty) * 100) / 100;
+      saveCart(); closePicker(); toast('Cart me add');
     }
-
-    function closePicker() {
-      document.getElementById('modalRoot').innerHTML = '';
-      pickerState = null;
-    }
+    function closePicker() { document.getElementById('modalRoot').innerHTML = ''; pickerState = null; }
 
     /* ---------- CART ---------- */
-    function saveCart() {
-      localStorage.setItem('cart', JSON.stringify(CART));
-      updateCartBadge();
-    }
-    function updateCartBadge() {
-      document.getElementById('cartCount').textContent = Object.keys(CART).length;
-    }
+    function saveCart() { localStorage.setItem('cart', JSON.stringify(CART)); updateCartBadge(); }
+    function updateCartBadge() { document.getElementById('cartCount').textContent = Object.keys(CART).length; }
 
     function renderCart() {
       const list = document.getElementById('cartList');
       const keys = Object.keys(CART);
-      if (!keys.length) { list.innerHTML = '<div class="card center">Cart khali hai</div>'; return; }
-
+      if (!keys.length) { list.innerHTML = '<div class="card center">Cart khali</div>'; return; }
       let total = 0;
       list.innerHTML = keys.map(key => {
-        const [pid, unitLabel] = key.split('::');
+        const [pid, ul] = key.split('::');
         const p = DATA.products.find(x => x.id === pid);
         if (!p) return '';
         const qty = CART[key];
-        const price = getUnitPrice(p, unitLabel, ME);
+        const price = getUnitPrice(p, ul, ME);
         total += price * qty;
-        const step = UNIT_STEP[unitLabel] || 1;
-
+        const step = UNIT_STEP[ul] || 1;
         return `
           <div class="card">
             <div class="row">
-              <img src="${p.image || 'https://via.placeholder.com/60'}" style="width:60px;height:60px;object-fit:cover;border-radius:6px;flex:0 0 60px;">
+              <img src="${p.image||'https://via.placeholder.com/60'}" style="width:60px;height:60px;object-fit:cover;border-radius:6px;flex:0 0 60px;">
               <div style="flex:1;">
                 <div style="font-weight:600;font-size:14px;">${p.name}</div>
-                <div style="color:#2e7d32;font-weight:bold;">${inr(price)}/${unitLabel}</div>
+                <div style="color:#2e7d32;font-weight:bold;">${inr(price)}/${ul}</div>
               </div>
             </div>
             <div class="row mt">
               <button class="primary small" onclick="changeCartQty('${key}',-1)">−</button>
               <input type="number" value="${qty}" step="${step}" style="text-align:center;margin:0;" onchange="setCartQty('${key}', this.value)">
-              <span style="flex:0;white-space:nowrap;font-weight:bold;">${unitLabel}</span>
+              <span style="flex:0;white-space:nowrap;font-weight:bold;">${ul}</span>
               <button class="primary small" onclick="changeCartQty('${key}',1)">+</button>
             </div>
-            <div class="center" style="font-size:13px;color:#555;margin-top:4px;">Subtotal: <b>${inr(price * qty)}</b></div>
+            <div class="center" style="font-size:13px;color:#555;margin-top:4px;">Sub: <b>${inr(price*qty)}</b></div>
           </div>`;
       }).join('') + `<div class="card center" style="font-weight:bold;font-size:18px;">Total: ${inr(total)}</div>`;
     }
 
     function changeCartQty(key, dir) {
-      const [pid, unitLabel] = key.split('::');
-      const step = UNIT_STEP[unitLabel] || 1;
-      let v = (CART[key] || 0) + dir * step;
-      v = Math.round(v * 100) / 100;
+      const ul = key.split('::')[1];
+      const step = UNIT_STEP[ul] || 1;
+      let v = (CART[key]||0) + dir*step;
+      v = Math.round(v*100)/100;
       if (v <= 0) delete CART[key]; else CART[key] = v;
       saveCart(); renderCart();
     }
     function setCartQty(key, val) {
-      const v = Math.round(parseFloat(val) * 100) / 100;
+      const v = Math.round(parseFloat(val)*100)/100;
       if (!v || v <= 0) delete CART[key]; else CART[key] = v;
       saveCart(); renderCart();
     }
 
     async function placeOrder() {
       const keys = Object.keys(CART);
-      if (!keys.length) return toast('Cart khali hai');
+      if (!keys.length) return toast('Cart khali');
       const items = keys.map(key => {
-        const [pid, unitLabel] = key.split('::');
+        const [pid, ul] = key.split('::');
         const p = DATA.products.find(x => x.id === pid);
-        return {
-          product_id: pid, product_name: p.name,
-          unit: unitLabel, qty: CART[key],
-          price: getUnitPrice(p, unitLabel, ME)
-        };
+        return { product_id: pid, product_name: p.name, unit: ul, qty: CART[key], price: getUnitPrice(p, ul, ME) };
       });
-      const total = items.reduce((a, b) => a + b.qty * b.price, 0);
+      const total = items.reduce((a,b) => a + b.qty*b.price, 0);
       DATA.orders.push({
         id: uid(), user_id: ME.id, user_name: ME.name, user_phone: ME.phone,
         items, total, status: 'pending', payment: 'pending',
@@ -312,11 +274,11 @@
       try {
         await saveData(DATA);
         CART = {}; saveCart(); renderCart();
-        toast('✅ Order place ho gaya!');
+        toast('✅ Order place');
       } catch (e) { toast('❌ ' + e.message); }
     }
 
-    /* ---------- MY ORDERS ---------- */
+    /* ---------- ORDERS ---------- */
     function renderOrders() {
       const mine = DATA.orders.filter(o => o.user_id === ME.id).reverse();
       const list = document.getElementById('myOrders');
@@ -324,9 +286,9 @@
       list.innerHTML = mine.map(o => {
         const items = o.items.map(it => {
           const p = DATA.products.find(x => x.id === it.product_id) || { name: it.product_name || '?' };
-          return `<div style="font-size:13px;">• ${p.name} — ${it.qty} ${it.unit} × ${inr(it.price)} = ${inr(it.qty * it.price)}</div>`;
+          return `<div style="font-size:13px;">• ${p.name} — ${it.qty} ${it.unit} × ${inr(it.price)} = ${inr(it.qty*it.price)}</div>`;
         }).join('');
-        const badge = o.status === 'delivered' ? '✅' : o.status === 'packed' ? '📦' : '⏳';
+        const badge = o.status==='delivered'?'✅':o.status==='packed'?'📦':'⏳';
         return `
           <div class="card">
             <div style="display:flex;justify-content:space-between;">
@@ -338,6 +300,50 @@
             <div style="font-size:12px;color:#666;">Payment: ${o.payment}</div>
           </div>`;
       }).join('');
+    }
+
+    /* ---------- PROFILE ---------- */
+    function renderProfile() {
+      const myOrders = DATA.orders.filter(o => o.user_id === ME.id);
+      const totalSpent = myOrders.reduce((a, o) => a + o.total, 0);
+      const totalOrders = myOrders.length;
+
+      // Kitna kya kharida — summary
+      const summary = {};
+      myOrders.forEach(o => {
+        o.items.forEach(it => {
+          const key = it.product_name || 'Unknown';
+          if (!summary[key]) summary[key] = { qty: 0, unit: it.unit, total: 0 };
+          summary[key].qty += it.qty;
+          summary[key].total += it.qty * it.price;
+        });
+      });
+
+      const summaryRows = Object.entries(summary).map(([name, d]) =>
+        `<div style="font-size:13px;padding:4px 0;border-bottom:1px solid #f0f0f0;">
+          <b>${name}</b> — ${d.qty} ${d.unit} (${inr(d.total)})
+        </div>`
+      ).join('') || '<div style="font-size:13px;color:#888;">Abhi tak kuch nahi kharida</div>';
+
+      document.getElementById('profileBox').innerHTML = `
+        <div class="card">
+          <div style="font-size:15px;font-weight:bold;">${ME.name}</div>
+          <div style="font-size:13px;color:#666;">📞 ${ME.phone}</div>
+          <div style="font-size:12px;color:#888;margin-top:4px;">
+            Type: ${ME.price_type === 'wholesale' ? '💼 Wholesale' : '🛒 Retail'}
+          </div>
+        </div>
+        <div class="card">
+          <div style="display:flex;justify-content:space-around;text-align:center;">
+            <div><div style="font-size:22px;font-weight:bold;color:#2e7d32;">${totalOrders}</div><div style="font-size:12px;color:#666;">Orders</div></div>
+            <div><div style="font-size:22px;font-weight:bold;color:#2e7d32;">${inr(totalSpent)}</div><div style="font-size:12px;color:#666;">Total</div></div>
+          </div>
+        </div>
+        <div class="card">
+          <b style="font-size:14px;">🧾 Kya kya kharida:</b>
+          <div class="mt">${summaryRows}</div>
+        </div>
+      `;
     }
 
     init();
