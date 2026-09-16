@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Owner Panel</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="header">
+    <h1>👨‍💼 Owner Panel</h1>
+    <button onclick="logout()">Logout</button>
+  </div>
+
+  <div class="container">
+    <!-- Tabs -->
+    <div class="card" style="display:flex;padding:0;overflow:auto;">
+      <button class="primary tabBtn" data-tab="products" style="border-radius:0;">Products</button>
+      <button class="primary tabBtn" data-tab="users" style="border-radius:0;background:#ccc;color:#333;">Customers</button>
+      <button class="primary tabBtn" data-tab="orders" style="border-radius:0;background:#ccc;color:#333;">Orders</button>
+    </div>
+
+    <!-- ===== PRODUCTS TAB ===== -->
+    <div id="tab-products">
+      <div class="card">
+        <h3 id="pFormTitle">➕ Naya Product</h3>
+        <input type="hidden" id="pId">
+        <input id="pName" placeholder="Product name">
+        <input id="pImg" type="file" accept="image/*">
+        <img id="pPreview" style="max-width:100%;margin-top:6px;border-radius:6px;display:none;">
+        <div class="row">
+          <input id="pRetail" placeholder="Retail ₹" inputmode="numeric">
+          <input id="pWhole" placeholder="Wholesale ₹" inputmode="numeric">
+        </div>
+        <div class="row">
+          <input id="pStock" placeholder="Stock qty" inputmode="numeric">
+          <input id="pCat" placeholder="Category">
+        </div>
+        <button class="primary" onclick="saveProduct()">💾 Save Product</button>
+        <button class="primary" style="background:#777;" onclick="resetProductForm()">Reset</button>
+      </div>
+
+      <input class="search-bar" id="pSearch" placeholder="🔍 Product search...">
+      <div id="productList"></div>
+    </div>
+
+    <!-- ===== USERS TAB ===== -->
+    <div id="tab-users" class="hidden">
+      <div class="card">
+        <h3>➕ Naya Customer</h3>
+        <input type="hidden" id="uId">
+        <input id="uuName" placeholder="Naam">
+        <input id="uuPhone" placeholder="Phone" inputmode="numeric">
+        <select id="uuType">
+          <option value="retail">Retail (normal price)</option>
+          <option value="wholesale">Wholesale (sasta price)</option>
+        </select>
+        <button class="primary" onclick="saveUser()">💾 Save Customer</button>
+      </div>
+      <div id="userList"></div>
+    </div>
+
+    <!-- ===== ORDERS TAB ===== -->
+    <div id="tab-orders" class="hidden">
+      <div id="orderList"></div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+  <script>
+    const s = getSession();
+    if (!s || s.role !== 'owner') location.href = 'index.html';
+
+    let DATA = null;
+    let editingImageUrl = ''; // edit karte waqt purana image URL
+
+    /* ---------- LOAD ---------- */
+    async function init() {
+      DATA = await loadData();
+      renderProducts();
+      renderUsers();
+      renderOrders();
+    }
+
+    /* ---------- TABS ---------- */
+    document.querySelectorAll('.tabBtn').forEach(btn => {
+      btn.onclick = () => {
+        document.querySelectorAll('.tabBtn').forEach(b => {
+          b.style.background = '#ccc'; b.style.color = '#333';
+        });
+        btn.style.background = '#2e7d32'; btn.style.color = '#fff';
+        ['products','users','orders'].forEach(t => {
+          document.getElementById('tab-'+t).classList.toggle('hidden', t !== btn.dataset.tab);
+        });
+      };
+    });
+
+    /* ============ PRODUCTS ============ */
+    document.getElementById('pImg').onchange = e => {
+      const f = e.target.files[0];
+      if (f) {
+        const prev = document.getElementById('pPreview');
+        prev.src = URL.createObjectURL(f);
+        prev.style.display = 'block';
+      }
+    };
+
+    function resetProductForm() {
+      ['pId','pName','pRetail','pWhole','pStock','pCat'].forEach(id => document.getElementById(id).value = '');
+      document.getElementById('pImg').value = '';
+      document.getElementById('pPreview').style.display = 'none';
+      editingImageUrl = '';
+      document.getElementById('pFormTitle').textContent = '➕ Naya Product';
+    }
+
+    async function saveProduct() {
+      const name = document.getElementById('pName').value.trim();
+      const retail = +document.getElementById('pRetail').value;
+      const whole = +document.getElementById('pWhole').value;
+      const stock = +document.getElementById('pStock').value;
+      const cat = document.getElementById('pCat').value.trim();
+      const file = document.getElementById('pImg').files[0];
+      const editId = document.getElementById('pId').value;
+
+      if (!name || !retail) return toast('Naam aur retail price zaroori');
+
+      try {
+        toast('Save ho raha hai...');
+        let imageUrl = editingImageUrl;
+        if (file) {
+          imageUrl = await uploadImage(file);
+        }
+
+        if (editId) {
+          const p = DATA.products.find(x => x.id === editId);
+          Object.assign(p, {
+            name, retail_price: retail, wholesale_price: whole || retail,
+            stock: stock || 0, category: cat, image: imageUrl
+          });
+        } else {
+          DATA.products.push({
+            id: uid(), name, image: imageUrl,
+            retail_price: retail, wholesale_price: whole || retail,
+            stock: stock || 0, category: cat, hidden: false,
+            created_at: new Date().toISOString()
+          });
+        }
+
+        await saveData(DATA);
+        toast('✅ Save ho gaya!');
+        resetProductForm();
+        renderProducts();
+      } catch (e) {
+        toast('❌ ' + e.message);
+      }
+    }
+
+    function editProduct(id) {
+      const p = DATA.products.find(x => x.id === id);
+      if (!p) return;
+      document.getElementById('pId').value = p.id;
+      document.getElementById('pName').value = p.name;
+      document.getElementById('pRetail').value = p.retail_price;
+      document.getElementById('pWhole').value = p.wholesale_price;
+      document.getElementById('pStock').value = p.stock;
+      document.getElementById('pCat').value = p.category || '';
+      editingImageUrl = p.image || '';
+      const prev = document.getElementById('pPreview');
+      if (p.image) { prev.src = p.image; prev.style.display = 'block'; }
+      document.getElementById('pFormTitle').textContent = '✏️ Edit Product';
+      window.scrollTo(0, 0);
+    }
+
+    async function deleteProduct(id) {
+      if (!confirm('Delete karna hai?')) return;
+      DATA.products = DATA.products.filter(p => p.id !== id);
+      await saveData(DATA);
+      toast('🗑️ Delete ho gaya');
+      renderProducts();
+    }
+
+    async function toggleHide(id) {
+      const p = DATA.products.find(x => x.id === id);
+      p.hidden = !p.hidden;
+      await saveData(DATA);
+      renderProducts();
+    }
+
+    function renderProducts() {
+      const q = (document.getElementById('pSearch').value || '').toLowerCase();
+      const list = document.getElementById('productList');
+      const items = DATA.products.filter(p => p.name.toLowerCase().includes(q));
+      if (!items.length) { list.innerHTML = '<div class="card center">Koi product nahi</div>'; return; }
+      list.innerHTML = items.map(p => `
+        <div class="card">
+          <div class="row">
+            <img src="${p.image || 'https://via.placeholder.com/80'}" style="width:80px;height:80px;object-fit:cover;border-radius:8px;flex:0 0 80px;">
+            <div style="flex:1;">
+              <div style="font-weight:600;">${p.name} ${p.hidden ? '<span style="color:#c62828;font-size:12px;">(Hidden)</span>' : ''}</div>
+              <div style="color:#2e7d32;font-weight:bold;">${inr(p.retail_price)} <span style="color:#777;font-weight:normal;font-size:12px;">/ Whole ${inr(p.wholesale_price)}</span></div>
+              <div style="font-size:12px;color:#777;">Stock: ${p.stock} | ${p.category || '-'}</div>
+            </div>
+          </div>
+          <div class="row mt">
+            <button class="primary small" onclick="editProduct('${p.id}')">✏️ Edit</button>
+            <button class="primary small" style="background:#f57c00;" onclick="toggleHide('${p.id}')">${p.hidden ? '👁️ Show' : '🙈 Hide'}</button>
+            <button class="primary small danger" onclick="deleteProduct('${p.id}')">🗑️ Delete</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    document.getElementById('pSearch').oninput = renderProducts;
+
+    /* ============ USERS ============ */
+    async function saveUser() {
+      const name = document.getElementById('uuName').value.trim();
+      const phone = document.getElementById('uuPhone').value.trim();
+      const type = document.getElementById('uuType').value;
+      const editId = document.getElementById('uId').value;
+      if (!name || !phone) return toast('Naam aur phone zaroori');
+
+      try {
+        if (editId) {
+          const u = DATA.users.find(x => x.id === editId);
+          Object.assign(u, { name, phone, price_type: type });
+        } else {
+          DATA.users.push({
+            id: uid(), name, phone, price_type: type,
+            special_prices: {}, created_at: new Date().toISOString()
+          });
+        }
+        await saveData(DATA);
+        toast('✅ Customer save');
+        document.getElementById('uuName').value = '';
+        document.getElementById('uuPhone').value = '';
+        document.getElementById('uId').value = '';
+        renderUsers();
+      } catch (e) { toast('❌ ' + e.message); }
+    }
+
+    async function setSpecialPrice(userId, productId) {
+      const u = DATA.users.find(x => x.id === userId);
+      const p = DATA.products.find(x => x.id === productId);
+      const cur = u.special_prices?.[productId] ?? '';
+      const val = prompt(`"${p.name}" ka special price (khali chhodo hatane ke liye):`, cur);
+      if (val === null) return;
+      if (!u.special_prices) u.special_prices = {};
+      if (val === '') delete u.special_prices[productId];
+      else u.special_prices[productId] = +val;
+      await saveData(DATA);
+      toast('✅ Special price set');
+      renderUsers();
+    }
+
+    async function deleteUser(id) {
+      if (!confirm('Customer delete karna hai?')) return;
+      DATA.users = DATA.users.filter(u => u.id !== id);
+      await saveData(DATA);
+      renderUsers();
+    }
+
+    function renderUsers() {
+      const list = document.getElementById('userList');
+      if (!DATA.users.length) { list.innerHTML = '<div class="card center">Koi customer nahi</div>'; return; }
+      list.innerHTML = DATA.users.map(u => {
+        const specials = Object.keys(u.special_prices || {}).map(pid => {
+          const p = DATA.products.find(x => x.id === pid);
+          return p ? `${p.name}: ${inr(u.special_prices[pid])}` : '';
+        }).filter(Boolean).join(', ');
+        return `
+          <div class="card">
+            <div style="font-weight:600;">${u.name}</div>
+            <div style="font-size:13px;color:#666;">📞 ${u.phone} | ${u.price_type === 'wholesale' ? '💼 Wholesale' : '🛒 Retail'}</div>
+            ${specials ? `<div style="font-size:12px;color:#f57c00;margin-top:4px;">⭐ Special: ${specials}</div>` : ''}
+            <div class="row mt">
+              <button class="primary small" onclick="quickSetSpecial('${u.id}')">⭐ Special Price</button>
+              <button class="primary small danger" onclick="deleteUser('${u.id}')">🗑️</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function quickSetSpecial(userId) {
+      // product choose karo
+      const names = DATA.products.map((p, i) => `${i+1}. ${p.name}`).join('\n');
+      const idx = prompt('Kis product ka special price?\n' + names);
+      if (!idx) return;
+      const p = DATA.products[+idx - 1];
+      if (!p) return toast('Galat number');
+      await setSpecialPrice(userId, p.id);
+    }
+
+    /* ============ ORDERS ============ */
+    async function updateOrder(orderId, patch) {
+      const o = DATA.orders.find(x => x.id === orderId);
+      Object.assign(o, patch);
+      await saveData(DATA);
+      renderOrders();
+    }
+
+    function renderOrders() {
+      const list = document.getElementById('orderList');
+      if (!DATA.orders.length) { list.innerHTML = '<div class="card center">Koi order nahi</div>'; return; }
+      list.innerHTML = DATA.orders.slice().reverse().map(o => {
+        const u = DATA.users.find(x => x.id === o.user_id) || { name: 'Unknown' };
+        const items = o.items.map(it => {
+          const p = DATA.products.find(x => x.id === it.product_id) || { name: '?' };
+          return `<div style="font-size:13px;">• ${p.name} × ${it.qty} = ${inr(it.price * it.qty)}</div>`;
+        }).join('');
+        return `
+          <div class="card">
+            <div style="display:flex;justify-content:space-between;">
+              <b>${u.name}</b>
+              <span style="font-size:12px;color:#666;">${new Date(o.created_at).toLocaleString('hi-IN')}</span>
+            </div>
+            <div class="mt">${items}</div>
+            <div style="font-weight:bold;color:#2e7d32;margin-top:6px;">Total: ${inr(o.total)}</div>
+            <div style="font-size:13px;margin-top:4px;">
+              Status: <b>${o.status}</b> | Payment: <b>${o.payment}</b>
+            </div>
+            <div class="row mt">
+              <button class="primary small" onclick="updateOrder('${o.id}',{status:'packed'})">📦 Packed</button>
+              <button class="primary small" onclick="updateOrder('${o.id}',{status:'delivered'})">✅ Delivered</button>
+              <button class="primary small" style="background:#f57c00;" onclick="updateOrder('${o.id}',{payment:'paid'})">💰 Paid</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    init();
+  </script>
+</body>
+</html>

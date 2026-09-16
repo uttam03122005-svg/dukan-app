@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dukan - Shop</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="header">
+    <h1>🛒 <span id="welcome">Dukan</span></h1>
+    <button onclick="logout()">Logout</button>
+  </div>
+
+  <div class="container">
+    <!-- HOME TAB -->
+    <div id="tab-home">
+      <input class="search-bar" id="search" placeholder="🔍 Product dhundo...">
+      <div class="product-grid" id="grid"></div>
+    </div>
+
+    <!-- CART TAB -->
+    <div id="tab-cart" class="hidden">
+      <h3>🛒 Mera Cart</h3>
+      <div id="cartList"></div>
+      <button class="primary" onclick="placeOrder()">📤 Order Place Karo</button>
+    </div>
+
+    <!-- ORDERS TAB -->
+    <div id="tab-orders" class="hidden">
+      <h3>📦 Mere Orders</h3>
+      <div id="myOrders"></div>
+    </div>
+  </div>
+
+  <div class="bottom-nav">
+    <a href="#" class="active" data-tab="home">🏠<br>Home</a>
+    <a href="#" data-tab="cart">🛒<br>Cart <span class="cart-badge" id="cartCount">0</span></a>
+    <a href="#" data-tab="orders">📦<br>Orders</a>
+  </div>
+
+  <script src="app.js"></script>
+  <script>
+    const s = getSession();
+    if (!s || s.role !== 'user') location.href = 'index.html';
+
+    let DATA = null;
+    let ME = null;
+    let CART = JSON.parse(localStorage.getItem('cart') || '{}'); // {productId: qty}
+
+    document.getElementById('welcome').textContent = 'Namaste, ' + s.data.name;
+
+    async function init() {
+      DATA = await loadData();
+      ME = DATA.users.find(u => u.id === s.data.id);
+      if (!ME) { alert('Aapka account hata diya gaya hai'); logout(); return; }
+      renderGrid();
+      renderCart();
+      renderOrders();
+      updateCartBadge();
+    }
+
+    /* ---------- TABS ---------- */
+    document.querySelectorAll('.bottom-nav a').forEach(a => {
+      a.onclick = e => {
+        e.preventDefault();
+        document.querySelectorAll('.bottom-nav a').forEach(x => x.classList.remove('active'));
+        a.classList.add('active');
+        ['home','cart','orders'].forEach(t => {
+          document.getElementById('tab-'+t).classList.toggle('hidden', t !== a.dataset.tab);
+        });
+        if (a.dataset.tab === 'orders') renderOrders();
+      };
+    });
+
+    /* ---------- PRODUCTS ---------- */
+    function renderGrid() {
+      const q = (document.getElementById('search').value || '').toLowerCase();
+      const items = DATA.products.filter(p => !p.hidden && p.name.toLowerCase().includes(q));
+      const grid = document.getElementById('grid');
+      if (!items.length) { grid.innerHTML = '<div class="card center">Koi product nahi</div>'; return; }
+      grid.innerHTML = items.map(p => {
+        const price = getUserPrice(p, ME);
+        const oldPrice = ME.price_type === 'wholesale' || ME.special_prices?.[p.id] != null ? p.retail_price : null;
+        const out = p.stock <= 0;
+        return `
+          <div class="product-card">
+            <img src="${p.image || 'https://via.placeholder.com/150'}" alt="${p.name}">
+            <div class="info">
+              <div class="name">${p.name}</div>
+              <div class="price">${inr(price)} ${oldPrice ? `<span class="old-price">${inr(oldPrice)}</span>` : ''}</div>
+              <div class="stock">${out ? '❌ Out of stock' : '✔ Stock: ' + p.stock}</div>
+              <button class="primary small" style="margin-top:auto;" ${out ? 'disabled style="background:#ccc;"' : ''} onclick="addToCart('${p.id}')">
+                ${out ? 'Khatam' : '🛒 Add'}
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    document.getElementById('search').oninput = renderGrid;
+
+    /* ---------- CART ---------- */
+    function addToCart(pid) {
+      CART[pid] = (CART[pid] || 0) + 1;
+      saveCart();
+      toast('Cart me add ho gaya');
+    }
+
+    function changeQty(pid, delta) {
+      CART[pid] = (CART[pid] || 0) + delta;
+      if (CART[pid] <= 0) delete CART[pid];
+      saveCart();
+      renderCart();
+    }
+
+    function saveCart() {
+      localStorage.setItem('cart', JSON.stringify(CART));
+      updateCartBadge();
+    }
+
+    function updateCartBadge() {
+      const total = Object.values(CART).reduce((a, b) => a + b, 0);
+      document.getElementById('cartCount').textContent = total;
+    }
+
+    function renderCart() {
+      const list = document.getElementById('cartList');
+      const ids = Object.keys(CART);
+      if (!ids.length) { list.innerHTML = '<div class="card center">Cart khali hai</div>'; return; }
+      let total = 0;
+      list.innerHTML = ids.map(pid => {
+        const p = DATA.products.find(x => x.id === pid);
+        if (!p) return '';
+        const qty = CART[pid];
+        const price = getUserPrice(p, ME);
+        total += price * qty;
+        return `
+          <div class="card row">
+            <img src="${p.image || 'https://via.placeholder.com/60'}" style="width:60px;height:60px;object-fit:cover;border-radius:6px;flex:0 0 60px;">
+            <div style="flex:1;">
+              <div style="font-weight:600;font-size:14px;">${p.name}</div>
+              <div style="color:#2e7d32;font-weight:bold;">${inr(price)}</div>
+            </div>
+            <div style="flex:0 0 auto;text-align:right;">
+              <button class="primary small" onclick="changeQty('${pid}',-1)">−</button>
+              <span style="margin:0 8px;">${qty}</span>
+              <button class="primary small" onclick="changeQty('${pid}',1)">+</button>
+            </div>
+          </div>
+        `;
+      }).join('') + `<div class="card center" style="font-weight:bold;font-size:18px;">Total: ${inr(total)}</div>`;
+    }
+
+    async function placeOrder() {
+      const ids = Object.keys(CART);
+      if (!ids.length) return toast('Cart khali hai');
+      const items = ids.map(pid => {
+        const p = DATA.products.find(x => x.id === pid);
+        return { product_id: pid, qty: CART[pid], price: getUserPrice(p, ME) };
+      });
+      const total = items.reduce((a, b) => a + b.qty * b.price, 0);
+      DATA.orders.push({
+        id: uid(), user_id: ME.id, items, total,
+        status: 'pending', payment: 'pending',
+        created_at: new Date().toISOString()
+      });
+      try {
+        await saveData(DATA);
+        CART = {};
+        saveCart();
+        renderCart();
+        toast('✅ Order place ho gaya!');
+      } catch (e) { toast('❌ ' + e.message); }
+    }
+
+    /* ---------- MY ORDERS ---------- */
+    function renderOrders() {
+      const mine = DATA.orders.filter(o => o.user_id === ME.id).reverse();
+      const list = document.getElementById('myOrders');
+      if (!mine.length) { list.innerHTML = '<div class="card center">Koi order nahi</div>'; return; }
+      list.innerHTML = mine.map(o => {
+        const items = o.items.map(it => {
+          const p = DATA.products.find(x => x.id === it.product_id) || { name: '?' };
+          return `<div style="font-size:13px;">• ${p.name} × ${it.qty}</div>`;
+        }).join('');
+        const badge = o.status === 'delivered' ? '✅' : o.status === 'packed' ? '📦' : '⏳';
+        return `
+          <div class="card">
+            <div style="display:flex;justify-content:space-between;">
+              <b>${badge} ${o.status.toUpperCase()}</b>
+              <span style="font-size:12px;color:#666;">${new Date(o.created_at).toLocaleDateString('hi-IN')}</span>
+            </div>
+            <div class="mt">${items}</div>
+            <div style="font-weight:bold;color:#2e7d32;margin-top:4px;">Total: ${inr(o.total)}</div>
+            <div style="font-size:12px;color:#666;">Payment: ${o.payment}</div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    init();
+  </script>
+</body>
+</html>

@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dukan App - Login</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#2e7d32">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="header"><h1>🏪 Dukan App</h1></div>
+
+  <div class="container">
+    <div class="card center">
+      <h2 style="color:#2e7d32;">Welcome!</h2>
+      <p style="color:#666;font-size:14px;">Login karo — Owner ya Customer</p>
+    </div>
+
+    <!-- Tabs -->
+    <div class="card" style="display:flex;padding:0;">
+      <button id="tabUser" class="primary" style="border-radius:0;background:#2e7d32;">Customer</button>
+      <button id="tabOwner" class="primary" style="border-radius:0;background:#ccc;color:#333;">Owner</button>
+    </div>
+
+    <!-- USER LOGIN -->
+    <div id="userForm" class="card">
+      <h3>Customer Login</h3>
+      <input id="uName" placeholder="Apna naam (jaise Ramesh)" autocomplete="off">
+      <input id="uPhone" placeholder="Phone number" inputmode="numeric">
+      <button class="primary" onclick="userLogin()">Login</button>
+      <p class="center" style="font-size:12px;color:#888;margin-top:8px;">
+        Owner ne aapko add kiya hoga tabhi login hoga
+      </p>
+    </div>
+
+    <!-- OWNER LOGIN -->
+    <div id="ownerForm" class="card hidden">
+      <h3>Owner Login</h3>
+      <input id="oId" placeholder="Owner ID">
+      <input id="oPass" type="password" placeholder="Password">
+      <input id="oToken" placeholder="GitHub Token (ghp_...)">
+      <button class="primary" onclick="ownerLogin()">Login</button>
+      <p class="center" style="font-size:12px;color:#888;margin-top:8px;">
+        Token sirf aapke phone me save hoga
+      </p>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+  <script>
+    // agar pehle se login hai to seedha dashboard
+    const s = getSession();
+    if (s && s.role === 'owner') location.href = 'owner.html';
+    if (s && s.role === 'user') location.href = 'user.html';
+
+    // Tabs
+    const tabU = document.getElementById('tabUser');
+    const tabO = document.getElementById('tabOwner');
+    tabU.onclick = () => {
+      tabU.style.background = '#2e7d32'; tabU.style.color = '#fff';
+      tabO.style.background = '#ccc'; tabO.style.color = '#333';
+      document.getElementById('userForm').classList.remove('hidden');
+      document.getElementById('ownerForm').classList.add('hidden');
+    };
+    tabO.onclick = () => {
+      tabO.style.background = '#2e7d32'; tabO.style.color = '#fff';
+      tabU.style.background = '#ccc'; tabU.style.color = '#333';
+      document.getElementById('ownerForm').classList.remove('hidden');
+      document.getElementById('userForm').classList.add('hidden');
+    };
+
+    async function userLogin() {
+      const name = document.getElementById('uName').value.trim();
+      const phone = document.getElementById('uPhone').value.trim();
+      if (!name || !phone) return toast('Naam aur phone daalo');
+
+      const data = await loadData();
+      const user = data.users.find(u =>
+        u.name.toLowerCase() === name.toLowerCase() && u.phone === phone
+      );
+      if (!user) return toast('Aap registered nahi ho. Owner se contact karo.');
+
+      saveSession('user', { id: user.id, name: user.name, phone: user.phone });
+      toast('Login successful!');
+      setTimeout(() => location.href = 'user.html', 500);
+    }
+
+    async function ownerLogin() {
+      const id = document.getElementById('oId').value.trim();
+      const pass = document.getElementById('oPass').value.trim();
+      const token = document.getElementById('oToken').value.trim();
+      if (!id || !pass || !token) return toast('Sab field bharo');
+
+      const data = await loadData();
+      if (id !== data.owner.id || pass !== data.owner.password) {
+        return toast('Galat ID ya password');
+      }
+
+      localStorage.setItem('gh_token', token);
+      saveSession('owner', { id: id });
+      toast('Owner login ho gaya');
+      setTimeout(() => location.href = 'owner.html', 500);
+    }
+  </script>
+</body>
+</html>
