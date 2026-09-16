@@ -17,20 +17,15 @@
   </div>
 
   <div class="container">
-    <!-- HOME -->
     <div id="tab-home">
       <input class="search-bar" id="search" placeholder="🔍 Product dhundo...">
       <div class="product-grid" id="grid"></div>
     </div>
-
-    <!-- CART -->
     <div id="tab-cart" class="hidden">
       <h3>🛒 Mera Cart</h3>
       <div id="cartList"></div>
       <button class="primary" onclick="placeOrder()">📤 Order Place Karo</button>
     </div>
-
-    <!-- ORDERS -->
     <div id="tab-orders" class="hidden">
       <h3>📦 Mere Orders</h3>
       <div id="myOrders"></div>
@@ -58,18 +53,29 @@
       kg:'kg', gram:'g', liter:'L', ml:'ml', piece:'pc',
       packet:'pkt', box:'box', dozen:'doz', strip:'strip', bottle:'bottle'
     };
-    const STEP = {
-      kg: 0.5, gram: 100, liter: 0.5, ml: 100,
-      piece: 1, packet: 1, box: 1, dozen: 1, strip: 1, bottle: 1
-    };
+    const STEP = { kg: 0.5, gram: 100, liter: 0.5, ml: 100, piece: 1, packet: 1, box: 1, dozen: 1, strip: 1, bottle: 1 };
 
     async function init() {
+      // Step 1: owner ka products + orders laao
       DATA = await loadData();
-      ME = DATA.users.find(u => u.id === s.data.id);
-      if (!ME) {
-        alert('Aapka account hata diya gaya hai. Dobara login karo.');
-        logout(); return;
-      }
+
+      // Step 2: ME = session ka user (jo login pe set hua)
+      // Owner ne agar upgrade kiya hai (data.json me) to latest wahi
+      const ownerUser = DATA.users.find(u =>
+        u.id === s.data.id || u.phone === s.data.phone
+      );
+
+      ME = {
+        id: s.data.id,
+        name: s.data.name,
+        phone: s.data.phone,
+        price_type: ownerUser?.price_type || s.data.price_type || 'retail',
+        special_prices: ownerUser?.special_prices || s.data.special_prices || {}
+      };
+
+      // update session me bhi
+      saveSession('user', ME);
+
       renderGrid();
       renderCart();
       renderOrders();
@@ -88,15 +94,11 @@
       };
     });
 
-    /* ---------- PRODUCTS ---------- */
     function renderGrid() {
       const q = (document.getElementById('search').value || '').toLowerCase();
       const items = DATA.products.filter(p => !p.hidden && p.name.toLowerCase().includes(q));
       const grid = document.getElementById('grid');
-      if (!items.length) {
-        grid.innerHTML = '<div class="card center">Koi product nahi</div>';
-        return;
-      }
+      if (!items.length) { grid.innerHTML = '<div class="card center">Koi product nahi</div>'; return; }
       grid.innerHTML = items.map(p => {
         const price = getUserPrice(p, ME);
         const showOld = ME.price_type === 'wholesale' || (ME.special_prices && ME.special_prices[p.id] != null);
@@ -119,15 +121,12 @@
     }
     document.getElementById('search').oninput = renderGrid;
 
-    /* ---------- CART ---------- */
     function addToCart(pid) {
       const p = DATA.products.find(x => x.id === pid);
       const step = STEP[p.unit] || 1;
       CART[pid] = (CART[pid] || 0) + step;
-      saveCart();
-      toast('Cart me add ho gaya');
+      saveCart(); toast('Cart me add ho gaya');
     }
-
     function changeQty(pid, delta) {
       const p = DATA.products.find(x => x.id === pid);
       const step = STEP[p.unit] || 1;
@@ -136,29 +135,18 @@
       if (v <= 0) delete CART[pid]; else CART[pid] = v;
       saveCart(); renderCart();
     }
-
     function setQty(pid, val) {
       const v = Math.round(parseFloat(val) * 100) / 100;
       if (!v || v <= 0) delete CART[pid]; else CART[pid] = v;
       saveCart(); renderCart();
     }
-
-    function saveCart() {
-      localStorage.setItem('cart', JSON.stringify(CART));
-      updateCartBadge();
-    }
-
-    function updateCartBadge() {
-      document.getElementById('cartCount').textContent = Object.keys(CART).length;
-    }
+    function saveCart() { localStorage.setItem('cart', JSON.stringify(CART)); updateCartBadge(); }
+    function updateCartBadge() { document.getElementById('cartCount').textContent = Object.keys(CART).length; }
 
     function renderCart() {
       const list = document.getElementById('cartList');
       const ids = Object.keys(CART);
-      if (!ids.length) {
-        list.innerHTML = '<div class="card center">Cart khali hai</div>';
-        return;
-      }
+      if (!ids.length) { list.innerHTML = '<div class="card center">Cart khali hai</div>'; return; }
       let total = 0;
       list.innerHTML = ids.map(pid => {
         const p = DATA.products.find(x => x.id === pid);
@@ -196,8 +184,8 @@
       });
       const total = items.reduce((a, b) => a + b.qty * b.price, 0);
       DATA.orders.push({
-        id: uid(), user_id: ME.id, items, total,
-        status: 'pending', payment: 'pending',
+        id: uid(), user_id: ME.id, user_name: ME.name, user_phone: ME.phone,
+        items, total, status: 'pending', payment: 'pending',
         created_at: new Date().toISOString()
       });
       try {
@@ -207,14 +195,10 @@
       } catch (e) { toast('❌ ' + e.message); }
     }
 
-    /* ---------- MY ORDERS ---------- */
     function renderOrders() {
       const mine = DATA.orders.filter(o => o.user_id === ME.id).reverse();
       const list = document.getElementById('myOrders');
-      if (!mine.length) {
-        list.innerHTML = '<div class="card center">Koi order nahi</div>';
-        return;
-      }
+      if (!mine.length) { list.innerHTML = '<div class="card center">Koi order nahi</div>'; return; }
       list.innerHTML = mine.map(o => {
         const items = o.items.map(it => {
           const p = DATA.products.find(x => x.id === it.product_id) || { name: '?' };
