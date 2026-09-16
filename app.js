@@ -98,6 +98,8 @@ async function loadCustomers() {
 async function saveData(data) {
   const token = await getActiveToken();
   if (!token) throw new Error('Token set nahi hai. Owner login karo.');
+  // settings ensure karo
+  data.settings = data.settings || {};
   return await _githubSave(CONFIG.GITHUB_REPO, CONFIG.GITHUB_FILE, data, token);
 }
 async function saveCustomers(data) {
@@ -109,7 +111,7 @@ async function saveCustomers(data) {
 async function _githubSave(repo, file, data, token, retry = 0) {
   const apiUrl = `https://api.github.com/repos/${CONFIG.GITHUB_USER}/${repo}/contents/${file}`;
 
-  // Har baar fresh sha — cache bypass
+  // Fresh sha — cache bypass
   const getRes = await fetch(apiUrl + '?ref=main&_=' + Date.now() + Math.random(), {
     headers: {
       Authorization: `token ${token}`,
@@ -154,8 +156,8 @@ async function _githubSave(repo, file, data, token, retry = 0) {
       return await _githubSave(repo, file, data, token, retry + 1);
     }
     if (putRes.status === 401) throw new Error('Token galat ya expire');
-    if (putRes.status === 403) throw new Error('Token me permission nahi (Contents: Read+Write chahiye)');
-    if (putRes.status === 409) throw new Error('Baar baar conflict — 10 sec ruk ke try karo');
+    if (putRes.status === 403) throw new Error('Permission nahi');
+    if (putRes.status === 409) throw new Error('Conflict — 10 sec ruk ke try karo');
     if (putRes.status === 422) throw new Error('Data format galat');
 
     throw new Error('Save fail: ' + (err.message || putRes.status));
