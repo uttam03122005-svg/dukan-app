@@ -26,6 +26,9 @@
       <h3>Customer Login</h3>
       <input id="uPhone" placeholder="Phone number (10 digit)" inputmode="numeric" maxlength="10">
       <button class="primary" onclick="userLogin()">Login</button>
+      <p class="center" style="font-size:12px;color:#888;margin-top:8px;">
+        Sirf phone number se login
+      </p>
     </div>
 
     <div id="ownerForm" class="card hidden">
@@ -67,6 +70,11 @@
       document.getElementById('userForm').classList.add('hidden');
     };
 
+    /* =========================================================
+       CUSTOMER LOGIN
+       Phone number ko email/password me convert karte hain
+       taaki har baar SAME Firebase UID mile.
+       ========================================================= */
     async function userLogin() {
       const phone = document.getElementById('uPhone').value.trim();
       if (phone.length !== 10) return toast('10 digit phone daalo');
@@ -76,50 +84,82 @@
       if (!ok) return toast('❌ Firebase ready nahi');
 
       try {
-        const fbUser = await customerSignIn();
-        const uid = fbUser.uid;
+        // Phone se fake email/password banao — fixed (same phone = same UID)
+        const fakeEmail = phone + '@dukan.local';
+        const fakePass = 'Dukan@' + phone + 'Secure!';
 
-        // auth ready ka wait
+        let fbUser = null;
+        try {
+          // Pehle login try karo
+          fbUser = await AUTH.signInWithEmailAndPassword(fakeEmail, fakePass);
+          fbUser = fbUser.user;
+          console.log('✅ Existing customer login:', fbUser.uid);
+        } catch (e) {
+          // Account nahi hai → naya banao
+          if (e.code === 'auth/user-not-found' ||
+              e.code === 'auth/invalid-credential' ||
+              e.code === 'auth/wrong-password') {
+            try {
+              const cred = await AUTH.createUserWithEmailAndPassword(fakeEmail, fakePass);
+              fbUser = cred.user;
+              console.log('✅ Naya customer account:', fbUser.uid);
+            } catch (e2) {
+              // agar email already in use hai (rare case)
+              if (e2.code === 'auth/email-already-in-use') {
+                throw new Error('Is phone se account already hai — password mismatch. Owner se contact karo.');
+              }
+              throw e2;
+            }
+          } else {
+            throw e;
+          }
+        }
+
+        const uid = fbUser.uid;
         await waitForAuth();
 
+        // User document dhundo uid se
         let user = await fbLoadMyUser(uid);
 
         if (!user) {
-          const users = await fbLoadAllUsers().catch(() => []);
-          const existing = users.find(u => u.phone === phone);
-          if (existing && existing.id !== uid) {
-            const newUser = { ...existing, id: uid, old_id: existing.id };
-            await fbSaveUser(newUser);
-            user = newUser;
-          } else {
-            user = {
-              id: uid, name: 'Customer', phone: phone, address: '',
-              price_type: 'retail', special_prices: {},
-              created_at: new Date().toISOString()
-            };
-            await fbSaveUser(user);
-            toast('✅ Register ho gaya');
-          }
+          user = {
+            id: uid,
+            name: 'Customer',
+            phone: phone,
+            address: '',
+            price_type: 'retail',
+            special_prices: {},
+            created_at: new Date().toISOString()
+          };
+          await fbSaveUser(user);
+          toast('✅ Register ho gaya');
         } else {
+          // Phone update karo agar alag hai
           if (user.phone !== phone) {
             user.phone = phone;
             await fbSaveUser(user);
           }
-          toast('Wapas swagat!');
+          toast('Wapas swagat, ' + (user.name || 'Customer') + '!');
         }
 
         saveSession('user', {
-          id: uid, name: user.name || 'Customer', phone: user.phone,
+          id: uid,
+          name: user.name || 'Customer',
+          phone: user.phone,
           price_type: user.price_type || 'retail'
         });
 
         setTimeout(() => location.replace('user.html'), 500);
       } catch (e) {
-        console.error(e);
-        toast('❌ ' + e.message);
+        console.error('Customer login error:', e);
+        toast('❌ ' + (e.message || 'Login fail'));
       }
     }
 
+    /* =========================================================
+       OWNER LOGIN
+       Email + Password (Firebase Authentication)
+       ========================================================= */
     async function ownerLogin() {
       const email = document.getElementById('oEmail').value.trim();
       const pass = document.getElementById('oPass').value.trim();
@@ -136,7 +176,7 @@
         toast('✅ Owner login ho gaya');
         setTimeout(() => location.replace('owner.html'), 500);
       } catch (e) {
-        console.error(e);
+        console.error('Owner login error:', e);
         if (e.code === 'auth/invalid-credential' || e.code === 'auth/wrong-password') {
           toast('❌ Email ya password galat');
         } else if (e.code === 'auth/user-not-found') {
