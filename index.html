@@ -26,9 +26,6 @@
       <h3>Customer Login</h3>
       <input id="uPhone" placeholder="Phone number (10 digit)" inputmode="numeric" maxlength="10">
       <button class="primary" onclick="userLogin()">Login</button>
-      <p class="center" style="font-size:12px;color:#888;margin-top:8px;">
-        Sirf phone number se login
-      </p>
     </div>
 
     <div id="ownerForm" class="card hidden">
@@ -36,14 +33,12 @@
       <input id="oId" placeholder="Owner ID">
       <input id="oPass" type="password" placeholder="Password">
       <button class="primary" onclick="ownerLogin()">Login</button>
-      <p class="center" style="font-size:12px;color:#888;margin-top:8px;">
-        Token aur UPI settings login ke baad Settings tab me daalo
-      </p>
     </div>
   </div>
 
   <script src="app.js"></script>
   <script>
+    // Session check
     (function() {
       const s = getSession();
       if (s && s.role === 'owner') { location.replace('owner.html'); return; }
@@ -65,29 +60,14 @@
       document.getElementById('userForm').classList.add('hidden');
     };
 
-    /* ---------- CUSTOMER LOGIN ---------- */
+    /* ---------- CUSTOMER ---------- */
     async function userLogin() {
       const phone = document.getElementById('uPhone').value.trim();
       if (phone.length !== 10) return toast('10 digit phone daalo');
 
       toast('Login ho raha hai...');
 
-      // ⭐ STEP 1: data.json se settings load
       const oData = await loadData();
-      if (oData.settings) {
-        if (oData.settings.gh_token) localStorage.setItem('gh_token', oData.settings.gh_token);
-        if (oData.settings.imgbb_key) localStorage.setItem('imgbb_key', oData.settings.imgbb_key);
-        if (oData.settings.upi_id) localStorage.setItem('upi_id', oData.settings.upi_id);
-        if (oData.settings.upi_name) localStorage.setItem('upi_name', oData.settings.upi_name);
-        console.log('✅ Settings loaded:', {
-          token: oData.settings.gh_token ? 'YES' : 'NO',
-          upi: oData.settings.upi_id || 'MISSING'
-        });
-      } else {
-        console.warn('⚠️ data.json me settings nahi');
-      }
-
-      // ⭐ STEP 2: Customer register/login
       const cData = await loadCustomers();
       const local = JSON.parse(localStorage.getItem('my_users') || '[]');
 
@@ -125,7 +105,7 @@
       setTimeout(() => location.replace('user.html'), 300);
     }
 
-    /* ---------- OWNER LOGIN ---------- */
+    /* ---------- OWNER ---------- */
     async function ownerLogin() {
       const id = document.getElementById('oId').value.trim();
       const pass = document.getElementById('oPass').value.trim();
@@ -134,18 +114,6 @@
       const data = await loadData();
       if (id !== data.owner.id || pass !== data.owner.password) {
         return toast('Galat ID ya password');
-      }
-
-      // ⭐ data.json se settings load karo (agar pehle se save hain)
-      if (data.settings) {
-        if (data.settings.gh_token) localStorage.setItem('gh_token', data.settings.gh_token);
-        if (data.settings.imgbb_key) localStorage.setItem('imgbb_key', data.settings.imgbb_key);
-        if (data.settings.upi_id) localStorage.setItem('upi_id', data.settings.upi_id);
-        if (data.settings.upi_name) localStorage.setItem('upi_name', data.settings.upi_name);
-        console.log('✅ Owner settings loaded from data.json:', {
-          token: data.settings.gh_token ? 'YES' : 'NO',
-          upi: data.settings.upi_id || 'MISSING'
-        });
       }
 
       saveSession('owner', { id });
