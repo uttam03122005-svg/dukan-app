@@ -7,14 +7,12 @@ const CONFIG = {
 
   CUST_REPO: 'dukan-customers',
   CUST_FILE: 'customers.json',
-  CUST_BRANCH: 'main',
-
-  GITHUB_TOKEN: '',
-  IMGBB_KEY: ''
+  CUST_BRANCH: 'main'
 };
 
 const DATA_URL = `https://raw.githubusercontent.com/${CONFIG.GITHUB_USER}/${CONFIG.GITHUB_REPO}/${CONFIG.GITHUB_BRANCH}/${CONFIG.GITHUB_FILE}`;
 const CUST_URL = `https://raw.githubusercontent.com/${CONFIG.GITHUB_USER}/${CONFIG.CUST_REPO}/${CONFIG.CUST_BRANCH}/${CONFIG.CUST_FILE}`;
+const SECRET_URL = './secret.json';
 
 const DEFAULT_DATA = {
   products: [], users: [], orders: [],
@@ -22,6 +20,28 @@ const DEFAULT_DATA = {
   settings: {}
 };
 const DEFAULT_CUST = { users: [] };
+
+/* ================== SECRET (permanent settings) ================== */
+let SECRET = {
+  gh_token: '',
+  imgbb_key: '',
+  upi_id: '',
+  upi_name: 'Dukan'
+};
+
+async function loadSecret() {
+  try {
+    const res = await fetch(SECRET_URL + '?_=' + Date.now());
+    if (!res.ok) throw new Error('secret.json not found');
+    const j = await res.json();
+    SECRET = { ...SECRET, ...j };
+    console.log('✅ secret.json loaded');
+    return SECRET;
+  } catch (e) {
+    console.warn('❌ secret.json load fail:', e);
+    return SECRET;
+  }
+}
 
 /* ================== TOAST ================== */
 function toast(msg) {
@@ -36,29 +56,18 @@ function toast(msg) {
 /* ================== CACHE ================== */
 let CACHED_DATA = null;
 
-/* ================== TOKEN / SETTINGS ================== */
-async function getActiveToken() {
-  const local = localStorage.getItem('gh_token');
-  if (local) return local;
-  if (CACHED_DATA?.settings?.gh_token) return CACHED_DATA.settings.gh_token;
-  if (CONFIG.GITHUB_TOKEN) return CONFIG.GITHUB_TOKEN;
-  return null;
+/* ================== TOKEN / SETTINGS (sirf SECRET se) ================== */
+function getActiveToken() {
+  return SECRET.gh_token || null;
 }
-
-async function getImgbbKey() {
-  const local = localStorage.getItem('imgbb_key');
-  if (local) return local;
-  if (CACHED_DATA?.settings?.imgbb_key) return CACHED_DATA.settings.imgbb_key;
-  if (CONFIG.IMGBB_KEY) return CONFIG.IMGBB_KEY;
-  return null;
+function getImgbbKey() {
+  return SECRET.imgbb_key || null;
 }
-
 function getUpi() {
-  const localId = localStorage.getItem('upi_id');
-  const localName = localStorage.getItem('upi_name');
-  const id = localId || CACHED_DATA?.settings?.upi_id || '';
-  const name = localName || CACHED_DATA?.settings?.upi_name || 'Dukan';
-  return { id, name };
+  return {
+    id: SECRET.upi_id || '',
+    name: SECRET.upi_name || 'Dukan'
+  };
 }
 
 /* ================== LOAD ================== */
@@ -95,21 +104,20 @@ async function loadCustomers() {
 
 /* ================== SAVE ================== */
 async function saveData(data) {
-  const token = await getActiveToken();
-  if (!token) throw new Error('Token set nahi hai. Owner Settings me daalo.');
+  const token = getActiveToken();
+  if (!token) throw new Error('Token secret.json me set nahi hai');
   data.settings = data.settings || {};
   return await _githubSave(CONFIG.GITHUB_REPO, CONFIG.GITHUB_FILE, data, token);
 }
 async function saveCustomers(data) {
-  const token = await getActiveToken();
-  if (!token) throw new Error('Token set nahi hai');
+  const token = getActiveToken();
+  if (!token) throw new Error('Token secret.json me set nahi hai');
   return await _githubSave(CONFIG.CUST_REPO, CONFIG.CUST_FILE, data, token);
 }
 
 async function _githubSave(repo, file, data, token, retry = 0) {
   const apiUrl = `https://api.github.com/repos/${CONFIG.GITHUB_USER}/${repo}/contents/${file}`;
 
-  // CORS-safe headers
   const getRes = await fetch(apiUrl + '?ref=main&_=' + Date.now() + Math.random(), {
     headers: {
       Authorization: `token ${token}`,
@@ -145,17 +153,14 @@ async function _githubSave(repo, file, data, token, retry = 0) {
 
   if (!putRes.ok) {
     const err = await putRes.json().catch(() => ({}));
-
     if (putRes.status === 409 && retry < 5) {
-      console.warn('Conflict — retry ' + (retry + 1));
       await new Promise(r => setTimeout(r, 800 * (retry + 1)));
       return await _githubSave(repo, file, data, token, retry + 1);
     }
     if (putRes.status === 401) throw new Error('Token galat ya expire');
     if (putRes.status === 403) throw new Error('Permission nahi');
-    if (putRes.status === 409) throw new Error('Conflict — 10 sec ruk ke try karo');
+    if (putRes.status === 409) throw new Error('Conflict — try again');
     if (putRes.status === 422) throw new Error('Data format galat');
-
     throw new Error('Save fail: ' + (err.message || putRes.status));
   }
   return true;
@@ -163,8 +168,8 @@ async function _githubSave(repo, file, data, token, retry = 0) {
 
 /* ================== IMAGE ================== */
 async function uploadImage(file) {
-  const key = await getImgbbKey();
-  if (!key) throw new Error('ImgBB key nahi mili — Owner Settings me daalo');
+  const key = getImgbbKey();
+  if (!key) throw new Error('ImgBB key secret.json me nahi');
   const form = new FormData();
   form.append('image', file);
   const res = await fetch(`https://api.imgbb.com/1/upload?key=${key}`, { method: 'POST', body: form });
@@ -184,8 +189,6 @@ function getSession() {
   try { return { role, data: JSON.parse(localStorage.getItem('session') || '{}') }; }
   catch { return null; }
 }
-
-// ⭐ IMPORTANT: Logout me token/upi/imgbb DELETE NAHI karenge
 function logout() {
   localStorage.removeItem('role');
   localStorage.removeItem('session');
@@ -255,6 +258,16 @@ function getAppLinks(amount, note) {
     any: `upi://pay?${base}`
   };
 }
+
+/* ================== BOOT ================== */
+// Har page load pe secret.json load karo
+loadSecret().then(() => {
+  console.log('SECRET ready:', {
+    token: SECRET.gh_token ? '✅' : '❌',
+    upi: SECRET.upi_id || '❌',
+    imgbb: SECRET.imgbb_key ? '✅' : '❌'
+  });
+});
 
 /* ================== SERVICE WORKER ================== */
 if ('serviceWorker' in navigator) {
