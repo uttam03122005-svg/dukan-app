@@ -18,10 +18,9 @@
       <button class="primary tabBtn" data-tab="products" style="border-radius:0;font-size:12px;">Products</button>
       <button class="primary tabBtn" data-tab="users" style="border-radius:0;background:#ccc;color:#333;font-size:12px;">Customers</button>
       <button class="primary tabBtn" data-tab="orders" style="border-radius:0;background:#ccc;color:#333;font-size:12px;">Orders</button>
-      <button class="primary tabBtn" data-tab="info" style="border-radius:0;background:#ccc;color:#333;font-size:12px;">ℹ️</button>
+      <button class="primary tabBtn" data-tab="info" style="border-radius:0;background:#ccc;color:#333;font-size:12px;">ℹ️ Info</button>
     </div>
 
-    <!-- PRODUCTS -->
     <div id="tab-products">
       <div class="card">
         <h3 id="pFormTitle">➕ Naya Product</h3>
@@ -40,28 +39,19 @@
       <div id="productList"></div>
     </div>
 
-    <!-- USERS -->
     <div id="tab-users" class="hidden">
       <input class="search-bar" id="uSearch" placeholder="🔍 Customer (phone se)">
       <div id="userList"></div>
     </div>
 
-    <!-- ORDERS -->
     <div id="tab-orders" class="hidden">
       <div id="orderList"></div>
     </div>
 
-    <!-- INFO (secret.json values read-only) -->
     <div id="tab-info" class="hidden">
       <div class="card">
-        <h3>ℹ️ Info</h3>
-        <p style="font-size:13px;color:#666;margin-bottom:8px;">
-          Ye values <b>secret.json</b> file se aa rahi hain.
-        </p>
+        <h3>ℹ️ Info (secret.json se)</h3>
         <div id="secretInfo" style="font-size:13px;color:#555;"></div>
-        <p style="font-size:12px;color:#888;margin-top:10px;">
-          Change karne ke liye GitHub pe <b>secret.json</b> edit karo.
-        </p>
       </div>
     </div>
   </div>
@@ -74,12 +64,9 @@
     let DATA = null, CUST = null, editingImageUrl = '', currentUnits = [];
 
     async function init() {
-      // Secret load hone ka wait karo
-      await loadSecret();
-
+      if (typeof loadSecret === 'function') await loadSecret();
       DATA = await loadData();
       CUST = await loadCustomers();
-
       DATA.users = CUST.users.map(cu => {
         const ou = DATA.users.find(u => u.phone === cu.phone);
         return {
@@ -91,17 +78,7 @@
           created_at: cu.created_at
         };
       });
-
-      renderProducts();
-      renderUsers();
-      renderOrders();
-      renderInfo();
-      resetProductForm();
-
-      // Token check
-      if (!SECRET.gh_token) {
-        toast('⚠️ secret.json me token nahi hai');
-      }
+      renderProducts(); renderUsers(); renderOrders(); renderInfo(); resetProductForm();
     }
 
     function switchTab(t) {
@@ -116,18 +93,16 @@
         document.getElementById('tab-'+x).classList.toggle('hidden', x !== t);
       });
     }
-
     document.querySelectorAll('.tabBtn').forEach(btn => {
       btn.onclick = () => switchTab(btn.dataset.tab);
     });
 
-    /* ============ INFO ============ */
     function renderInfo() {
-      const t = SECRET.gh_token || '';
-      const ib = SECRET.imgbb_key || '';
-      const upi = SECRET.upi_id || '';
-      const upiN = SECRET.upi_name || '';
-
+      const S = (typeof SECRET !== 'undefined' ? SECRET : {});
+      const t = S.gh_token || '';
+      const ib = S.imgbb_key || '';
+      const upi = S.upi_id || '';
+      const upiN = S.upi_name || '';
       document.getElementById('secretInfo').innerHTML = `
         <div style="padding:4px 0;">Token: ${t ? t.substring(0,25)+'...' : '❌ not set'}</div>
         <div style="padding:4px 0;">ImgBB: ${ib ? ib.substring(0,15)+'...' : '❌ not set'}</div>
@@ -136,7 +111,6 @@
       `;
     }
 
-    /* ============ PRODUCTS ============ */
     document.getElementById('pImg').onchange = e => {
       const f = e.target.files[0];
       if (f) {
@@ -190,17 +164,14 @@
       if (!name) return toast('Naam zaroori');
       if (!currentUnits.length) return toast('Unit add karo');
       for (const u of currentUnits) if (!u.retail) return toast(`${u.label} retail daalo`);
-
       const units = currentUnits.map(u => ({
         label: u.label, retail: +u.retail || 0,
         wholesale: +u.wholesale || +u.retail, stock: +u.stock || 0
       }));
-
       try {
         toast('Save ho raha hai...');
         let imageUrl = editingImageUrl;
         if (file) imageUrl = await uploadImage(file);
-
         if (editId) {
           const p = DATA.products.find(x => x.id === editId);
           Object.assign(p, { name, units, category: cat, image: imageUrl });
@@ -231,7 +202,6 @@
       renderUnits();
       document.getElementById('pFormTitle').textContent = '✏️ Edit';
       switchTab('products');
-      window.scrollTo(0,0);
     }
 
     async function deleteProduct(id) {
@@ -278,19 +248,15 @@
     }
     document.getElementById('pSearch').oninput = renderProducts;
 
-    /* ============ USERS ============ */
     async function saveOwnerUser(user) {
       const ownerData = await loadData();
       let ex = ownerData.users.find(x => x.phone === user.phone);
       if (ex) {
-        ex.name = user.name;
-        ex.price_type = user.price_type;
-        ex.special_prices = user.special_prices;
+        ex.name = user.name; ex.price_type = user.price_type; ex.special_prices = user.special_prices;
       } else {
         ownerData.users.push({
           id: user.id, name: user.name, phone: user.phone,
-          price_type: user.price_type,
-          special_prices: user.special_prices || {},
+          price_type: user.price_type, special_prices: user.special_prices || {},
           created_at: user.created_at
         });
       }
@@ -302,10 +268,8 @@
         return {
           id: cu.id || ('U' + cu.phone),
           name: ou?.name || cu.name || 'Customer',
-          phone: cu.phone,
-          price_type: ou?.price_type || 'retail',
-          special_prices: ou?.special_prices || {},
-          created_at: cu.created_at
+          phone: cu.phone, price_type: ou?.price_type || 'retail',
+          special_prices: ou?.special_prices || {}, created_at: cu.created_at
         };
       });
     }
@@ -359,7 +323,6 @@
     }
     document.getElementById('uSearch').oninput = renderUsers;
 
-    /* ============ ORDERS ============ */
     async function updateOrder(orderId, patch) {
       const o = DATA.orders.find(x => x.id === orderId);
       Object.assign(o, patch);
@@ -369,8 +332,7 @@
 
     async function markPaymentDone(orderId) {
       const o = DATA.orders.find(x => x.id === orderId);
-      o.payment_status = 'paid';
-      o.payment = 'paid';
+      o.payment_status = 'paid'; o.payment = 'paid';
       try { await saveData(DATA); renderOrders(); toast('💰 Payment done'); }
       catch (e) { toast('❌ ' + e.message); }
     }
