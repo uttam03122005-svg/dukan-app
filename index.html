@@ -38,10 +38,18 @@
 
   <script src="app.js"></script>
   <script>
-    (function() {
+    (async function() {
       const s = getSession();
-      if (s && s.role === 'owner') { location.replace('owner.html'); return; }
-      if (s && s.role === 'user')  { location.replace('user.html');  return; }
+      if (!s) return;
+      const ok = await waitForFirebase();
+      const uid = await waitForAuth();
+      if (s && s.role === 'owner' && uid) { location.replace('owner.html'); return; }
+      if (s && s.role === 'user' && uid)  { location.replace('user.html');  return; }
+      // session hai par auth nahi → session clear karo
+      if (s && !uid) {
+        localStorage.removeItem('role');
+        localStorage.removeItem('session');
+      }
     })();
 
     const tabU = document.getElementById('tabUser');
@@ -70,6 +78,9 @@
       try {
         const fbUser = await customerSignIn();
         const uid = fbUser.uid;
+
+        // auth ready ka wait
+        await waitForAuth();
 
         let user = await fbLoadMyUser(uid);
 
@@ -101,7 +112,8 @@
           id: uid, name: user.name || 'Customer', phone: user.phone,
           price_type: user.price_type || 'retail'
         });
-        setTimeout(() => location.replace('user.html'), 300);
+
+        setTimeout(() => location.replace('user.html'), 500);
       } catch (e) {
         console.error(e);
         toast('❌ ' + e.message);
@@ -119,9 +131,10 @@
 
       try {
         const fbUser = await ownerSignIn(email, pass);
+        await waitForAuth();
         saveSession('owner', { uid: fbUser.uid, email: fbUser.email });
         toast('✅ Owner login ho gaya');
-        setTimeout(() => location.replace('owner.html'), 300);
+        setTimeout(() => location.replace('owner.html'), 500);
       } catch (e) {
         console.error(e);
         if (e.code === 'auth/invalid-credential' || e.code === 'auth/wrong-password') {
