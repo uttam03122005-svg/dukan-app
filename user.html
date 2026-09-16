@@ -18,10 +18,6 @@
     .pay-opt.selected { border-color:#2e7d32; background:#f1f8e9; }
     .upi-apps { display:flex; gap:6px; margin-top:8px; }
     .upi-apps button { flex:1; padding:8px 2px; font-size:11px; border:none; border-radius:6px; color:#fff; font-weight:bold; }
-    .icon-btn { display:inline-flex; align-items:center; justify-content:center; width:36px; height:36px; border-radius:50%; border:none; cursor:pointer; font-size:18px; margin-right:4px; }
-    .btn-call { background:#2e7d32; color:#fff; }
-    .btn-wa { background:#25d366; color:#fff; }
-    .btn-sms { background:#1976d2; color:#fff; }
   </style>
 </head>
 <body>
@@ -67,7 +63,10 @@
     const s = getSession();
     if (!s || s.role !== 'user') location.replace('index.html');
 
-    let DATA = null, ME = null;
+    let PRODUCTS = [];
+    let ME = null;
+    let MY_ORDERS = [];
+    let MY_UDHAR = [];
     let CART = JSON.parse(localStorage.getItem('cart') || '{}');
 
     document.getElementById('welcome').textContent = 'Namaste, ' + (s.data.name || 'Customer');
@@ -76,13 +75,25 @@
       const ok = await waitForFirebase();
       if (!ok) { alert('Firebase ready nahi'); return; }
 
-      DATA = await loadData();
-      const myUser = DATA.users.find(u => u.phone === s.data.phone);
-      ME = myUser || {
-        id: s.data.id, name: s.data.name || 'Customer', phone: s.data.phone,
+      const uid = getAuthUid();
+      if (!uid) {
+        alert('Session expire. Dobara login karo.');
+        location.replace('index.html');
+        return;
+      }
+
+      const data = await loadMyData(uid);
+      PRODUCTS = data.products;
+      ME = data.me || {
+        id: uid, name: s.data.name || 'Customer', phone: s.data.phone,
         price_type: 'retail', special_prices: {}
       };
-      saveSession('user', ME);
+      MY_ORDERS = data.myOrders || [];
+      MY_UDHAR = data.myUdhar || [];
+
+      saveSession('user', { id: ME.id, name: ME.name, phone: ME.phone, price_type: ME.price_type });
+      document.getElementById('welcome').textContent = 'Namaste, ' + ME.name;
+
       renderGrid(); renderCart(); renderOrders(); renderProfile(); updateCartBadge();
     }
 
@@ -101,7 +112,7 @@
 
     function renderGrid() {
       const q = (document.getElementById('search').value||'').toLowerCase();
-      const items = DATA.products.filter(p => !p.hidden && p.name.toLowerCase().includes(q));
+      const items = PRODUCTS.filter(p => !p.hidden && p.name.toLowerCase().includes(q));
       const grid = document.getElementById('grid');
       if (!items.length) { grid.innerHTML = '<div class="card center">Koi product nahi</div>'; return; }
       grid.innerHTML = items.map(p => {
@@ -129,13 +140,13 @@
 
     let pickerState = null;
     function openUnitPicker(pid) {
-      const p = DATA.products.find(x => x.id === pid);
+      const p = PRODUCTS.find(x => x.id === pid);
       if (!p || !p.units?.length) return;
       pickerState = { productId: pid, unitLabel: p.units[0].label, qty: UNIT_STEP[p.units[0].label] || 1 };
       renderPickerModal();
     }
     function renderPickerModal() {
-      const p = DATA.products.find(x => x.id === pickerState.productId);
+      const p = PRODUCTS.find(x => x.id === pickerState.productId);
       const u = p.units.find(x => x.label === pickerState.unitLabel);
       const price = getUnitPrice(p, u.label, ME);
       const step = UNIT_STEP[u.label] || 1;
@@ -181,14 +192,13 @@
     }
     function selectUnit(label) { pickerState.unitLabel = label; pickerState.qty = UNIT_STEP[label] || 1; renderPickerModal(); }
     function changeQty(dir) {
-      const p = DATA.products.find(x => x.id === pickerState.productId);
+      const p = PRODUCTS.find(x => x.id === pickerState.productId);
       const u = p.units.find(x => x.label === pickerState.unitLabel);
       const step = UNIT_STEP[u.label] || 1;
       let v = pickerState.qty + dir * step;
       v = Math.round(v*100)/100;
       if (v < step) v = step;
-      pickerState.qty = v;
-      renderPickerModal();
+      pickerState.qty = v; renderPickerModal();
     }
     function setPickerQty(val) {
       const v = Math.round(parseFloat(val)*100)/100;
@@ -209,7 +219,7 @@
       let t = 0;
       Object.keys(CART).forEach(key => {
         const [pid, ul] = key.split('::');
-        const p = DATA.products.find(x => x.id === pid);
+        const p = PRODUCTS.find(x => x.id === pid);
         if (p) t += getUnitPrice(p, ul, ME) * CART[key];
       });
       return t;
@@ -222,7 +232,7 @@
       let total = 0;
       list.innerHTML = keys.map(key => {
         const [pid, ul] = key.split('::');
-        const p = DATA.products.find(x => x.id === pid);
+        const p = PRODUCTS.find(x => x.id === pid);
         if (!p) return '';
         const qty = CART[key];
         const price = getUnitPrice(p, ul, ME);
@@ -348,7 +358,7 @@
       }
       const items = keys.map(key => {
         const [pid, ul] = key.split('::');
-        const p = DATA.products.find(x => x.id === pid);
+        const p = PRODUCTS.find(x => x.id === pid);
         return { product_id: pid, product_name: p.name, unit: ul, qty: CART[key], price: getUnitPrice(p, ul, ME) };
       });
       const order = {
@@ -373,12 +383,11 @@
     }
 
     function renderOrders() {
-      const mine = DATA.orders.filter(o => o.user_id === ME.id);
       const list = document.getElementById('myOrders');
-      if (!mine.length) { list.innerHTML = '<div class="card center">Koi order nahi</div>'; return; }
-      list.innerHTML = mine.map(o => {
+      if (!MY_ORDERS.length) { list.innerHTML = '<div class="card center">Koi order nahi</div>'; return; }
+      list.innerHTML = MY_ORDERS.map(o => {
         const items = o.items.map(it => {
-          const p = DATA.products.find(x => x.id === it.product_id) || { name: it.product_name || '?' };
+          const p = PRODUCTS.find(x => x.id === it.product_id) || { name: it.product_name || '?' };
           return `<div style="font-size:13px;">• ${p.name} — ${it.qty} ${it.unit} × ${inr(it.price)} = ${inr(it.qty*it.price)}</div>`;
         }).join('');
         const isPaid = o.payment_status === 'paid';
@@ -401,12 +410,9 @@
       }).join('');
     }
 
-    /* ========== PROFILE (edit + bakaya + udhar) ========== */
     function renderProfile() {
-      const stats = calculateUserStats(ME.id, DATA.orders, DATA.udhar);
-      const myUdhar = DATA.udhar.filter(u => u.user_id === ME.id);
-
-      const udharRows = myUdhar.map(u => `
+      const stats = calculateUserStats(ME.id, MY_ORDERS, MY_UDHAR);
+      const udharRows = MY_UDHAR.map(u => `
         <div style="padding:6px 0;border-bottom:1px solid #f0f0f0;font-size:13px;">
           <div style="display:flex;justify-content:space-between;">
             <b>${new Date(u.created_at).toLocaleDateString('hi-IN')}</b>
@@ -442,12 +448,9 @@
               <div style="font-size:12px;color:#666;">Paid</div>
             </div>
             <div>
-              <div style="font-size:20px;font-weight:bold;color:${stats.total_pending > 0 ? '#e65100' : '#2e7d32'};">${inr(stats.total_pending)}</div>
+              <div style="font-size:20px;font-weight:bold;color:${stats.total_pending>0?'#e65100':'#2e7d32'};">${inr(stats.total_pending)}</div>
               <div style="font-size:12px;color:#666;">Bakaya</div>
             </div>
-          </div>
-          <div style="font-size:12px;color:#888;margin-top:8px;text-align:center;">
-            (Order pending: ${inr(stats.order_pending)} + Udhar: ${inr(stats.udhar_pending)})
           </div>
         </div>
 
@@ -469,7 +472,8 @@
         await fbSaveUser(ME);
         saveSession('user', ME);
         toast('✅ Profile save');
-        DATA = await loadData();
+        const data = await loadMyData(ME.id);
+        ME = data.me;
         renderProfile();
       } catch (e) { toast('❌ ' + e.message); }
     }
