@@ -38,7 +38,7 @@
 
   <script src="app.js"></script>
   <script>
-    (async function() {
+    (function() {
       const s = getSession();
       if (s && s.role === 'owner') { location.replace('owner.html'); return; }
       if (s && s.role === 'user')  { location.replace('user.html');  return; }
@@ -62,42 +62,30 @@
     async function userLogin() {
       const phone = document.getElementById('uPhone').value.trim();
       if (phone.length !== 10) return toast('10 digit phone daalo');
-
       toast('Login ho raha hai...');
       const ok = await waitForFirebase();
-      if (!ok) return toast('❌ Firebase ready nahi. Refresh karo.');
+      if (!ok) return toast('❌ Firebase ready nahi');
 
       const users = await fbLoadAllUsers();
       let user = users.find(u => u.phone === phone);
 
       if (!user) {
         user = {
-          id: 'U' + phone,
-          name: 'Customer',
-          phone: phone,
-          price_type: 'retail',
-          special_prices: {},
+          id: 'U' + phone, name: 'Customer', phone: phone,
+          address: '', price_type: 'retail', special_prices: {},
           created_at: new Date().toISOString()
         };
-        try {
-          await fbSaveUser(user);
-          toast('✅ Register ho gaya');
-        } catch (e) {
-          console.warn('Save fail:', e);
-          toast('✅ Login ho gaya');
-        }
+        try { await fbSaveUser(user); toast('✅ Register ho gaya'); }
+        catch (e) { toast('✅ Login ho gaya'); }
       } else {
         toast('Wapas swagat!');
       }
 
       saveSession('user', {
-        id: user.id,
-        name: user.name || 'Customer',
-        phone,
+        id: user.id, name: user.name || 'Customer', phone,
         price_type: user.price_type || 'retail',
         special_prices: user.special_prices || {}
       });
-
       setTimeout(() => location.replace('user.html'), 300);
     }
 
@@ -105,15 +93,11 @@
       const id = document.getElementById('oId').value.trim();
       const pass = document.getElementById('oPass').value.trim();
       if (!id || !pass) return toast('ID aur password daalo');
-
-      toast('Login ho raha hai...');
       const ok = await waitForFirebase();
-      if (!ok) return toast('❌ Firebase ready nahi. Refresh karo.');
+      if (!ok) return toast('❌ Firebase ready nahi');
 
       const owner = await fbGetOwner();
-      if (id !== owner.id || pass !== owner.password) {
-        return toast('Galat ID ya password');
-      }
+      if (id !== owner.id || pass !== owner.password) return toast('Galat ID ya password');
 
       saveSession('owner', { id });
       toast('✅ Owner login ho gaya');
