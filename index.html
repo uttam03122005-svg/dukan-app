@@ -27,9 +27,6 @@
       <h3>Customer Login</h3>
       <input id="uPhone" placeholder="Phone number (10 digit)" inputmode="numeric" maxlength="10">
       <button class="primary" onclick="userLogin()">Login</button>
-      <p class="center" style="font-size:12px;color:#888;margin-top:8px;">
-        Sirf phone number se login — ek number = ek ID
-      </p>
     </div>
 
     <!-- OWNER -->
@@ -37,12 +34,23 @@
       <h3>Owner Login</h3>
       <input id="oId" placeholder="Owner ID">
       <input id="oPass" type="password" placeholder="Password">
-      <input id="oToken" placeholder="GitHub Token">
-      <input id="oImgbb" placeholder="ImgBB Key">
+
+      <!-- Extra fields — pehli baar hi dikhenge -->
+      <div id="ownerExtra">
+        <input id="oToken" placeholder="GitHub Token">
+        <input id="oImgbb" placeholder="ImgBB Key">
+        <input id="oUpi" placeholder="UPI ID (jaise 9876543210@paytm)">
+        <input id="oUpiName" placeholder="UPI Name (dukan ka naam)">
+        <p style="font-size:12px;color:#888;margin-top:4px;">
+          Ye sab sirf pehli baar. Agli baar sirf ID + Password.
+        </p>
+      </div>
+
+      <div id="ownerSetupDone" class="hidden" style="font-size:12px;color:#2e7d32;margin-top:4px;">
+        ✅ Setup already done — sirf ID + Password daalo
+      </div>
+
       <button class="primary" onclick="ownerLogin()">Login</button>
-      <p class="center" style="font-size:12px;color:#888;margin-top:8px;">
-        Ek baar login — phir hamesha yaad rahega
-      </p>
     </div>
   </div>
 
@@ -68,7 +76,22 @@
       tabU.style.background = '#ccc'; tabU.style.color = '#333';
       document.getElementById('ownerForm').classList.remove('hidden');
       document.getElementById('userForm').classList.add('hidden');
+      checkOwnerSetup();
     };
+
+    // owner setup check — data.json me settings.gh_token hai to extra fields hide
+    async function checkOwnerSetup() {
+      try {
+        const d = await loadData();
+        if (d.settings?.gh_token) {
+          document.getElementById('ownerExtra').classList.add('hidden');
+          document.getElementById('ownerSetupDone').classList.remove('hidden');
+        } else {
+          document.getElementById('ownerExtra').classList.remove('hidden');
+          document.getElementById('ownerSetupDone').classList.add('hidden');
+        }
+      } catch (e) { /* ignore */ }
+    }
 
     /* ---------- CUSTOMER LOGIN (sirf phone) ---------- */
     async function userLogin() {
@@ -80,25 +103,21 @@
       const cData = await loadCustomers();
       const local = JSON.parse(localStorage.getItem('my_users') || '[]');
 
-      // Ek phone = ek ID (phone se hi dhundo)
       let user = cData.users.find(u => u.phone === phone);
       if (!user) user = local.find(u => u.phone === phone);
 
       if (!user) {
-        // Naya user — naam ki zaroorat nahi, phone se hi ID banayenge
         user = {
-          id: 'U' + phone,          // 👈 phone based unique ID
-          name: 'Customer',          // default, owner baad me set kar sakta
+          id: 'U' + phone,
+          name: 'Customer',
           phone: phone,
           created_at: new Date().toISOString()
         };
-
         const l2 = JSON.parse(localStorage.getItem('my_users') || '[]');
         if (!l2.find(u => u.phone === phone)) {
           l2.push(user);
           localStorage.setItem('my_users', JSON.stringify(l2));
         }
-
         try {
           cData.users.push(user);
           await saveCustomers(cData);
@@ -111,7 +130,6 @@
         toast('Wapas swagat!');
       }
 
-      // Session me save
       const oData = await loadData();
       const ownerUser = oData.users.find(u => u.phone === phone);
       saveSession('user', {
@@ -129,20 +147,61 @@
     async function ownerLogin() {
       const id = document.getElementById('oId').value.trim();
       const pass = document.getElementById('oPass').value.trim();
-      const token = document.getElementById('oToken').value.trim();
-      const imgbb = document.getElementById('oImgbb').value.trim();
-      if (!id || !pass || !token) return toast('Sab bharo');
-      if (!imgbb) return toast('ImgBB key bhi daalo');
+      if (!id || !pass) return toast('ID aur password daalo');
 
       const data = await loadData();
-      if (id !== data.owner.id || pass !== data.owner.password) return toast('Galat ID ya password');
+      if (id !== data.owner.id || pass !== data.owner.password) {
+        return toast('Galat ID ya password');
+      }
 
-      localStorage.setItem('gh_token', token);
-      localStorage.setItem('imgbb_key', imgbb);
+      // Agar setup pehle se hai — sirf login
+      const hasSetup = data.settings?.gh_token;
+
+      if (!hasSetup) {
+        // Pehli baar — extra fields zaroori
+        const token = document.getElementById('oToken').value.trim();
+        const imgbb = document.getElementById('oImgbb').value.trim();
+        const upi = document.getElementById('oUpi').value.trim();
+        const upiName = document.getElementById('oUpiName').value.trim();
+
+        if (!token) return toast('GitHub Token daalo');
+        if (!imgbb) return toast('ImgBB Key daalo');
+        if (!upi) return toast('UPI ID daalo');
+
+        // Save in data.json settings
+        data.settings = data.settings || {};
+        data.settings.gh_token = token;
+        data.settings.imgbb_key = imgbb;
+        data.settings.upi_id = upi;
+        data.settings.upi_name = upiName || 'Dukan';
+
+        // Save to GitHub using the provided token directly
+        try {
+          await _githubSave(CONFIG.GITHUB_REPO, CONFIG.GITHUB_FILE, data, token);
+        } catch (e) {
+          return toast('❌ Setup save fail: ' + e.message);
+        }
+
+        // Local me bhi
+        localStorage.setItem('gh_token', token);
+        localStorage.setItem('imgbb_key', imgbb);
+        localStorage.setItem('upi_id', upi);
+        localStorage.setItem('upi_name', upiName || 'Dukan');
+      } else {
+        // Setup already done — data.json se token local me le lo
+        localStorage.setItem('gh_token', data.settings.gh_token);
+        if (data.settings.imgbb_key) localStorage.setItem('imgbb_key', data.settings.imgbb_key);
+        if (data.settings.upi_id) localStorage.setItem('upi_id', data.settings.upi_id);
+        if (data.settings.upi_name) localStorage.setItem('upi_name', data.settings.upi_name);
+      }
+
       saveSession('owner', { id });
-      toast('Owner login');
+      toast('Owner login ho gaya');
       setTimeout(() => location.replace('owner.html'), 300);
     }
+
+    // setup check when owner tab opens
+    tabO.addEventListener('click', checkOwnerSetup);
   </script>
 </body>
 </html>
