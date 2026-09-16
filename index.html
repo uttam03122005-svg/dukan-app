@@ -31,7 +31,7 @@
       <input id="uPhone" placeholder="Phone number (10 digit)" inputmode="numeric" maxlength="10">
       <button class="primary" onclick="userLogin()">Login / Register</button>
       <p class="center" style="font-size:12px;color:#888;margin-top:8px;">
-        Pehli baar? Bas naam aur phone daalo — auto register ho jaoge
+        Pehli baar? Bas naam aur phone daalo
       </p>
     </div>
 
@@ -40,12 +40,9 @@
       <h3>Owner Login</h3>
       <input id="oId" placeholder="Owner ID">
       <input id="oPass" type="password" placeholder="Password">
-      <input id="oToken" placeholder="GitHub Token (ghp_... ya github_pat_...)">
+      <input id="oToken" placeholder="GitHub Token (ghp_...)">
       <input id="oImgbb" placeholder="ImgBB API Key">
       <button class="primary" onclick="ownerLogin()">Login</button>
-      <p class="center" style="font-size:12px;color:#888;margin-top:8px;">
-        Token aur key sirf aapke phone me save honge
-      </p>
     </div>
   </div>
 
@@ -70,53 +67,70 @@
       document.getElementById('userForm').classList.add('hidden');
     };
 
-    /* -------- CUSTOMER: auto register + login -------- */
+    /* ---------- CUSTOMER: login + auto-register ---------- */
     async function userLogin() {
       const name = document.getElementById('uName').value.trim();
       const phone = document.getElementById('uPhone').value.trim();
       if (!name || phone.length !== 10) return toast('Naam aur 10 digit phone daalo');
 
       toast('Login ho raha hai...');
-      const data = await loadData();
 
-      let user = data.users.find(u =>
+      // Step 1: Customer list load karo
+      const cData = await loadCustomers();
+
+      // Step 2: Dhundho
+      let user = cData.users.find(u =>
         u.name.toLowerCase() === name.toLowerCase() && u.phone === phone
       );
 
+      // Step 3: Naya? → auto register
       if (!user) {
-        // NAYA CUSTOMER — auto register, default RETAIL
         user = {
           id: uid(),
           name: name,
           phone: phone,
-          price_type: 'retail',
-          special_prices: {},
           created_at: new Date().toISOString()
         };
-        data.users.push(user);
+        cData.users.push(user);
+
         try {
-          await saveData(data);
+          await saveCustomers(cData);   // ✅ sirf customers.json me save
           toast('✅ Register ho gaya!');
         } catch (e) {
-          console.warn('Auto-register save fail:', e);
-          toast('Register hua (offline). Owner se sync hoga');
+          console.warn('Register fail:', e);
+          toast('Register fail — dobara try karo');
+          return;
         }
       } else {
         toast('Wapas swagat, ' + user.name + '!');
       }
 
-      saveSession('user', { id: user.id, name: user.name, phone: user.phone });
+      // Owner ke data.json me agar ye user already add kiya ho to uska price_type milega
+      const oData = await loadData();
+      const ownerUser = oData.users.find(u =>
+        u.name.toLowerCase() === user.name.toLowerCase() && u.phone === user.phone
+      );
+
+      saveSession('user', {
+        id: user.id,
+        name: user.name,
+        phone: user.phone,
+        // agar owner ne special price ya wholesale diya hai to wahi, warna retail default
+        price_type: ownerUser?.price_type || 'retail',
+        special_prices: ownerUser?.special_prices || {}
+      });
+
       setTimeout(() => location.href = 'user.html', 400);
     }
 
-    /* -------- OWNER LOGIN -------- */
+    /* ---------- OWNER LOGIN ---------- */
     async function ownerLogin() {
       const id = document.getElementById('oId').value.trim();
       const pass = document.getElementById('oPass').value.trim();
       const token = document.getElementById('oToken').value.trim();
       const imgbb = document.getElementById('oImgbb').value.trim();
-      if (!id || !pass || !token) return toast('ID, Password aur GitHub Token bharo');
-      if (!imgbb) return toast('ImgBB API key bhi daalo');
+      if (!id || !pass || !token) return toast('Sab field bharo');
+      if (!imgbb) return toast('ImgBB key bhi daalo');
 
       const data = await loadData();
       if (id !== data.owner.id || pass !== data.owner.password) {
