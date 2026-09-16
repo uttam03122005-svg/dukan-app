@@ -83,10 +83,6 @@
       };
       saveSession('user', ME);
 
-      // UPI settings from data.json
-      if (DATA.settings?.upi_id) CONFIG.UPI_ID = DATA.settings.upi_id;
-      if (DATA.settings?.upi_name) CONFIG.UPI_NAME = DATA.settings.upi_name;
-
       renderGrid(); renderCart(); renderOrders(); renderProfile(); updateCartBadge();
     }
 
@@ -103,7 +99,6 @@
       };
     });
 
-    /* ---------- GRID ---------- */
     function renderGrid() {
       const q = (document.getElementById('search').value||'').toLowerCase();
       const items = DATA.products.filter(p => !p.hidden && p.name.toLowerCase().includes(q));
@@ -133,7 +128,6 @@
     }
     document.getElementById('search').oninput = renderGrid;
 
-    /* ---------- UNIT PICKER ---------- */
     let pickerState = null;
 
     function openUnitPicker(pid) {
@@ -217,7 +211,6 @@
     }
     function closePicker() { document.getElementById('modalRoot').innerHTML = ''; pickerState = null; }
 
-    /* ---------- CART ---------- */
     function saveCart() { localStorage.setItem('cart', JSON.stringify(CART)); updateCartBadge(); }
     function updateCartBadge() { document.getElementById('cartCount').textContent = Object.keys(CART).length; }
 
@@ -278,7 +271,6 @@
       saveCart(); renderCart();
     }
 
-    /* ---------- PAYMENT MODAL ---------- */
     let payState = { mode: 'cash', cashPaid: 0 };
 
     function openPaymentModal() {
@@ -296,7 +288,7 @@
       const showOnline = payState.mode === 'online' || (payState.mode === 'split' && online > 0);
       const qrImg = showOnline ? getUpiQrImage(online, 'Dukan Order') : '';
       const appLinks = showOnline ? getAppLinks(online, 'Dukan Order') : {};
-      const { id: upiId, name: upiName } = getUpi();
+      const { id: upiId } = getUpi();
 
       document.getElementById('modalRoot').innerHTML = `
         <div class="modal-bg" onclick="if(event.target===this) closePayment()">
@@ -306,15 +298,9 @@
 
             <p style="font-size:13px;color:#666;margin:8px 0;">Kaise pay karoge?</p>
             <div style="display:flex;gap:8px;">
-              <div class="pay-opt ${payState.mode==='cash'?'selected':''}" onclick="setPayMode('cash')">
-                💵<br><b>Cash</b>
-              </div>
-              <div class="pay-opt ${payState.mode==='online'?'selected':''}" onclick="setPayMode('online')">
-                📱<br><b>Online</b>
-              </div>
-              <div class="pay-opt ${payState.mode==='split'?'selected':''}" onclick="setPayMode('split')">
-                🔀<br><b>Split</b>
-              </div>
+              <div class="pay-opt ${payState.mode==='cash'?'selected':''}" onclick="setPayMode('cash')">💵<br><b>Cash</b></div>
+              <div class="pay-opt ${payState.mode==='online'?'selected':''}" onclick="setPayMode('online')">📱<br><b>Online</b></div>
+              <div class="pay-opt ${payState.mode==='split'?'selected':''}" onclick="setPayMode('split')">🔀<br><b>Split</b></div>
             </div>
 
             ${payState.mode === 'split' ? `
@@ -328,11 +314,8 @@
             ${showOnline ? `
               <div style="margin-top:12px;text-align:center;">
                 <div style="font-size:14px;margin-bottom:8px;">📱 <b>${inr(online)}</b> pay karo</div>
-
                 ${upiId ? `<div style="font-size:11px;color:#888;margin-bottom:6px;">UPI: ${upiId}</div>` : ''}
-
                 ${qrImg ? `<img src="${qrImg}" style="width:220px;height:220px;border:1px solid #eee;border-radius:8px;margin-bottom:6px;">` : '<div style="color:#c62828;">QR set nahi hai — Owner Settings me UPI ID daalo</div>'}
-
                 <div style="font-size:12px;color:#666;margin:8px 0;">📲 Ya seedha app me kholo:</div>
                 <div class="upi-apps">
                   ${appLinks.gpay ? `<button style="background:#1976d2;" onclick="openApp('${appLinks.gpay}')">GPay</button>` : ''}
@@ -340,12 +323,7 @@
                   ${appLinks.paytm ? `<button style="background:#00baf2;color:#000;" onclick="openApp('${appLinks.paytm}')">Paytm</button>` : ''}
                   ${appLinks.bhim ? `<button style="background:#f57c00;" onclick="openApp('${appLinks.bhim}')">BHIM</button>` : ''}
                 </div>
-
-                ${appLinks.any ? `
-                  <button class="primary" style="margin-top:10px;background:#2e7d32;" onclick="openApp('${appLinks.any}')">
-                    📲 Koi bhi UPI App se pay karo
-                  </button>
-                ` : ''}
+                ${appLinks.any ? `<button class="primary" style="margin-top:10px;background:#2e7d32;" onclick="openApp('${appLinks.any}')">📲 Koi bhi UPI App</button>` : ''}
               </div>
             ` : ''}
 
@@ -418,7 +396,6 @@
       } catch (e) { toast('❌ ' + e.message); }
     }
 
-    /* ---------- ORDERS ---------- */
     function renderOrders() {
       const mine = DATA.orders.filter(o => o.user_id === ME.id).reverse();
       const list = document.getElementById('myOrders');
@@ -446,7 +423,6 @@
       }).join('');
     }
 
-    /* ---------- PROFILE ---------- */
     function renderProfile() {
       const myOrders = DATA.orders.filter(o => o.user_id === ME.id);
       const totalSpent = myOrders.reduce((a, o) => a + o.total, 0);
@@ -473,9 +449,7 @@
         <div class="card">
           <div style="font-size:15px;font-weight:bold;">${ME.name}</div>
           <div style="font-size:13px;color:#666;">📞 ${ME.phone}</div>
-          <div style="font-size:12px;color:#888;margin-top:4px;">
-            Type: ${ME.price_type === 'wholesale' ? '💼 Wholesale' : '🛒 Retail'}
-          </div>
+          <div style="font-size:12px;color:#888;margin-top:4px;">Type: ${ME.price_type === 'wholesale' ? '💼 Wholesale' : '🛒 Retail'}</div>
         </div>
         <div class="card">
           <div style="display:flex;justify-content:space-around;text-align:center;">
