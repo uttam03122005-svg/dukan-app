@@ -2,11 +2,7 @@
 const SECRET_URL = './secret.json';
 
 let SECRET = {
-  gh_token: '',
-  imgbb_key: '',
-  upi_id: '',
-  upi_name: 'Dukan',
-  firebase: {}
+  gh_token: '', imgbb_key: '', upi_id: '', upi_name: 'Dukan', firebase: {}
 };
 
 let FB = null;
@@ -36,50 +32,37 @@ async function initFirebase() {
     FB_READY_RESOLVE(false);
     return;
   }
-
   if (typeof firebase === 'undefined') {
     await loadScript('https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js');
     await loadScript('https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js');
   }
-
-  if (firebase.apps.length === 0) {
-    firebase.initializeApp(SECRET.firebase);
-  }
+  if (firebase.apps.length === 0) firebase.initializeApp(SECRET.firebase);
   FB = firebase.firestore();
   FB_READY = true;
   FB_READY_RESOLVE(true);
   console.log('✅ Firebase ready');
 }
-
 function loadScript(src) {
   return new Promise((resolve, reject) => {
     const s = document.createElement('script');
-    s.src = src;
-    s.onload = resolve;
-    s.onerror = reject;
+    s.src = src; s.onload = resolve; s.onerror = reject;
     document.head.appendChild(s);
   });
 }
-
-async function waitForFirebase() {
-  return await FB_READY_PROMISE;
-}
+async function waitForFirebase() { return await FB_READY_PROMISE; }
 
 /* ================== TOAST ================== */
 function toast(msg) {
   let t = document.querySelector('.toast');
   if (!t) { t = document.createElement('div'); t.className = 'toast'; document.body.appendChild(t); }
-  t.textContent = msg;
-  t.classList.add('show');
+  t.textContent = msg; t.classList.add('show');
   clearTimeout(t._tm);
   t._tm = setTimeout(() => t.classList.remove('show'), 2600);
 }
 
-/* ================== TOKEN / UPI ================== */
+/* ================== UPI / TOKEN ================== */
 function getImgbbKey() { return SECRET.imgbb_key || null; }
-function getUpi() {
-  return { id: SECRET.upi_id || '', name: SECRET.upi_name || 'Dukan' };
-}
+function getUpi() { return { id: SECRET.upi_id || '', name: SECRET.upi_name || 'Dukan' }; }
 
 /* ================== FIREBASE HELPERS ================== */
 async function fbLoadAllProducts() {
@@ -135,26 +118,55 @@ async function fbUpdateOrder(id, patch) {
   await FB.collection('orders').doc(id).set(patch, { merge: true });
 }
 
-/* ================== LOAD ================== */
-async function loadData() {
-  if (!FB_READY) {
-    return { products: [], users: [], orders: [], owner: { id: 'owner', password: 'owner123' }, settings: {} };
-  }
-  const [products, users, orders, owner] = await Promise.all([
-    fbLoadAllProducts(),
-    fbLoadAllUsers(),
-    fbLoadAllOrders(),
-    fbGetOwner()
-  ]);
-  return { products, users, orders, owner, settings: {} };
+// ⭐ Udhar save
+async function fbSaveUdhar(udhar) {
+  if (!FB_READY) throw new Error('Firebase ready nahi');
+  if (!udhar.id) udhar.id = uid();
+  await FB.collection('udhar').doc(udhar.id).set(udhar, { merge: true });
+  return udhar;
+}
+async function fbLoadAllUdhar() {
+  if (!FB_READY) return [];
+  const snap = await FB.collection('udhar').orderBy('created_at', 'desc').get();
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
+/* ================== LOAD ================== */
+async function loadData() {
+  if (!FB_READY) return { products: [], users: [], orders: [], udhar: [], owner: {id:'owner',password:'owner123'} };
+  const [products, users, orders, udhar, owner] = await Promise.all([
+    fbLoadAllProducts(), fbLoadAllUsers(), fbLoadAllOrders(),
+    fbLoadAllUdhar(), fbGetOwner()
+  ]);
+  return { products, users, orders, udhar, owner };
+}
 async function loadCustomers() {
   if (!FB_READY) return { users: [] };
   return { users: await fbLoadAllUsers() };
 }
 
-/* ================== SAVE (individually handled) ================== */
+/* ================== USER KA HISAAB NIKALO ================== */
+function calculateUserStats(userId, orders, udhar) {
+  const myOrders = orders.filter(o => o.user_id === userId);
+  const total_orders = myOrders.reduce((a, o) => a + o.total, 0);
+  const total_paid = myOrders.filter(o => o.payment_status === 'paid').reduce((a, o) => a + o.total, 0);
+  const order_pending = total_orders - total_paid;
+
+  const myUdhar = udhar.filter(u => u.user_id === userId && u.status !== 'paid');
+  const udhar_pending = myUdhar.reduce((a, u) => a + u.amount, 0);
+
+  return {
+    total_orders,
+    total_paid,
+    order_pending,
+    udhar_pending,
+    total_pending: order_pending + udhar_pending,
+    order_count: myOrders.length,
+    udhar_count: myUdhar.length
+  };
+}
+
+/* ================== SAVE ================== */
 async function saveData(data) { return true; }
 async function saveCustomers(data) {
   if (!FB_READY) throw new Error('Firebase ready nahi');
@@ -165,9 +177,8 @@ async function saveCustomers(data) {
 /* ================== IMAGE ================== */
 async function uploadImage(file) {
   const key = getImgbbKey();
-  if (!key) throw new Error('ImgBB key secret.json me nahi');
-  const form = new FormData();
-  form.append('image', file);
+  if (!key) throw new Error('ImgBB key nahi');
+  const form = new FormData(); form.append('image', file);
   const res = await fetch(`https://api.imgbb.com/1/upload?key=${key}`, { method: 'POST', body: form });
   const json = await res.json();
   if (!json.success) throw new Error('Image upload fail');
@@ -186,14 +197,24 @@ function getSession() {
   catch { return null; }
 }
 function logout() {
-  localStorage.removeItem('role');
-  localStorage.removeItem('session');
+  localStorage.removeItem('role'); localStorage.removeItem('session');
   location.replace('index.html');
 }
 function logoutUser() {
-  localStorage.removeItem('role');
-  localStorage.removeItem('session');
+  localStorage.removeItem('role'); localStorage.removeItem('session');
   location.replace('index.html');
+}
+
+/* ================== PHONE ACTIONS ================== */
+function callPhone(phone) {
+  window.location.href = 'tel:' + phone;
+}
+function whatsappPhone(phone, msg) {
+  const text = encodeURIComponent(msg || 'Namaste, Dukan se — aapka order ready hai');
+  window.open(`https://wa.me/91${phone}?text=${text}`, '_blank');
+}
+function smsPhone(phone) {
+  window.location.href = 'sms:' + phone;
 }
 
 /* ================== UNITS ================== */
@@ -206,7 +227,6 @@ const UNIT_STEP = {
   piece: 1, packet: 1, box: 1, dozen: 1, strip: 1, bottle: 1
 };
 
-/* ================== PRICE ================== */
 function getUnitPrice(product, unitLabel, user) {
   const u = product.units?.find(x => x.label === unitLabel);
   if (!u) return 0;
@@ -219,7 +239,6 @@ function getUnitPrice(product, unitLabel, user) {
   return u.retail;
 }
 
-/* ================== HELPERS ================== */
 function inr(n) { const v = Number(n) || 0; return '₹' + (v % 1 === 0 ? v : v.toFixed(2)); }
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
 
@@ -247,10 +266,8 @@ function getAppLinks(amount, note) {
   const pa = encodeURIComponent(id);
   const base = `pa=${pa}&pn=${pn}&am=${amt}&cu=INR&tn=${tn}`;
   return {
-    gpay: `tez://upi/pay?${base}`,
-    phonepe: `phonepe://pay?${base}`,
-    paytm: `paytmmp://pay?${base}`,
-    bhim: `bhim://pay?${base}`,
+    gpay: `tez://upi/pay?${base}`, phonepe: `phonepe://pay?${base}`,
+    paytm: `paytmmp://pay?${base}`, bhim: `bhim://pay?${base}`,
     any: `upi://pay?${base}`
   };
 }
@@ -261,7 +278,6 @@ loadSecret().then(async () => {
   console.log('BOOT:', { secret: !!SECRET.gh_token, firebase: FB_READY });
 });
 
-/* ================== SERVICE WORKER ================== */
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => navigator.serviceWorker.register('./service-worker.js').catch(() => {}));
 }
