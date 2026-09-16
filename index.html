@@ -22,25 +22,31 @@
       <button id="tabOwner" class="primary" style="border-radius:0;background:#ccc;color:#333;">Owner</button>
     </div>
 
+    <!-- CUSTOMER LOGIN -->
     <div id="userForm" class="card">
       <h3>Customer Login</h3>
       <input id="uPhone" placeholder="Phone number (10 digit)" inputmode="numeric" maxlength="10">
       <button class="primary" onclick="userLogin()">Login</button>
+      <p class="center" style="font-size:12px;color:#888;margin-top:8px;">
+        Sirf phone number se login
+      </p>
     </div>
 
+    <!-- OWNER LOGIN -->
     <div id="ownerForm" class="card hidden">
       <h3>Owner Login</h3>
-      <input id="oId" placeholder="Owner ID (default: owner)">
-      <input id="oPass" type="password" placeholder="Password (default: owner123)">
+      <input id="oId" placeholder="Owner ID">
+      <input id="oPass" type="password" placeholder="Password">
       <button class="primary" onclick="ownerLogin()">Login</button>
       <p class="center" style="font-size:12px;color:#888;margin-top:8px;">
-        Baaki settings login ke baad Settings tab me daal dena
+        Token aur UPI settings login ke baad Settings tab me daalo
       </p>
     </div>
   </div>
 
   <script src="app.js"></script>
   <script>
+    // 🔒 Session check — pehle se login? Seedha panel bhejo
     (function() {
       const s = getSession();
       if (s && s.role === 'owner') { location.replace('owner.html'); return; }
@@ -62,7 +68,7 @@
       document.getElementById('userForm').classList.add('hidden');
     };
 
-    /* ---------- CUSTOMER ---------- */
+    /* ---------- CUSTOMER LOGIN (sirf phone) ---------- */
     async function userLogin() {
       const phone = document.getElementById('uPhone').value.trim();
       if (phone.length !== 10) return toast('10 digit phone daalo');
@@ -107,19 +113,19 @@
       setTimeout(() => location.replace('user.html'), 300);
     }
 
-    /* ---------- OWNER — SIRF ID + PASSWORD ---------- */
+    /* ---------- OWNER LOGIN (sirf ID + Password) ---------- */
     async function ownerLogin() {
       const id = document.getElementById('oId').value.trim();
       const pass = document.getElementById('oPass').value.trim();
       if (!id || !pass) return toast('ID aur password daalo');
 
-      // Check: ID aur password data.json me
+      // data.json se owner check
       const data = await loadData();
       if (id !== data.owner.id || pass !== data.owner.password) {
         return toast('Galat ID ya password');
       }
 
-      // Bas login — koi GitHub save nahi
+      // Bas session save — koi GitHub API call nahi
       saveSession('owner', { id });
       toast('✅ Owner login ho gaya');
       setTimeout(() => location.replace('owner.html'), 300);
