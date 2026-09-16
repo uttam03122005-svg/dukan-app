@@ -9,19 +9,21 @@
   <meta name="theme-color" content="#2e7d32">
   <link rel="stylesheet" href="style.css">
   <style>
-    .modal-bg { position:fixed; inset:0; background:rgba(0,0,0,.5); display:flex; align-items:center; justify-content:center; z-index:500; }
-    .modal { background:#fff; border-radius:12px; padding:16px; width:90%; max-width:420px; max-height:90vh; overflow-y:auto; }
+    .modal-bg { position:fixed; inset:0; background:rgba(0,0,0,.55); display:flex; align-items:center; justify-content:center; z-index:500; }
+    .modal { background:#fff; border-radius:12px; padding:16px; width:92%; max-width:430px; max-height:92vh; overflow-y:auto; }
     .unit-row { display:flex; align-items:center; gap:8px; padding:10px; border:2px solid #eee; border-radius:8px; margin-bottom:8px; cursor:pointer; }
     .unit-row.selected { border-color:#2e7d32; background:#f1f8e9; }
     .qty-btn { width:40px; height:40px; border-radius:50%; font-size:20px; font-weight:bold; }
     .pay-opt { padding:14px; border:2px solid #eee; border-radius:10px; text-align:center; cursor:pointer; flex:1; }
     .pay-opt.selected { border-color:#2e7d32; background:#f1f8e9; }
+    .upi-apps { display:flex; gap:6px; margin-top:8px; }
+    .upi-apps button { flex:1; padding:8px 2px; font-size:11px; border:none; border-radius:6px; color:#fff; font-weight:bold; }
   </style>
 </head>
 <body>
   <div class="header">
     <h1>🛒 <span id="welcome">Dukan</span></h1>
-    <button onclick="logout()">Logout</button>
+    <button onclick="logoutUser()">Logout</button>
   </div>
 
   <div class="container">
@@ -73,17 +75,15 @@
 
       const ownerUser = DATA.users.find(u => u.phone === s.data.phone);
       ME = {
-        id: s.data.id, name: ownerUser?.name || s.data.name,
+        id: s.data.id,
+        name: ownerUser?.name || s.data.name,
         phone: s.data.phone,
         price_type: ownerUser?.price_type || s.data.price_type || 'retail',
         special_prices: ownerUser?.special_prices || s.data.special_prices || {}
       };
       saveSession('user', ME);
 
-      // load UPI config
-      if (localStorage.getItem('upi_id')) CONFIG.UPI_ID = localStorage.getItem('upi_id');
-      if (localStorage.getItem('upi_name')) CONFIG.UPI_NAME = localStorage.getItem('upi_name');
-      // agar data.json me settings.upi hai to wahi use karo
+      // UPI settings from data.json
       if (DATA.settings?.upi_id) CONFIG.UPI_ID = DATA.settings.upi_id;
       if (DATA.settings?.upi_name) CONFIG.UPI_NAME = DATA.settings.upi_name;
 
@@ -279,12 +279,12 @@
     }
 
     /* ---------- PAYMENT MODAL ---------- */
-    let payState = { mode: 'cash', cashPaid: 0, onlinePaid: 0 };
+    let payState = { mode: 'cash', cashPaid: 0 };
 
     function openPaymentModal() {
       const keys = Object.keys(CART);
       if (!keys.length) return toast('Cart khali');
-      payState = { mode: 'cash', cashPaid: 0, onlinePaid: 0 };
+      payState = { mode: 'cash', cashPaid: 0 };
       renderPaymentModal();
     }
 
@@ -293,8 +293,10 @@
       const cash = payState.cashPaid || 0;
       const online = Math.max(0, total - cash);
 
-      const qrUrl = online > 0 ? getUpiUrl(online, 'Dukan Order') : '';
-      const qrImg = qrUrl ? `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrUrl)}` : '';
+      const showOnline = payState.mode === 'online' || (payState.mode === 'split' && online > 0);
+      const qrImg = showOnline ? getUpiQrImage(online, 'Dukan Order') : '';
+      const appLinks = showOnline ? getAppLinks(online, 'Dukan Order') : {};
+      const { id: upiId, name: upiName } = getUpi();
 
       document.getElementById('modalRoot').innerHTML = `
         <div class="modal-bg" onclick="if(event.target===this) closePayment()">
@@ -323,17 +325,33 @@
               </div>
             ` : ''}
 
-            ${payState.mode === 'online' || (payState.mode === 'split' && online > 0) ? `
+            ${showOnline ? `
               <div style="margin-top:12px;text-align:center;">
-                <div style="font-size:14px;margin-bottom:6px;">📱 QR scan karke <b>${inr(online)}</b> pay karo</div>
-                ${qrImg ? `<img src="${qrImg}" style="width:200px;height:200px;border:1px solid #eee;border-radius:8px;">` : '<div>QR generate nahi ho paya</div>'}
-                <div style="font-size:12px;color:#888;margin-top:6px;">UPI: ${CONFIG.UPI_ID}</div>
+                <div style="font-size:14px;margin-bottom:8px;">📱 <b>${inr(online)}</b> pay karo</div>
+
+                ${upiId ? `<div style="font-size:11px;color:#888;margin-bottom:6px;">UPI: ${upiId}</div>` : ''}
+
+                ${qrImg ? `<img src="${qrImg}" style="width:220px;height:220px;border:1px solid #eee;border-radius:8px;margin-bottom:6px;">` : '<div style="color:#c62828;">QR set nahi hai — Owner Settings me UPI ID daalo</div>'}
+
+                <div style="font-size:12px;color:#666;margin:8px 0;">📲 Ya seedha app me kholo:</div>
+                <div class="upi-apps">
+                  ${appLinks.gpay ? `<button style="background:#1976d2;" onclick="openApp('${appLinks.gpay}')">GPay</button>` : ''}
+                  ${appLinks.phonepe ? `<button style="background:#5f259f;" onclick="openApp('${appLinks.phonepe}')">PhonePe</button>` : ''}
+                  ${appLinks.paytm ? `<button style="background:#00baf2;color:#000;" onclick="openApp('${appLinks.paytm}')">Paytm</button>` : ''}
+                  ${appLinks.bhim ? `<button style="background:#f57c00;" onclick="openApp('${appLinks.bhim}')">BHIM</button>` : ''}
+                </div>
+
+                ${appLinks.any ? `
+                  <button class="primary" style="margin-top:10px;background:#2e7d32;" onclick="openApp('${appLinks.any}')">
+                    📲 Koi bhi UPI App se pay karo
+                  </button>
+                ` : ''}
               </div>
             ` : ''}
 
             ${payState.mode === 'cash' ? `
-              <div style="margin-top:12px;text-align:center;font-size:14px;color:#666;">
-                Saman lene aake <b>${inr(total)}</b> cash doge
+              <div style="margin-top:12px;text-align:center;font-size:14px;color:#666;padding:12px;background:#f1f8e9;border-radius:8px;">
+                Saman lene aake <b style="color:#2e7d32;">${inr(total)}</b> cash doge
               </div>
             ` : ''}
 
@@ -357,6 +375,7 @@
       renderPaymentModal();
     }
     function closePayment() { document.getElementById('modalRoot').innerHTML = ''; }
+    function openApp(link) { window.location.href = link; }
 
     async function confirmOrder() {
       const keys = Object.keys(CART);
@@ -395,7 +414,6 @@
         CART = {}; saveCart(); renderCart();
         closePayment();
         toast('✅ Order place');
-        // orders tab pe switch
         document.querySelector('.bottom-nav a[data-tab="orders"]').click();
       } catch (e) { toast('❌ ' + e.message); }
     }
