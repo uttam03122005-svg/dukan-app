@@ -9,6 +9,23 @@
   <meta name="theme-color" content="#2e7d32">
   <link rel="apple-touch-icon" href="icon-192.png">
   <link rel="stylesheet" href="style.css">
+  <style>
+    .modal-bg {
+      position: fixed; inset: 0; background: rgba(0,0,0,.5);
+      display: flex; align-items: center; justify-content: center; z-index: 500;
+    }
+    .modal {
+      background: #fff; border-radius: 12px; padding: 16px;
+      width: 90%; max-width: 400px; max-height: 90vh; overflow-y: auto;
+    }
+    .unit-row {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px; border: 2px solid #eee; border-radius: 8px; margin-bottom: 8px;
+      cursor: pointer;
+    }
+    .unit-row.selected { border-color: #2e7d32; background: #f1f8e9; }
+    .qty-btn { width: 40px; height: 40px; border-radius: 50%; font-size: 20px; font-weight: bold; }
+  </style>
 </head>
 <body>
   <div class="header">
@@ -38,6 +55,9 @@
     <a href="#" data-tab="orders">📦<br>Orders</a>
   </div>
 
+  <!-- Modal container -->
+  <div id="modalRoot"></div>
+
   <script src="app.js"></script>
   <script>
     const s = getSession();
@@ -45,35 +65,19 @@
 
     let DATA = null;
     let ME = null;
+    // Cart ab: { "productId::unit": qty }
     let CART = JSON.parse(localStorage.getItem('cart') || '{}');
 
     document.getElementById('welcome').textContent = 'Namaste, ' + s.data.name;
 
-    const UNIT_LABEL = {
-      kg:'kg', gram:'g', liter:'L', ml:'ml', piece:'pc',
-      packet:'pkt', box:'box', dozen:'doz', strip:'strip', bottle:'bottle'
-    };
-    const STEP = { kg: 0.5, gram: 100, liter: 0.5, ml: 100, piece: 1, packet: 1, box: 1, dozen: 1, strip: 1, bottle: 1 };
-
     async function init() {
-      // Step 1: owner ka products + orders laao
       DATA = await loadData();
-
-      // Step 2: ME = session ka user (jo login pe set hua)
-      // Owner ne agar upgrade kiya hai (data.json me) to latest wahi
-      const ownerUser = DATA.users.find(u =>
-        u.id === s.data.id || u.phone === s.data.phone
-      );
-
+      const ownerUser = DATA.users.find(u => u.phone === s.data.phone);
       ME = {
-        id: s.data.id,
-        name: s.data.name,
-        phone: s.data.phone,
+        id: s.data.id, name: s.data.name, phone: s.data.phone,
         price_type: ownerUser?.price_type || s.data.price_type || 'retail',
         special_prices: ownerUser?.special_prices || s.data.special_prices || {}
       };
-
-      // update session me bhi
       saveSession('user', ME);
 
       renderGrid();
@@ -94,25 +98,30 @@
       };
     });
 
+    /* ---------- GRID ---------- */
     function renderGrid() {
       const q = (document.getElementById('search').value || '').toLowerCase();
       const items = DATA.products.filter(p => !p.hidden && p.name.toLowerCase().includes(q));
       const grid = document.getElementById('grid');
       if (!items.length) { grid.innerHTML = '<div class="card center">Koi product nahi</div>'; return; }
+
       grid.innerHTML = items.map(p => {
-        const price = getUserPrice(p, ME);
-        const showOld = ME.price_type === 'wholesale' || (ME.special_prices && ME.special_prices[p.id] != null);
-        const oldPrice = showOld ? p.retail_price : null;
-        const unit = UNIT_LABEL[p.unit] || 'kg';
-        const out = p.stock <= 0;
+        const first = p.units?.[0];
+        if (!first) return '';
+        const price = getUnitPrice(p, first.label, ME);
+        const unit = first.label;
+        const totalStock = (p.units || []).reduce((a, b) => a + (+b.stock || 0), 0);
+        const out = totalStock <= 0;
+        const multiUnit = (p.units?.length || 0) > 1;
+
         return `
           <div class="product-card">
             <img src="${p.image || 'https://via.placeholder.com/150'}" alt="${p.name}">
             <div class="info">
               <div class="name">${p.name}</div>
-              <div class="price">${inr(price)}/${unit} ${oldPrice ? `<span class="old-price">${inr(oldPrice)}</span>` : ''}</div>
-              <div class="stock">${out ? '❌ Khatam' : '✔ ' + p.stock + ' ' + unit}</div>
-              <button class="primary small" style="margin-top:auto;" ${out ? 'disabled style="background:#ccc;"' : ''} onclick="addToCart('${p.id}')">
+              <div class="price">${inr(price)}/${unit}</div>
+              <div class="stock">${out ? '❌ Khatam' : (multiUnit ? '📦 Multiple units' : '✔ ' + totalStock + ' ' + unit)}</div>
+              <button class="primary small" style="margin-top:auto;" ${out ? 'disabled style="background:#ccc;"' : ''} onclick="openUnitPicker('${p.id}')">
                 ${out ? 'Khatam' : '🛒 Add'}
               </button>
             </div>
@@ -121,66 +130,178 @@
     }
     document.getElementById('search').oninput = renderGrid;
 
-    function addToCart(pid) {
+    /* ---------- UNIT PICKER MODAL ---------- */
+    let pickerState = null; // { productId, unitLabel, qty }
+
+    function openUnitPicker(pid) {
       const p = DATA.products.find(x => x.id === pid);
-      const step = STEP[p.unit] || 1;
-      CART[pid] = (CART[pid] || 0) + step;
-      saveCart(); toast('Cart me add ho gaya');
+      if (!p || !p.units?.length) return;
+
+      pickerState = {
+        productId: pid,
+        unitLabel: p.units[0].label,
+        qty: UNIT_STEP[p.units[0].label] || 1
+      };
+      renderPickerModal();
     }
-    function changeQty(pid, delta) {
-      const p = DATA.products.find(x => x.id === pid);
-      const step = STEP[p.unit] || 1;
-      let v = (CART[pid] || 0) + (delta * step);
+
+    function renderPickerModal() {
+      const p = DATA.products.find(x => x.id === pickerState.productId);
+      const u = p.units.find(x => x.label === pickerState.unitLabel);
+      const price = getUnitPrice(p, u.label, ME);
+      const step = UNIT_STEP[u.label] || 1;
+      const subtotal = price * pickerState.qty;
+
+      const unitRows = p.units.map(un => {
+        const up = getUnitPrice(p, un.label, ME);
+        const sel = un.label === pickerState.unitLabel ? 'selected' : '';
+        return `
+          <div class="unit-row ${sel}" onclick="selectUnit('${un.label}')">
+            <div style="flex:1;">
+              <div style="font-weight:bold;">${un.label}</div>
+              <div style="font-size:13px;color:#2e7d32;">${inr(up)}/${un.label}</div>
+              <div style="font-size:11px;color:#777;">Stock: ${un.stock}</div>
+            </div>
+            ${sel ? '<span style="color:#2e7d32;font-size:20px;">✓</span>' : ''}
+          </div>`;
+      }).join('');
+
+      document.getElementById('modalRoot').innerHTML = `
+        <div class="modal-bg" onclick="if(event.target===this) closePicker()">
+          <div class="modal">
+            <h3 style="margin-bottom:8px;">${p.name}</h3>
+            <p style="font-size:13px;color:#666;margin-bottom:10px;">Unit select karo</p>
+            ${unitRows}
+            <div style="margin-top:14px;padding-top:12px;border-top:1px solid #eee;">
+              <div class="row" style="align-items:center;">
+                <button class="primary small qty-btn" onclick="changeQty(-1)">−</button>
+                <input type="number" value="${pickerState.qty}" step="${step}" style="text-align:center;margin:0;" onchange="setPickerQty(this.value)">
+                <span style="flex:0;white-space:nowrap;font-weight:bold;">${u.label}</span>
+                <button class="primary small qty-btn" onclick="changeQty(1)">+</button>
+              </div>
+              <div style="text-align:center;font-size:16px;margin-top:10px;">
+                Total: <b style="color:#2e7d32;">${inr(subtotal)}</b>
+              </div>
+            </div>
+            <div class="row mt">
+              <button class="primary" style="background:#777;" onclick="closePicker()">Cancel</button>
+              <button class="primary" onclick="confirmAdd()">🛒 Cart Me Daalo</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function selectUnit(label) {
+      pickerState.unitLabel = label;
+      // reset qty to new step
+      pickerState.qty = UNIT_STEP[label] || 1;
+      renderPickerModal();
+    }
+
+    function changeQty(dir) {
+      const p = DATA.products.find(x => x.id === pickerState.productId);
+      const u = p.units.find(x => x.label === pickerState.unitLabel);
+      const step = UNIT_STEP[u.label] || 1;
+      let v = pickerState.qty + dir * step;
       v = Math.round(v * 100) / 100;
-      if (v <= 0) delete CART[pid]; else CART[pid] = v;
-      saveCart(); renderCart();
+      if (v < step) v = step;
+      pickerState.qty = v;
+      renderPickerModal();
     }
-    function setQty(pid, val) {
+
+    function setPickerQty(val) {
       const v = Math.round(parseFloat(val) * 100) / 100;
-      if (!v || v <= 0) delete CART[pid]; else CART[pid] = v;
-      saveCart(); renderCart();
+      if (!v || v <= 0) return;
+      pickerState.qty = v;
+      renderPickerModal();
     }
-    function saveCart() { localStorage.setItem('cart', JSON.stringify(CART)); updateCartBadge(); }
-    function updateCartBadge() { document.getElementById('cartCount').textContent = Object.keys(CART).length; }
+
+    function confirmAdd() {
+      const p = DATA.products.find(x => x.id === pickerState.productId);
+      const u = p.units.find(x => x.label === pickerState.unitLabel);
+      const key = pickerState.productId + '::' + pickerState.unitLabel;
+      CART[key] = (CART[key] || 0) + pickerState.qty;
+      CART[key] = Math.round(CART[key] * 100) / 100;
+      saveCart();
+      closePicker();
+      toast('Cart me add ho gaya');
+    }
+
+    function closePicker() {
+      document.getElementById('modalRoot').innerHTML = '';
+      pickerState = null;
+    }
+
+    /* ---------- CART ---------- */
+    function saveCart() {
+      localStorage.setItem('cart', JSON.stringify(CART));
+      updateCartBadge();
+    }
+    function updateCartBadge() {
+      document.getElementById('cartCount').textContent = Object.keys(CART).length;
+    }
 
     function renderCart() {
       const list = document.getElementById('cartList');
-      const ids = Object.keys(CART);
-      if (!ids.length) { list.innerHTML = '<div class="card center">Cart khali hai</div>'; return; }
+      const keys = Object.keys(CART);
+      if (!keys.length) { list.innerHTML = '<div class="card center">Cart khali hai</div>'; return; }
+
       let total = 0;
-      list.innerHTML = ids.map(pid => {
+      list.innerHTML = keys.map(key => {
+        const [pid, unitLabel] = key.split('::');
         const p = DATA.products.find(x => x.id === pid);
         if (!p) return '';
-        const qty = CART[pid];
-        const price = getUserPrice(p, ME);
-        const unit = UNIT_LABEL[p.unit] || 'kg';
+        const qty = CART[key];
+        const price = getUnitPrice(p, unitLabel, ME);
         total += price * qty;
+        const step = UNIT_STEP[unitLabel] || 1;
+
         return `
           <div class="card">
             <div class="row">
               <img src="${p.image || 'https://via.placeholder.com/60'}" style="width:60px;height:60px;object-fit:cover;border-radius:6px;flex:0 0 60px;">
               <div style="flex:1;">
                 <div style="font-weight:600;font-size:14px;">${p.name}</div>
-                <div style="color:#2e7d32;font-weight:bold;">${inr(price)}/${unit}</div>
+                <div style="color:#2e7d32;font-weight:bold;">${inr(price)}/${unitLabel}</div>
               </div>
             </div>
             <div class="row mt">
-              <button class="primary small" onclick="changeQty('${pid}',-1)">−</button>
-              <input type="number" value="${qty}" step="${STEP[p.unit]||1}" style="text-align:center;margin:0;" onchange="setQty('${pid}', this.value)">
-              <span style="flex:0;white-space:nowrap;font-weight:bold;">${unit}</span>
-              <button class="primary small" onclick="changeQty('${pid}',1)">+</button>
+              <button class="primary small" onclick="changeCartQty('${key}',-1)">−</button>
+              <input type="number" value="${qty}" step="${step}" style="text-align:center;margin:0;" onchange="setCartQty('${key}', this.value)">
+              <span style="flex:0;white-space:nowrap;font-weight:bold;">${unitLabel}</span>
+              <button class="primary small" onclick="changeCartQty('${key}',1)">+</button>
             </div>
             <div class="center" style="font-size:13px;color:#555;margin-top:4px;">Subtotal: <b>${inr(price * qty)}</b></div>
           </div>`;
       }).join('') + `<div class="card center" style="font-weight:bold;font-size:18px;">Total: ${inr(total)}</div>`;
     }
 
+    function changeCartQty(key, dir) {
+      const [pid, unitLabel] = key.split('::');
+      const step = UNIT_STEP[unitLabel] || 1;
+      let v = (CART[key] || 0) + dir * step;
+      v = Math.round(v * 100) / 100;
+      if (v <= 0) delete CART[key]; else CART[key] = v;
+      saveCart(); renderCart();
+    }
+    function setCartQty(key, val) {
+      const v = Math.round(parseFloat(val) * 100) / 100;
+      if (!v || v <= 0) delete CART[key]; else CART[key] = v;
+      saveCart(); renderCart();
+    }
+
     async function placeOrder() {
-      const ids = Object.keys(CART);
-      if (!ids.length) return toast('Cart khali hai');
-      const items = ids.map(pid => {
+      const keys = Object.keys(CART);
+      if (!keys.length) return toast('Cart khali hai');
+      const items = keys.map(key => {
+        const [pid, unitLabel] = key.split('::');
         const p = DATA.products.find(x => x.id === pid);
-        return { product_id: pid, qty: CART[pid], price: getUserPrice(p, ME), unit: p.unit || 'kg' };
+        return {
+          product_id: pid, product_name: p.name,
+          unit: unitLabel, qty: CART[key],
+          price: getUnitPrice(p, unitLabel, ME)
+        };
       });
       const total = items.reduce((a, b) => a + b.qty * b.price, 0);
       DATA.orders.push({
@@ -195,15 +316,15 @@
       } catch (e) { toast('❌ ' + e.message); }
     }
 
+    /* ---------- MY ORDERS ---------- */
     function renderOrders() {
       const mine = DATA.orders.filter(o => o.user_id === ME.id).reverse();
       const list = document.getElementById('myOrders');
       if (!mine.length) { list.innerHTML = '<div class="card center">Koi order nahi</div>'; return; }
       list.innerHTML = mine.map(o => {
         const items = o.items.map(it => {
-          const p = DATA.products.find(x => x.id === it.product_id) || { name: '?' };
-          const unit = UNIT_LABEL[p.unit] || it.unit || '';
-          return `<div style="font-size:13px;">• ${p.name} — ${it.qty} ${unit}</div>`;
+          const p = DATA.products.find(x => x.id === it.product_id) || { name: it.product_name || '?' };
+          return `<div style="font-size:13px;">• ${p.name} — ${it.qty} ${it.unit} × ${inr(it.price)} = ${inr(it.qty * it.price)}</div>`;
         }).join('');
         const badge = o.status === 'delivered' ? '✅' : o.status === 'packed' ? '📦' : '⏳';
         return `
@@ -215,8 +336,7 @@
             <div class="mt">${items}</div>
             <div style="font-weight:bold;color:#2e7d32;margin-top:4px;">Total: ${inr(o.total)}</div>
             <div style="font-size:12px;color:#666;">Payment: ${o.payment}</div>
-          </div>
-        `;
+          </div>`;
       }).join('');
     }
 
