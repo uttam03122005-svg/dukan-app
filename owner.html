@@ -21,7 +21,44 @@
       <button class="primary tabBtn" data-tab="settings" style="border-radius:0;background:#ccc;color:#333;font-size:12px;">⚙️</button>
     </div>
 
-    <div id="tab-products">
+    <!-- SETTINGS TAB (sabse zaroori) -->
+    <div id="tab-settings">
+      <div class="card">
+        <h3>⚙️ Settings — Pehli Baar Yahan Sab Daalo</h3>
+
+        <div style="background:#fff3e0;padding:10px;border-radius:8px;margin-bottom:12px;font-size:13px;color:#e65100;">
+          <b>⚠️ Pehli baar yahan sab daalo:</b>
+          <ul style="margin-top:6px;padding-left:18px;">
+            <li>GitHub Token</li>
+            <li>ImgBB Key (image upload ke liye)</li>
+            <li>UPI ID (online payment ke liye)</li>
+          </ul>
+        </div>
+
+        <label style="font-size:13px;color:#666;font-weight:bold;">GitHub Token</label>
+        <input id="setToken" placeholder="ghp_... ya github_pat_...">
+
+        <label style="font-size:13px;color:#666;font-weight:bold;margin-top:6px;display:block;">ImgBB Key</label>
+        <input id="setImgbb" placeholder="ImgBB API key">
+
+        <label style="font-size:13px;color:#666;font-weight:bold;margin-top:6px;display:block;">UPI ID (payment ke liye)</label>
+        <input id="setUpi" placeholder="9876543210@paytm">
+
+        <label style="font-size:13px;color:#666;font-weight:bold;margin-top:6px;display:block;">UPI Name</label>
+        <input id="setUpiName" placeholder="Uttam Kumar">
+
+        <button class="primary" onclick="saveSettings()">💾 Save Settings</button>
+        <button class="primary" style="background:#f57c00;" onclick="testToken()">🧪 Test Token</button>
+      </div>
+
+      <div class="card">
+        <b>📋 Current Settings:</b>
+        <div id="curSet" style="font-size:12px;color:#555;margin-top:6px;"></div>
+      </div>
+    </div>
+
+    <!-- PRODUCTS -->
+    <div id="tab-products" class="hidden">
       <div class="card">
         <h3 id="pFormTitle">➕ Naya Product</h3>
         <input type="hidden" id="pId">
@@ -39,33 +76,15 @@
       <div id="productList"></div>
     </div>
 
+    <!-- USERS -->
     <div id="tab-users" class="hidden">
       <input class="search-bar" id="uSearch" placeholder="🔍 Customer (phone se)">
       <div id="userList"></div>
     </div>
 
+    <!-- ORDERS -->
     <div id="tab-orders" class="hidden">
       <div id="orderList"></div>
-    </div>
-
-    <div id="tab-settings" class="hidden">
-      <div class="card">
-        <h3>⚙️ Settings</h3>
-        <label style="font-size:13px;color:#666;font-weight:bold;">GitHub Token</label>
-        <input id="setToken" placeholder="ghp_...">
-        <label style="font-size:13px;color:#666;font-weight:bold;margin-top:6px;display:block;">ImgBB Key</label>
-        <input id="setImgbb" placeholder="ImgBB key">
-        <label style="font-size:13px;color:#666;font-weight:bold;margin-top:6px;display:block;">UPI ID</label>
-        <input id="setUpi" placeholder="9876543210@paytm">
-        <label style="font-size:13px;color:#666;font-weight:bold;margin-top:6px;display:block;">UPI Name</label>
-        <input id="setUpiName" placeholder="Dukan ka naam">
-        <button class="primary" onclick="saveSettings()">💾 Save</button>
-        <button class="primary" style="background:#f57c00;" onclick="testToken()">🧪 Test Token</button>
-      </div>
-      <div class="card">
-        <b>Current:</b>
-        <div id="curSet" style="font-size:12px;color:#555;margin-top:6px;"></div>
-      </div>
     </div>
   </div>
 
@@ -90,32 +109,54 @@
           created_at: cu.created_at
         };
       });
-      renderProducts(); renderUsers(); renderOrders(); renderSettings(); resetProductForm();
+      renderSettings();
+      renderProducts();
+      renderUsers();
+      renderOrders();
+      resetProductForm();
+
+      // Check: agar token nahi hai to Settings tab pe redirect
+      if (!localStorage.getItem('gh_token') && !DATA.settings?.gh_token) {
+        toast('⚠️ Pehle Settings me Token daalo');
+        switchTab('settings');
+      }
+    }
+
+    function switchTab(t) {
+      document.querySelectorAll('.tabBtn').forEach(b => {
+        if (b.dataset.tab === t) {
+          b.style.background = '#2e7d32'; b.style.color = '#fff';
+        } else {
+          b.style.background = '#ccc'; b.style.color = '#333';
+        }
+      });
+      ['products','users','orders','settings'].forEach(x => {
+        document.getElementById('tab-'+x).classList.toggle('hidden', x !== t);
+      });
     }
 
     document.querySelectorAll('.tabBtn').forEach(btn => {
-      btn.onclick = () => {
-        document.querySelectorAll('.tabBtn').forEach(b => {
-          b.style.background = '#ccc'; b.style.color = '#333';
-        });
-        btn.style.background = '#2e7d32'; btn.style.color = '#fff';
-        ['products','users','orders','settings'].forEach(t => {
-          document.getElementById('tab-'+t).classList.toggle('hidden', t !== btn.dataset.tab);
-        });
-      };
+      btn.onclick = () => switchTab(btn.dataset.tab);
     });
 
-    /* SETTINGS */
+    /* ============ SETTINGS ============ */
     function renderSettings() {
       const st = DATA.settings || {};
-      document.getElementById('setToken').value = st.gh_token || localStorage.getItem('gh_token') || '';
-      document.getElementById('setImgbb').value = st.imgbb_key || localStorage.getItem('imgbb_key') || '';
-      document.getElementById('setUpi').value = st.upi_id || localStorage.getItem('upi_id') || '';
-      document.getElementById('setUpiName').value = st.upi_name || localStorage.getItem('upi_name') || '';
+      document.getElementById('setToken').value = localStorage.getItem('gh_token') || st.gh_token || '';
+      document.getElementById('setImgbb').value = localStorage.getItem('imgbb_key') || st.imgbb_key || '';
+      document.getElementById('setUpi').value = localStorage.getItem('upi_id') || st.upi_id || '';
+      document.getElementById('setUpiName').value = localStorage.getItem('upi_name') || st.upi_name || '';
+
+      const t = localStorage.getItem('gh_token') || st.gh_token || '';
+      const ib = localStorage.getItem('imgbb_key') || st.imgbb_key || '';
+      const upi = localStorage.getItem('upi_id') || st.upi_id || '';
+      const upiN = localStorage.getItem('upi_name') || st.upi_name || '';
+
       document.getElementById('curSet').innerHTML = `
-        <div>Token: ${(st.gh_token||'').substring(0,20)}...</div>
-        <div>ImgBB: ${(st.imgbb_key||'not set').substring(0,10)}...</div>
-        <div>UPI: ${st.upi_id || 'not set'}</div>
+        <div>Token: ${t ? t.substring(0,20)+'...' : '❌ not set'}</div>
+        <div>ImgBB: ${ib ? ib.substring(0,10)+'...' : '❌ not set'}</div>
+        <div>UPI: ${upi || '❌ not set'}</div>
+        <div>UPI Name: ${upiN || '❌ not set'}</div>
       `;
     }
 
@@ -128,38 +169,56 @@
       if (!tk) return toast('Token daalo');
       if (!upi) return toast('UPI ID daalo');
 
+      // Pehle localStorage me daalo
+      localStorage.setItem('gh_token', tk);
+      localStorage.setItem('imgbb_key', ib);
+      localStorage.setItem('upi_id', upi);
+      localStorage.setItem('upi_name', upiN || 'Dukan');
+
+      // Data.json me bhi save karo (agar possible ho)
       DATA.settings = DATA.settings || {};
       DATA.settings.gh_token = tk;
       DATA.settings.imgbb_key = ib;
       DATA.settings.upi_id = upi;
       DATA.settings.upi_name = upiN || 'Dukan';
 
-      localStorage.setItem('gh_token', tk);
-      localStorage.setItem('imgbb_key', ib);
-      localStorage.setItem('upi_id', upi);
-      localStorage.setItem('upi_name', upiN || 'Dukan');
-
       try {
         await saveData(DATA);
-        toast('✅ Settings save');
+        toast('✅ Settings save ho gayi');
         renderSettings();
-      } catch (e) { toast('❌ ' + e.message); }
+      } catch (e) {
+        console.warn('GitHub save fail, but local me save:', e);
+        toast('✅ Local me save ho gayi (GitHub sync fail)');
+        renderSettings();
+      }
     }
 
     async function testToken() {
       const tk = document.getElementById('setToken').value.trim() || localStorage.getItem('gh_token');
       if (!tk) return toast('Token daalo');
+
+      toast('Test ho raha hai...');
       try {
-        const r1 = await fetch(`https://api.github.com/repos/${CONFIG.GITHUB_USER}/${CONFIG.GITHUB_REPO}`, { headers: { Authorization: `token ${tk}` }});
-        const r2 = await fetch(`https://api.github.com/repos/${CONFIG.GITHUB_USER}/${CONFIG.CUST_REPO}`, { headers: { Authorization: `token ${tk}` }});
-        if (r1.ok && r2.ok) toast('✅ Dono repos OK');
-        else if (r1.ok) toast('⚠️ data OK, customers nahi');
-        else if (r2.ok) toast('⚠️ customers OK, data nahi');
-        else toast('❌ Access nahi');
-      } catch (e) { toast('❌ ' + e.message); }
+        const r1 = await fetch(`https://api.github.com/repos/${CONFIG.GITHUB_USER}/${CONFIG.GITHUB_REPO}`, {
+          headers: { Authorization: `token ${tk}`, Accept: 'application/vnd.github+json' }
+        });
+        const r2 = await fetch(`https://api.github.com/repos/${CONFIG.GITHUB_USER}/${CONFIG.CUST_REPO}`, {
+          headers: { Authorization: `token ${tk}`, Accept: 'application/vnd.github+json' }
+        });
+
+        const j1 = await r1.json();
+        const j2 = await r2.json();
+
+        if (r1.ok && r2.ok) toast('✅ Dono repos ka access hai');
+        else if (r1.ok) toast('⚠️ dukan-data OK, dukan-customers nahi');
+        else if (r2.ok) toast('⚠️ dukan-customers OK, dukan-data nahi');
+        else toast('❌ Access nahi — ' + (j1.message || 'unknown'));
+      } catch (e) {
+        toast('❌ ' + e.message);
+      }
     }
 
-    /* PRODUCTS */
+    /* ============ PRODUCTS ============ */
     document.getElementById('pImg').onchange = e => {
       const f = e.target.files[0];
       if (f) {
@@ -300,7 +359,7 @@
     }
     document.getElementById('pSearch').oninput = renderProducts;
 
-    /* USERS */
+    /* ============ USERS ============ */
     async function saveOwnerUser(user) {
       const ownerData = await loadData();
       let ex = ownerData.users.find(x => x.phone === user.phone);
@@ -381,7 +440,7 @@
     }
     document.getElementById('uSearch').oninput = renderUsers;
 
-    /* ORDERS */
+    /* ============ ORDERS ============ */
     async function updateOrder(orderId, patch) {
       const o = DATA.orders.find(x => x.id === orderId);
       Object.assign(o, patch);
