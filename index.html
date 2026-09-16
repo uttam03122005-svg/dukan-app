@@ -30,7 +30,7 @@
 
     <div id="ownerForm" class="card hidden">
       <h3>Owner Login</h3>
-      <input id="oId" placeholder="Owner ID">
+      <input id="oEmail" placeholder="Owner email" type="email">
       <input id="oPass" type="password" placeholder="Password">
       <button class="primary" onclick="ownerLogin()">Login</button>
     </div>
@@ -62,46 +62,78 @@
     async function userLogin() {
       const phone = document.getElementById('uPhone').value.trim();
       if (phone.length !== 10) return toast('10 digit phone daalo');
+
       toast('Login ho raha hai...');
       const ok = await waitForFirebase();
       if (!ok) return toast('❌ Firebase ready nahi');
 
-      const users = await fbLoadAllUsers();
-      let user = users.find(u => u.phone === phone);
+      try {
+        const fbUser = await customerSignIn();
+        const uid = fbUser.uid;
 
-      if (!user) {
-        user = {
-          id: 'U' + phone, name: 'Customer', phone: phone,
-          address: '', price_type: 'retail', special_prices: {},
-          created_at: new Date().toISOString()
-        };
-        try { await fbSaveUser(user); toast('✅ Register ho gaya'); }
-        catch (e) { toast('✅ Login ho gaya'); }
-      } else {
-        toast('Wapas swagat!');
+        let user = await fbLoadMyUser(uid);
+
+        if (!user) {
+          const users = await fbLoadAllUsers().catch(() => []);
+          const existing = users.find(u => u.phone === phone);
+          if (existing && existing.id !== uid) {
+            const newUser = { ...existing, id: uid, old_id: existing.id };
+            await fbSaveUser(newUser);
+            user = newUser;
+          } else {
+            user = {
+              id: uid, name: 'Customer', phone: phone, address: '',
+              price_type: 'retail', special_prices: {},
+              created_at: new Date().toISOString()
+            };
+            await fbSaveUser(user);
+            toast('✅ Register ho gaya');
+          }
+        } else {
+          if (user.phone !== phone) {
+            user.phone = phone;
+            await fbSaveUser(user);
+          }
+          toast('Wapas swagat!');
+        }
+
+        saveSession('user', {
+          id: uid, name: user.name || 'Customer', phone: user.phone,
+          price_type: user.price_type || 'retail'
+        });
+        setTimeout(() => location.replace('user.html'), 300);
+      } catch (e) {
+        console.error(e);
+        toast('❌ ' + e.message);
       }
-
-      saveSession('user', {
-        id: user.id, name: user.name || 'Customer', phone,
-        price_type: user.price_type || 'retail',
-        special_prices: user.special_prices || {}
-      });
-      setTimeout(() => location.replace('user.html'), 300);
     }
 
     async function ownerLogin() {
-      const id = document.getElementById('oId').value.trim();
+      const email = document.getElementById('oEmail').value.trim();
       const pass = document.getElementById('oPass').value.trim();
-      if (!id || !pass) return toast('ID aur password daalo');
+      if (!email || !pass) return toast('Email aur password daalo');
+
+      toast('Login ho raha hai...');
       const ok = await waitForFirebase();
       if (!ok) return toast('❌ Firebase ready nahi');
 
-      const owner = await fbGetOwner();
-      if (id !== owner.id || pass !== owner.password) return toast('Galat ID ya password');
-
-      saveSession('owner', { id });
-      toast('✅ Owner login ho gaya');
-      setTimeout(() => location.replace('owner.html'), 300);
+      try {
+        const fbUser = await ownerSignIn(email, pass);
+        saveSession('owner', { uid: fbUser.uid, email: fbUser.email });
+        toast('✅ Owner login ho gaya');
+        setTimeout(() => location.replace('owner.html'), 300);
+      } catch (e) {
+        console.error(e);
+        if (e.code === 'auth/invalid-credential' || e.code === 'auth/wrong-password') {
+          toast('❌ Email ya password galat');
+        } else if (e.code === 'auth/user-not-found') {
+          toast('❌ Owner account nahi hai');
+        } else if (e.code === 'auth/invalid-email') {
+          toast('❌ Email format galat');
+        } else {
+          toast('❌ ' + e.message);
+        }
+      }
     }
   </script>
 </body>
