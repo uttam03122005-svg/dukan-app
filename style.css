@@ -1,3 +1,21 @@
+:root {
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+body {
+  padding-top: calc(60px + var(--safe-top)) !important;
+  padding-bottom: calc(80px + var(--safe-bottom)) !important;
+}
+
+.header {
+  padding-top: calc(14px + var(--safe-top)) !important;
+  min-height: calc(56px + var(--safe-top)) !important;
+}
+
+.bottom-nav {
+  padding-bottom: calc(10px + var(--safe-bottom)) !important;
+}
 * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Arial, sans-serif; }
 body { background: #f5f5f5; color: #222; padding-bottom: 80px; }
 
