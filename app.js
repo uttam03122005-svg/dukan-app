@@ -36,7 +36,7 @@ function toast(msg) {
 /* ================== CACHE ================== */
 let CACHED_DATA = null;
 
-/* ================== TOKEN / SETTINGS ================== */
+/* ================== TOKEN ================== */
 async function getActiveToken() {
   const local = localStorage.getItem('gh_token');
   if (local) return local;
@@ -61,7 +61,9 @@ function getUpi() {
 /* ================== LOAD ================== */
 async function loadData() {
   try {
-    const res = await fetch(DATA_URL + '?t=' + Date.now());
+    const res = await fetch(DATA_URL + '?_=' + Date.now() + Math.random(), {
+      cache: 'no-store'
+    });
     if (!res.ok) throw new Error('Data not found');
     const j = await res.json();
     j.products = j.products || [];
@@ -79,7 +81,9 @@ async function loadData() {
 
 async function loadCustomers() {
   try {
-    const res = await fetch(CUST_URL + '?t=' + Date.now());
+    const res = await fetch(CUST_URL + '?_=' + Date.now() + Math.random(), {
+      cache: 'no-store'
+    });
     if (!res.ok) throw new Error('Customers not found');
     const j = await res.json();
     j.users = j.users || [];
@@ -105,12 +109,21 @@ async function saveCustomers(data) {
 async function _githubSave(repo, file, data, token, retry = 0) {
   const apiUrl = `https://api.github.com/repos/${CONFIG.GITHUB_USER}/${repo}/contents/${file}`;
 
-  const getRes = await fetch(apiUrl + '?ref=main&t=' + Date.now(), {
-    headers: { Authorization: `token ${token}`, Accept: 'application/vnd.github+json' }
+  // Har baar fresh sha — cache bypass
+  const getRes = await fetch(apiUrl + '?ref=main&_=' + Date.now() + Math.random(), {
+    headers: {
+      Authorization: `token ${token}`,
+      Accept: 'application/vnd.github+json',
+      'Cache-Control': 'no-cache'
+    },
+    cache: 'no-store'
   });
+
   let sha = null;
-  if (getRes.ok) { const f = await getRes.json(); sha = f.sha; }
-  else if (getRes.status !== 404) {
+  if (getRes.ok) {
+    const f = await getRes.json();
+    sha = f.sha;
+  } else if (getRes.status !== 404) {
     const err = await getRes.json().catch(() => ({}));
     throw new Error('Read fail: ' + (err.message || getRes.status));
   }
@@ -126,19 +139,25 @@ async function _githubSave(repo, file, data, token, retry = 0) {
     },
     body: JSON.stringify({
       message: 'update ' + file + ' ' + new Date().toISOString(),
-      content, sha: sha || undefined, branch: 'main'
+      content,
+      sha: sha || undefined,
+      branch: 'main'
     })
   });
 
   if (!putRes.ok) {
     const err = await putRes.json().catch(() => ({}));
-    if (putRes.status === 409 && retry < 3) {
-      await new Promise(r => setTimeout(r, 500 * (retry + 1)));
+
+    if (putRes.status === 409 && retry < 5) {
+      console.warn('Conflict — retry ' + (retry + 1));
+      await new Promise(r => setTimeout(r, 800 * (retry + 1)));
       return await _githubSave(repo, file, data, token, retry + 1);
     }
     if (putRes.status === 401) throw new Error('Token galat ya expire');
-    if (putRes.status === 403) throw new Error('Permission nahi');
-    if (putRes.status === 409) throw new Error('Conflict — refresh karo');
+    if (putRes.status === 403) throw new Error('Token me permission nahi (Contents: Read+Write chahiye)');
+    if (putRes.status === 409) throw new Error('Baar baar conflict — 10 sec ruk ke try karo');
+    if (putRes.status === 422) throw new Error('Data format galat');
+
     throw new Error('Save fail: ' + (err.message || putRes.status));
   }
   return true;
