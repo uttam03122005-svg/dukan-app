@@ -36,7 +36,7 @@ function toast(msg) {
 /* ================== CACHE ================== */
 let CACHED_DATA = null;
 
-/* ================== TOKEN ================== */
+/* ================== TOKEN / SETTINGS ================== */
 async function getActiveToken() {
   const local = localStorage.getItem('gh_token');
   if (local) return local;
@@ -44,6 +44,7 @@ async function getActiveToken() {
   if (CONFIG.GITHUB_TOKEN) return CONFIG.GITHUB_TOKEN;
   return null;
 }
+
 async function getImgbbKey() {
   const local = localStorage.getItem('imgbb_key');
   if (local) return local;
@@ -51,11 +52,16 @@ async function getImgbbKey() {
   if (CONFIG.IMGBB_KEY) return CONFIG.IMGBB_KEY;
   return null;
 }
+
 function getUpi() {
-  return {
-    id: localStorage.getItem('upi_id') || CACHED_DATA?.settings?.upi_id || '',
-    name: localStorage.getItem('upi_name') || CACHED_DATA?.settings?.upi_name || 'Dukan'
-  };
+  // Priority: localStorage > CACHED_DATA.settings
+  const localId = localStorage.getItem('upi_id');
+  const localName = localStorage.getItem('upi_name');
+
+  const id = localId || CACHED_DATA?.settings?.upi_id || '';
+  const name = localName || CACHED_DATA?.settings?.upi_name || 'Dukan';
+
+  return { id, name };
 }
 
 /* ================== LOAD ================== */
@@ -93,7 +99,7 @@ async function loadCustomers() {
 /* ================== SAVE ================== */
 async function saveData(data) {
   const token = await getActiveToken();
-  if (!token) throw new Error('Token set nahi hai. Owner login karo.');
+  if (!token) throw new Error('Token set nahi hai. Owner Settings me daalo.');
   data.settings = data.settings || {};
   return await _githubSave(CONFIG.GITHUB_REPO, CONFIG.GITHUB_FILE, data, token);
 }
@@ -106,7 +112,7 @@ async function saveCustomers(data) {
 async function _githubSave(repo, file, data, token, retry = 0) {
   const apiUrl = `https://api.github.com/repos/${CONFIG.GITHUB_USER}/${repo}/contents/${file}`;
 
-  // Fresh sha — sirf Authorization aur Accept headers (CORS safe)
+  // CORS-safe headers — sirf Authorization aur Accept
   const getRes = await fetch(apiUrl + '?ref=main&_=' + Date.now() + Math.random(), {
     headers: {
       Authorization: `token ${token}`,
@@ -161,7 +167,7 @@ async function _githubSave(repo, file, data, token, retry = 0) {
 /* ================== IMAGE ================== */
 async function uploadImage(file) {
   const key = await getImgbbKey();
-  if (!key) throw new Error('ImgBB key nahi mili');
+  if (!key) throw new Error('ImgBB key nahi mili — Owner Settings me daalo');
   const form = new FormData();
   form.append('image', file);
   const res = await fetch(`https://api.imgbb.com/1/upload?key=${key}`, { method: 'POST', body: form });
