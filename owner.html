@@ -20,7 +20,7 @@
       <button class="primary tabBtn" data-tab="orders" style="border-radius:0;background:#ccc;color:#333;">Orders</button>
     </div>
 
-    <!-- ===== PRODUCTS TAB ===== -->
+    <!-- PRODUCTS -->
     <div id="tab-products">
       <div class="card">
         <h3 id="pFormTitle">➕ Naya Product</h3>
@@ -49,10 +49,10 @@
           <input id="pWhole" placeholder="Wholesale ₹" inputmode="decimal">
         </div>
 
-        <label style="font-size:13px;color:#666;margin-top:6px;display:block;">Stock</label>
+        <label style="font-size:13px;color:#666;margin-top:6px;display:block;">Stock aur Category</label>
         <div class="row">
           <input id="pStock" placeholder="Stock qty" inputmode="decimal">
-          <input id="pCat" placeholder="Category (Grocery, Snacks)">
+          <input id="pCat" placeholder="Category">
         </div>
 
         <button class="primary" onclick="saveProduct()">💾 Save Product</button>
@@ -63,13 +63,13 @@
       <div id="productList"></div>
     </div>
 
-    <!-- ===== USERS TAB ===== -->
+    <!-- USERS -->
     <div id="tab-users" class="hidden">
       <input class="search-bar" id="uSearch" placeholder="🔍 Customer search (naam / phone)">
       <div id="userList"></div>
     </div>
 
-    <!-- ===== ORDERS TAB ===== -->
+    <!-- ORDERS -->
     <div id="tab-orders" class="hidden">
       <div id="orderList"></div>
     </div>
@@ -80,7 +80,8 @@
     const s = getSession();
     if (!s || s.role !== 'owner') location.href = 'index.html';
 
-    let DATA = null;
+    let DATA = null;       // owner data.json
+    let CUST = null;       // customers.json (public)
     let editingImageUrl = '';
 
     const UNIT_LABEL = {
@@ -89,7 +90,23 @@
     };
 
     async function init() {
-      DATA = await loadData();
+      DATA = await loadData();          // owner ke products, orders, aur "upgraded users"
+      CUST = await loadCustomers();     // sab registered customers
+
+      // Merge: data.json me jo user upgrade hue hai (wholesale/special) unka info
+      // aur customers.json me jo sab register hue hai — dono mila ke dikhao
+      DATA.users = CUST.users.map(cu => {
+        const ou = DATA.users.find(u => u.id === cu.id || (u.phone === cu.phone));
+        return {
+          id: cu.id,
+          name: cu.name,
+          phone: cu.phone,
+          price_type: ou?.price_type || 'retail',
+          special_prices: ou?.special_prices || {},
+          created_at: cu.created_at
+        };
+      });
+
       renderProducts();
       renderUsers();
       renderOrders();
@@ -107,7 +124,7 @@
       };
     });
 
-    /* ============ PRODUCTS ============ */
+    /* PRODUCTS */
     document.getElementById('pImg').onchange = e => {
       const f = e.target.files[0];
       if (f) {
@@ -146,8 +163,7 @@
         if (editId) {
           const p = DATA.products.find(x => x.id === editId);
           Object.assign(p, {
-            name, unit, retail_price: retail,
-            wholesale_price: whole || retail,
+            name, unit, retail_price: retail, wholesale_price: whole || retail,
             stock: stock || 0, category: cat, image: imageUrl
           });
         } else {
@@ -163,9 +179,7 @@
         toast('✅ Save ho gaya!');
         resetProductForm();
         renderProducts();
-      } catch (e) {
-        toast('❌ ' + e.message);
-      }
+      } catch (e) { toast('❌ ' + e.message); }
     }
 
     function editProduct(id) {
@@ -188,30 +202,22 @@
     async function deleteProduct(id) {
       if (!confirm('Delete karna hai?')) return;
       DATA.products = DATA.products.filter(p => p.id !== id);
-      try {
-        await saveData(DATA);
-        toast('🗑️ Delete ho gaya');
-        renderProducts();
-      } catch (e) { toast('❌ ' + e.message); }
+      try { await saveData(DATA); toast('🗑️ Delete'); renderProducts(); }
+      catch (e) { toast('❌ ' + e.message); }
     }
 
     async function toggleHide(id) {
       const p = DATA.products.find(x => x.id === id);
       p.hidden = !p.hidden;
-      try {
-        await saveData(DATA);
-        renderProducts();
-      } catch (e) { toast('❌ ' + e.message); }
+      try { await saveData(DATA); renderProducts(); }
+      catch (e) { toast('❌ ' + e.message); }
     }
 
     function renderProducts() {
       const q = (document.getElementById('pSearch').value || '').toLowerCase();
       const list = document.getElementById('productList');
       const items = DATA.products.filter(p => p.name.toLowerCase().includes(q));
-      if (!items.length) {
-        list.innerHTML = '<div class="card center">Koi product nahi</div>';
-        return;
-      }
+      if (!items.length) { list.innerHTML = '<div class="card center">Koi product nahi</div>'; return; }
       list.innerHTML = items.map(p => {
         const u = UNIT_LABEL[p.unit] || 'kg';
         return `
@@ -234,26 +240,42 @@
     }
     document.getElementById('pSearch').oninput = renderProducts;
 
-    /* ============ USERS ============ */
+    /* USERS */
     async function toggleWholesale(id) {
       const u = DATA.users.find(x => x.id === id);
       const newType = u.price_type === 'wholesale' ? 'retail' : 'wholesale';
       if (!confirm(`${u.name} ko ${newType.toUpperCase()} kar dein?`)) return;
+
       u.price_type = newType;
-      try {
-        await saveData(DATA);
-        toast(newType === 'wholesale' ? '💼 Wholesale ho gaya' : '🛒 Retail kar diya');
-        renderUsers();
-      } catch (e) { toast('❌ ' + e.message); }
+      // data.json me ye user save karo (customers.json me nahi, kyunki wahan sirf register hai)
+      const ownerUser = DATA.users.find(x => x.id === id) || {};
+      // DATA.users me already update ho gaya, ab data.json me save karo
+      // Lekin dhyan: DATA.users me customers.json wale users bhi hain. Sirf owner wale save karo.
+      // Solution: ek alag ownerUsers list rakho
+      await saveOwnerUser(u);
+      renderUsers();
     }
 
-    async function deleteUser(id) {
-      const u = DATA.users.find(x => x.id === id);
-      if (!confirm(`${u.name} ko delete karna hai?`)) return;
-      DATA.users = DATA.users.filter(x => x.id !== id);
+    async function saveOwnerUser(user) {
+      // data.json me sirf owner-managed users rakho
+      const ownerData = await loadData();
+      let existing = ownerData.users.find(x => x.id === user.id || x.phone === user.phone);
+      if (existing) {
+        existing.price_type = user.price_type;
+        existing.special_prices = user.special_prices;
+      } else {
+        ownerData.users.push({
+          id: user.id,
+          name: user.name,
+          phone: user.phone,
+          price_type: user.price_type,
+          special_prices: user.special_prices || {},
+          created_at: user.created_at || new Date().toISOString()
+        });
+      }
       try {
-        await saveData(DATA);
-        renderUsers();
+        await saveData(ownerData);
+        toast(user.price_type === 'wholesale' ? '💼 Wholesale ho gaya' : '🛒 Retail kar diya');
       } catch (e) { toast('❌ ' + e.message); }
     }
 
@@ -264,7 +286,7 @@
         u.name.toLowerCase().includes(q) || u.phone.includes(q)
       );
       if (!items.length) {
-        list.innerHTML = '<div class="card center">Koi customer nahi. Customer jab pehli baar app kholega, apne aap yahan aa jayega.</div>';
+        list.innerHTML = '<div class="card center">Koi customer nahi. Customer jab pehli baar login karega, yahan aa jayega.</div>';
         return;
       }
       list.innerHTML = items.map(u => {
@@ -287,7 +309,6 @@
               <button class="primary small" style="background:${isWhole?'#2e7d32':'#f57c00'};" onclick="toggleWholesale('${u.id}')">
                 ${isWhole ? '🛒 Retail Karo' : '💼 Wholesale Karo'}
               </button>
-              <button class="primary small danger" onclick="deleteUser('${u.id}')">🗑️ Delete</button>
             </div>
           </div>
         `;
@@ -295,22 +316,17 @@
     }
     document.getElementById('uSearch').oninput = renderUsers;
 
-    /* ============ ORDERS ============ */
+    /* ORDERS */
     async function updateOrder(orderId, patch) {
       const o = DATA.orders.find(x => x.id === orderId);
       Object.assign(o, patch);
-      try {
-        await saveData(DATA);
-        renderOrders();
-      } catch (e) { toast('❌ ' + e.message); }
+      try { await saveData(DATA); renderOrders(); }
+      catch (e) { toast('❌ ' + e.message); }
     }
 
     function renderOrders() {
       const list = document.getElementById('orderList');
-      if (!DATA.orders.length) {
-        list.innerHTML = '<div class="card center">Koi order nahi</div>';
-        return;
-      }
+      if (!DATA.orders.length) { list.innerHTML = '<div class="card center">Koi order nahi</div>'; return; }
       list.innerHTML = DATA.orders.slice().reverse().map(o => {
         const u = DATA.users.find(x => x.id === o.user_id) || { name: 'Unknown', phone: '' };
         const items = o.items.map(it => {
@@ -326,9 +342,7 @@
             </div>
             <div class="mt">${items}</div>
             <div style="font-weight:bold;color:#2e7d32;margin-top:6px;">Total: ${inr(o.total)}</div>
-            <div style="font-size:13px;margin-top:4px;">
-              Status: <b>${o.status}</b> | Payment: <b>${o.payment}</b>
-            </div>
+            <div style="font-size:13px;margin-top:4px;">Status: <b>${o.status}</b> | Payment: <b>${o.payment}</b></div>
             <div class="row mt">
               <button class="primary small" onclick="updateOrder('${o.id}',{status:'packed'})">📦 Packed</button>
               <button class="primary small" onclick="updateOrder('${o.id}',{status:'delivered'})">✅ Delivered</button>
