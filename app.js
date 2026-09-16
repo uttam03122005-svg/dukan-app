@@ -54,13 +54,10 @@ async function getImgbbKey() {
 }
 
 function getUpi() {
-  // Priority: localStorage > CACHED_DATA.settings
   const localId = localStorage.getItem('upi_id');
   const localName = localStorage.getItem('upi_name');
-
   const id = localId || CACHED_DATA?.settings?.upi_id || '';
   const name = localName || CACHED_DATA?.settings?.upi_name || 'Dukan';
-
   return { id, name };
 }
 
@@ -112,7 +109,7 @@ async function saveCustomers(data) {
 async function _githubSave(repo, file, data, token, retry = 0) {
   const apiUrl = `https://api.github.com/repos/${CONFIG.GITHUB_USER}/${repo}/contents/${file}`;
 
-  // CORS-safe headers — sirf Authorization aur Accept
+  // CORS-safe headers
   const getRes = await fetch(apiUrl + '?ref=main&_=' + Date.now() + Math.random(), {
     headers: {
       Authorization: `token ${token}`,
@@ -187,13 +184,11 @@ function getSession() {
   try { return { role, data: JSON.parse(localStorage.getItem('session') || '{}') }; }
   catch { return null; }
 }
+
+// ⭐ IMPORTANT: Logout me token/upi/imgbb DELETE NAHI karenge
 function logout() {
   localStorage.removeItem('role');
   localStorage.removeItem('session');
-  localStorage.removeItem('gh_token');
-  localStorage.removeItem('imgbb_key');
-  localStorage.removeItem('upi_id');
-  localStorage.removeItem('upi_name');
   location.replace('index.html');
 }
 function logoutUser() {
