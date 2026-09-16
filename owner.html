@@ -55,13 +55,10 @@
       <div id="orderList"></div>
     </div>
 
-    <!-- UDHAR TAB -->
     <div id="tab-udhar" class="hidden">
       <div class="card">
         <h3>➕ Naya Udhar</h3>
-        <select id="udUser" style="margin-bottom:6px;">
-          <option value="">-- Customer select karo --</option>
-        </select>
+        <select id="udUser" style="margin-bottom:6px;"></select>
         <input id="udAmount" type="number" placeholder="Amount ₹" inputmode="numeric">
         <input id="udNote" placeholder="Note (jaise: Aata 5kg udhar)">
         <button class="primary" onclick="addUdhar()">💾 Add Udhar</button>
@@ -88,6 +85,10 @@
     async function init() {
       const ok = await waitForFirebase();
       if (!ok) { alert('Firebase ready nahi'); return; }
+
+      const uid = getAuthUid();
+      if (!uid) { alert('Session expire'); location.replace('index.html'); return; }
+
       DATA = await loadData();
       renderProducts(); renderUsers(); renderOrders(); renderUdhar(); renderInfo();
       resetProductForm(); fillUserSelect();
@@ -111,10 +112,10 @@
 
     function renderInfo() {
       document.getElementById('secretInfo').innerHTML = `
-        <div style="padding:4px 0;">Token: ${SECRET.gh_token ? '✅' : '❌'}</div>
         <div style="padding:4px 0;">ImgBB: ${SECRET.imgbb_key ? '✅' : '❌'}</div>
         <div style="padding:4px 0;">UPI: ${SECRET.upi_id || '❌'}</div>
         <div style="padding:4px 0;">Firebase: ${FB_READY ? '✅ ready' : '❌ not ready'}</div>
+        <div style="padding:4px 0;">Owner UID: ${(getAuthUid() || '').substring(0,10)}...</div>
       `;
     }
 
@@ -250,7 +251,7 @@
       const q = (document.getElementById('uSearch').value||'').toLowerCase();
       const list = document.getElementById('userList');
       const items = DATA.users.filter(u =>
-        (u.name||'').toLowerCase().includes(q) || u.phone.includes(q)
+        (u.name||'').toLowerCase().includes(q) || (u.phone||'').includes(q)
       );
       if (!items.length) { list.innerHTML = '<div class="card center">Koi customer nahi</div>'; return; }
       list.innerHTML = items.map(u => {
@@ -258,41 +259,24 @@
         const stats = calculateUserStats(u.id, DATA.orders, DATA.udhar);
         return `
           <div class="card">
-            <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-              <div style="flex:1;">
-                <b>${u.name}</b>
-                <span style="font-size:12px;padding:2px 8px;border-radius:10px;background:${w?'#fff3e0':'#e8f5e9'};color:${w?'#e65100':'#2e7d32'};margin-left:6px;">
-                  ${w ? '💼 Wholesale' : '🛒 Retail'}
-                </span>
-                <div style="font-size:13px;color:#666;margin-top:4px;">📞 ${u.phone}</div>
-                ${u.address ? `<div style="font-size:12px;color:#888;">📍 ${u.address}</div>` : ''}
-              </div>
+            <div style="display:flex;justify-content:space-between;">
+              <b>${u.name}</b>
+              <span style="font-size:12px;padding:2px 8px;border-radius:10px;background:${w?'#fff3e0':'#e8f5e9'};color:${w?'#e65100':'#2e7d32'};">
+                ${w ? '💼 Wholesale' : '🛒 Retail'}
+              </span>
             </div>
-
+            <div style="font-size:13px;color:#666;">📞 ${u.phone}</div>
+            ${u.address ? `<div style="font-size:12px;color:#888;">📍 ${u.address}</div>` : ''}
             <div style="display:flex;gap:6px;margin-top:8px;">
-              <button class="icon-btn btn-call" onclick="callPhone('${u.phone}')" title="Call">📞</button>
-              <button class="icon-btn btn-wa" onclick="whatsappPhone('${u.phone}', 'Namaste ${u.name}, Dukan se')" title="WhatsApp">💬</button>
-              <button class="icon-btn btn-sms" onclick="smsPhone('${u.phone}')" title="SMS">✉️</button>
+              <button class="icon-btn btn-call" onclick="callPhone('${u.phone}')">📞</button>
+              <button class="icon-btn btn-wa" onclick="whatsappPhone('${u.phone}', 'Namaste ${u.name}, Dukan se')">💬</button>
+              <button class="icon-btn btn-sms" onclick="smsPhone('${u.phone}')">✉️</button>
             </div>
-
             <div style="display:flex;gap:8px;font-size:13px;margin-top:8px;padding:8px;background:#f9f9f9;border-radius:6px;">
-              <div style="flex:1;text-align:center;">
-                <div style="font-weight:bold;color:#2e7d32;">${inr(stats.total_orders)}</div>
-                <div style="font-size:11px;color:#666;">Total</div>
-              </div>
-              <div style="flex:1;text-align:center;">
-                <div style="font-weight:bold;color:#2e7d32;">${inr(stats.total_paid)}</div>
-                <div style="font-size:11px;color:#666;">Paid</div>
-              </div>
-              <div style="flex:1;text-align:center;">
-                <div style="font-weight:bold;color:${stats.total_pending>0?'#e65100':'#2e7d32'};">${inr(stats.total_pending)}</div>
-                <div style="font-size:11px;color:#666;">Bakaya</div>
-              </div>
+              <div style="flex:1;text-align:center;"><div style="font-weight:bold;color:#2e7d32;">${inr(stats.total_orders)}</div><div style="font-size:11px;color:#666;">Total</div></div>
+              <div style="flex:1;text-align:center;"><div style="font-weight:bold;color:#2e7d32;">${inr(stats.total_paid)}</div><div style="font-size:11px;color:#666;">Paid</div></div>
+              <div style="flex:1;text-align:center;"><div style="font-weight:bold;color:${stats.total_pending>0?'#e65100':'#2e7d32'};">${inr(stats.total_pending)}</div><div style="font-size:11px;color:#666;">Bakaya</div></div>
             </div>
-            <div style="font-size:11px;color:#888;text-align:center;margin-top:4px;">
-              Orders: ${stats.order_count} | Udhar: ${stats.udhar_count}
-            </div>
-
             <div class="row mt">
               <button class="primary small" style="background:#1976d2;" onclick="editCustomerName('${u.id}')">✏️ Naam</button>
               <button class="primary small" style="background:${w?'#2e7d32':'#f57c00'};" onclick="toggleWholesale('${u.id}')">
@@ -323,7 +307,7 @@
 
     /* ORDERS */
     async function approvePayment(orderId) {
-      if (!confirm('Payment confirm karna hai?')) return;
+      if (!confirm('Payment confirm?')) return;
       try {
         const o = DATA.orders.find(x => x.id === orderId);
         const history = o.history || [];
@@ -333,7 +317,7 @@
       } catch (e) { toast('❌ ' + e.message); }
     }
     async function approveOrder(orderId) {
-      if (!confirm('Order approve karna hai?')) return;
+      if (!confirm('Order approve?')) return;
       try {
         const o = DATA.orders.find(x => x.id === orderId);
         const history = o.history || [];
@@ -343,7 +327,7 @@
       } catch (e) { toast('❌ ' + e.message); }
     }
     async function markDelivered(orderId) {
-      if (!confirm('Delivered mark karna hai?')) return;
+      if (!confirm('Delivered mark?')) return;
       try {
         const o = DATA.orders.find(x => x.id === orderId);
         const history = o.history || [];
@@ -371,8 +355,8 @@
                 <div style="font-size:11px;color:#666;">📞 ${o.user_phone||''}</div>
               </div>
               <div style="display:flex;gap:4px;">
-                <button class="icon-btn btn-call" onclick="callPhone('${o.user_phone}')" title="Call">📞</button>
-                <button class="icon-btn btn-wa" onclick="whatsappPhone('${o.user_phone}', 'Namaste ${o.user_name}, Dukan se — aapka order ready hai')" title="WhatsApp">💬</button>
+                <button class="icon-btn btn-call" onclick="callPhone('${o.user_phone}')">📞</button>
+                <button class="icon-btn btn-wa" onclick="whatsappPhone('${o.user_phone}', 'Namaste ${o.user_name}, Dukan se')">💬</button>
               </div>
             </div>
             <div style="font-size:11px;color:#888;text-align:right;">${new Date(o.created_at).toLocaleString('hi-IN')}</div>
@@ -401,15 +385,15 @@
         DATA.users.map(u => `<option value="${u.id}">${u.name} (${u.phone})</option>`).join('');
     }
     async function addUdhar() {
-      const uid_ = document.getElementById('udUser').value;
+      const user_id = document.getElementById('udUser').value;
       const amt = parseFloat(document.getElementById('udAmount').value) || 0;
       const note = document.getElementById('udNote').value.trim();
-      if (!uid_) return toast('Customer select karo');
+      if (!user_id) return toast('Customer select karo');
       if (!amt || amt <= 0) return toast('Amount daalo');
 
-      const u = DATA.users.find(x => x.id === uid_);
+      const u = DATA.users.find(x => x.id === user_id);
       const rec = {
-        id: uid(), user_id: uid_, user_name: u.name, user_phone: u.phone,
+        id: uid(), user_id: user_id, user_name: u.name, user_phone: u.phone,
         amount: amt, note: note || 'Udhar',
         status: 'pending',
         created_at: new Date().toISOString()
@@ -424,7 +408,7 @@
       } catch (e) { toast('❌ ' + e.message); }
     }
     async function markUdharPaid(id) {
-      if (!confirm('Udhar paid mark karna hai?')) return;
+      if (!confirm('Paid mark?')) return;
       try {
         await FB.collection('udhar').doc(id).set({ status: 'paid', paid_at: new Date().toISOString() }, { merge: true });
         DATA = await loadData(); toast('✅ Paid'); renderUdhar();
@@ -451,9 +435,7 @@
               <div style="font-size:14px;"><b>${inr(u.amount)}</b> — ${u.note}</div>
               <div style="font-size:11px;color:#666;">${new Date(u.created_at).toLocaleString('hi-IN')}</div>
             </div>
-            <div style="font-size:13px;margin-top:6px;">
-              Status: <b style="color:${isPaid?'#2e7d32':'#e65100'};">${isPaid?'✅ PAID':'⏳ PENDING'}</b>
-            </div>
+            <div style="font-size:13px;margin-top:6px;">Status: <b style="color:${isPaid?'#2e7d32':'#e65100'};">${isPaid?'✅ PAID':'⏳ PENDING'}</b></div>
             ${!isPaid ? `<button class="primary small" style="background:#2e7d32;margin-top:6px;" onclick="markUdharPaid('${u.id}')">💰 Paid Karo</button>` : ''}
           </div>`;
       }).join('');
