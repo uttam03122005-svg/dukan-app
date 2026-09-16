@@ -154,19 +154,26 @@
         if (!imgbb) return toast('ImgBB Key daalo');
         if (!upi) return toast('UPI ID daalo');
 
+        // token LOCAL me pehle daalo taaki saveData kaam kare
+        localStorage.setItem('gh_token', token);
+
         data.settings = data.settings || {};
         data.settings.gh_token = token;
         data.settings.imgbb_key = imgbb;
         data.settings.upi_id = upi;
         data.settings.upi_name = upiName || 'Dukan';
 
+        CACHED_DATA = data;
+
         try {
-          await _githubSave(CONFIG.GITHUB_REPO, CONFIG.GITHUB_FILE, data, token);
+          toast('Setup save ho raha hai...');
+          await saveData(data);
+          toast('✅ Setup save ho gaya!');
         } catch (e) {
+          localStorage.removeItem('gh_token');
           return toast('❌ Setup save fail: ' + e.message);
         }
 
-        localStorage.setItem('gh_token', token);
         localStorage.setItem('imgbb_key', imgbb);
         localStorage.setItem('upi_id', upi);
         localStorage.setItem('upi_name', upiName || 'Dukan');
@@ -175,11 +182,11 @@
         if (data.settings.imgbb_key) localStorage.setItem('imgbb_key', data.settings.imgbb_key);
         if (data.settings.upi_id) localStorage.setItem('upi_id', data.settings.upi_id);
         if (data.settings.upi_name) localStorage.setItem('upi_name', data.settings.upi_name);
+        toast('Owner login ho gaya');
       }
 
       saveSession('owner', { id });
-      toast('Owner login ho gaya');
-      setTimeout(() => location.replace('owner.html'), 300);
+      setTimeout(() => location.replace('owner.html'), 400);
     }
   </script>
 </body>
