@@ -21,7 +21,6 @@
       <button class="primary tabBtn" data-tab="settings" style="border-radius:0;background:#ccc;color:#333;font-size:12px;">⚙️</button>
     </div>
 
-    <!-- PRODUCTS -->
     <div id="tab-products">
       <div class="card">
         <h3 id="pFormTitle">➕ Naya Product</h3>
@@ -40,18 +39,15 @@
       <div id="productList"></div>
     </div>
 
-    <!-- USERS -->
     <div id="tab-users" class="hidden">
       <input class="search-bar" id="uSearch" placeholder="🔍 Customer (phone se)">
       <div id="userList"></div>
     </div>
 
-    <!-- ORDERS -->
     <div id="tab-orders" class="hidden">
       <div id="orderList"></div>
     </div>
 
-    <!-- SETTINGS -->
     <div id="tab-settings" class="hidden">
       <div class="card">
         <h3>⚙️ Settings</h3>
@@ -59,8 +55,8 @@
         <input id="setToken" placeholder="ghp_...">
         <label style="font-size:13px;color:#666;font-weight:bold;margin-top:6px;display:block;">ImgBB Key</label>
         <input id="setImgbb" placeholder="ImgBB key">
-        <label style="font-size:13px;color:#666;font-weight:bold;margin-top:6px;display:block;">UPI ID (online payment)</label>
-        <input id="setUpi" placeholder="jaise: 9876543210@paytm">
+        <label style="font-size:13px;color:#666;font-weight:bold;margin-top:6px;display:block;">UPI ID</label>
+        <input id="setUpi" placeholder="9876543210@paytm">
         <label style="font-size:13px;color:#666;font-weight:bold;margin-top:6px;display:block;">UPI Name</label>
         <input id="setUpiName" placeholder="Dukan ka naam">
         <button class="primary" onclick="saveSettings()">💾 Save</button>
@@ -109,7 +105,7 @@
       };
     });
 
-    /* ============ SETTINGS ============ */
+    /* SETTINGS */
     function renderSettings() {
       const st = DATA.settings || {};
       document.getElementById('setToken').value = st.gh_token || localStorage.getItem('gh_token') || '';
@@ -163,7 +159,7 @@
       } catch (e) { toast('❌ ' + e.message); }
     }
 
-    /* ============ PRODUCTS ============ */
+    /* PRODUCTS */
     document.getElementById('pImg').onchange = e => {
       const f = e.target.files[0];
       if (f) {
@@ -304,7 +300,7 @@
     }
     document.getElementById('pSearch').oninput = renderProducts;
 
-    /* ============ USERS ============ */
+    /* USERS */
     async function saveOwnerUser(user) {
       const ownerData = await loadData();
       let ex = ownerData.users.find(x => x.phone === user.phone);
@@ -320,7 +316,6 @@
           created_at: user.created_at
         });
       }
-      // keep settings
       ownerData.settings = DATA.settings;
       await saveData(ownerData);
       DATA = ownerData;
@@ -386,7 +381,7 @@
     }
     document.getElementById('uSearch').oninput = renderUsers;
 
-    /* ============ ORDERS ============ */
+    /* ORDERS */
     async function updateOrder(orderId, patch) {
       const o = DATA.orders.find(x => x.id === orderId);
       Object.assign(o, patch);
