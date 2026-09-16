@@ -6,6 +6,8 @@
   <title>Dukan App - Login</title>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#2e7d32">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <link rel="apple-touch-icon" href="icon-192.png">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -17,7 +19,6 @@
       <p style="color:#666;font-size:14px;">Login karo — Owner ya Customer</p>
     </div>
 
-    <!-- Tabs -->
     <div class="card" style="display:flex;padding:0;">
       <button id="tabUser" class="primary" style="border-radius:0;background:#2e7d32;">Customer</button>
       <button id="tabOwner" class="primary" style="border-radius:0;background:#ccc;color:#333;">Owner</button>
@@ -27,10 +28,10 @@
     <div id="userForm" class="card">
       <h3>Customer Login</h3>
       <input id="uName" placeholder="Apna naam (jaise Ramesh)" autocomplete="off">
-      <input id="uPhone" placeholder="Phone number" inputmode="numeric">
-      <button class="primary" onclick="userLogin()">Login</button>
+      <input id="uPhone" placeholder="Phone number (10 digit)" inputmode="numeric" maxlength="10">
+      <button class="primary" onclick="userLogin()">Login / Register</button>
       <p class="center" style="font-size:12px;color:#888;margin-top:8px;">
-        Owner ne aapko add kiya hoga tabhi login hoga
+        Pehli baar? Bas naam aur phone daalo — auto register ho jaoge
       </p>
     </div>
 
@@ -39,22 +40,21 @@
       <h3>Owner Login</h3>
       <input id="oId" placeholder="Owner ID">
       <input id="oPass" type="password" placeholder="Password">
-      <input id="oToken" placeholder="GitHub Token (ghp_...)">
+      <input id="oToken" placeholder="GitHub Token (ghp_... ya github_pat_...)">
+      <input id="oImgbb" placeholder="ImgBB API Key">
       <button class="primary" onclick="ownerLogin()">Login</button>
       <p class="center" style="font-size:12px;color:#888;margin-top:8px;">
-        Token sirf aapke phone me save hoga
+        Token aur key sirf aapke phone me save honge
       </p>
     </div>
   </div>
 
   <script src="app.js"></script>
   <script>
-    // agar pehle se login hai to seedha dashboard
     const s = getSession();
     if (s && s.role === 'owner') location.href = 'owner.html';
     if (s && s.role === 'user') location.href = 'user.html';
 
-    // Tabs
     const tabU = document.getElementById('tabUser');
     const tabO = document.getElementById('tabOwner');
     tabU.onclick = () => {
@@ -70,27 +70,53 @@
       document.getElementById('userForm').classList.add('hidden');
     };
 
+    /* -------- CUSTOMER: auto register + login -------- */
     async function userLogin() {
       const name = document.getElementById('uName').value.trim();
       const phone = document.getElementById('uPhone').value.trim();
-      if (!name || !phone) return toast('Naam aur phone daalo');
+      if (!name || phone.length !== 10) return toast('Naam aur 10 digit phone daalo');
 
+      toast('Login ho raha hai...');
       const data = await loadData();
-      const user = data.users.find(u =>
+
+      let user = data.users.find(u =>
         u.name.toLowerCase() === name.toLowerCase() && u.phone === phone
       );
-      if (!user) return toast('Aap registered nahi ho. Owner se contact karo.');
+
+      if (!user) {
+        // NAYA CUSTOMER — auto register, default RETAIL
+        user = {
+          id: uid(),
+          name: name,
+          phone: phone,
+          price_type: 'retail',
+          special_prices: {},
+          created_at: new Date().toISOString()
+        };
+        data.users.push(user);
+        try {
+          await saveData(data);
+          toast('✅ Register ho gaya!');
+        } catch (e) {
+          console.warn('Auto-register save fail:', e);
+          toast('Register hua (offline). Owner se sync hoga');
+        }
+      } else {
+        toast('Wapas swagat, ' + user.name + '!');
+      }
 
       saveSession('user', { id: user.id, name: user.name, phone: user.phone });
-      toast('Login successful!');
-      setTimeout(() => location.href = 'user.html', 500);
+      setTimeout(() => location.href = 'user.html', 400);
     }
 
+    /* -------- OWNER LOGIN -------- */
     async function ownerLogin() {
       const id = document.getElementById('oId').value.trim();
       const pass = document.getElementById('oPass').value.trim();
       const token = document.getElementById('oToken').value.trim();
-      if (!id || !pass || !token) return toast('Sab field bharo');
+      const imgbb = document.getElementById('oImgbb').value.trim();
+      if (!id || !pass || !token) return toast('ID, Password aur GitHub Token bharo');
+      if (!imgbb) return toast('ImgBB API key bhi daalo');
 
       const data = await loadData();
       if (id !== data.owner.id || pass !== data.owner.password) {
@@ -98,9 +124,10 @@
       }
 
       localStorage.setItem('gh_token', token);
+      localStorage.setItem('imgbb_key', imgbb);
       saveSession('owner', { id: id });
       toast('Owner login ho gaya');
-      setTimeout(() => location.href = 'owner.html', 500);
+      setTimeout(() => location.href = 'owner.html', 400);
     }
   </script>
 </body>
