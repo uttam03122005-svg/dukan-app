@@ -44,7 +44,7 @@
     </div>
 
     <div id="tab-profile" class="hidden">
-      <h3>👤 Meri Profile</h3>
+      <h3>👤 Profile</h3>
       <div id="profileBox"></div>
     </div>
   </div>
@@ -66,31 +66,22 @@
     let DATA = null, ME = null;
     let CART = JSON.parse(localStorage.getItem('cart') || '{}');
 
-    document.getElementById('welcome').textContent = 'Namaste, ' + s.data.name;
+    document.getElementById('welcome').textContent = 'Namaste, ' + (s.data.name || 'Customer');
 
     async function init() {
-      DATA = await loadData();
-      const local = JSON.parse(localStorage.getItem('my_users') || '[]');
-      local.forEach(lu => { if (!DATA.users.find(u => u.phone === lu.phone)) DATA.users.push(lu); });
+      const ok = await waitForFirebase();
+      if (!ok) { alert('Firebase ready nahi. Page refresh karo.'); return; }
 
-      const ownerUser = DATA.users.find(u => u.phone === s.data.phone);
+      DATA = await loadData();
+      const myUser = DATA.users.find(u => u.phone === s.data.phone);
       ME = {
-        id: s.data.id,
-        name: ownerUser?.name || s.data.name,
+        id: myUser?.id || s.data.id,
+        name: myUser?.name || s.data.name || 'Customer',
         phone: s.data.phone,
-        price_type: ownerUser?.price_type || s.data.price_type || 'retail',
-        special_prices: ownerUser?.special_prices || s.data.special_prices || {}
+        price_type: myUser?.price_type || 'retail',
+        special_prices: myUser?.special_prices || {}
       };
       saveSession('user', ME);
-
-      // ⭐⭐⭐ data.json settings se token + UPI load karo localStorage me ⭐⭐⭐
-      if (DATA.settings) {
-        if (DATA.settings.gh_token) localStorage.setItem('gh_token', DATA.settings.gh_token);
-        if (DATA.settings.imgbb_key) localStorage.setItem('imgbb_key', DATA.settings.imgbb_key);
-        if (DATA.settings.upi_id) localStorage.setItem('upi_id', DATA.settings.upi_id);
-        if (DATA.settings.upi_name) localStorage.setItem('upi_name', DATA.settings.upi_name);
-      }
-
       renderGrid(); renderCart(); renderOrders(); renderProfile(); updateCartBadge();
     }
 
@@ -107,7 +98,6 @@
       };
     });
 
-    /* ---------- GRID ---------- */
     function renderGrid() {
       const q = (document.getElementById('search').value||'').toLowerCase();
       const items = DATA.products.filter(p => !p.hidden && p.name.toLowerCase().includes(q));
@@ -137,7 +127,6 @@
     }
     document.getElementById('search').oninput = renderGrid;
 
-    /* ---------- UNIT PICKER ---------- */
     let pickerState = null;
 
     function openUnitPicker(pid) {
@@ -221,7 +210,6 @@
     }
     function closePicker() { document.getElementById('modalRoot').innerHTML = ''; pickerState = null; }
 
-    /* ---------- CART ---------- */
     function saveCart() { localStorage.setItem('cart', JSON.stringify(CART)); updateCartBadge(); }
     function updateCartBadge() { document.getElementById('cartCount').textContent = Object.keys(CART).length; }
 
@@ -282,7 +270,6 @@
       saveCart(); renderCart();
     }
 
-    /* ---------- PAYMENT MODAL ---------- */
     let payState = { mode: 'cash', cashPaid: 0 };
 
     function openPaymentModal() {
@@ -296,17 +283,13 @@
       const total = cartTotal();
       const cash = payState.cashPaid || 0;
       const online = Math.max(0, total - cash);
-
       const showOnline = payState.mode === 'online' || (payState.mode === 'split' && online > 0);
-      const { id: upiId, name: upiName } = getUpi();
+      const { id: upiId } = getUpi();
 
-      let qrImg = '';
-      let appLinks = {};
-      if (showOnline) {
-        if (upiId) {
-          qrImg = getUpiQrImage(online, 'Dukan Order');
-          appLinks = getAppLinks(online, 'Dukan Order');
-        }
+      let qrImg = '', appLinks = {};
+      if (showOnline && upiId) {
+        qrImg = getUpiQrImage(online, 'Dukan Order');
+        appLinks = getAppLinks(online, 'Dukan Order');
       }
 
       document.getElementById('modalRoot').innerHTML = `
@@ -326,24 +309,15 @@
               <div style="margin-top:12px;background:#f9f9f9;padding:10px;border-radius:8px;">
                 <label style="font-size:13px;">💵 Cash diya:</label>
                 <input type="number" inputmode="numeric" value="${cash}" onchange="setCash(this.value)" placeholder="0">
-                <div style="font-size:13px;margin-top:6px;">📱 Online bachega: <b style="color:#2e7d32;">${inr(online)}</b></div>
+                <div style="font-size:13px;margin-top:6px;">📱 Online: <b style="color:#2e7d32;">${inr(online)}</b></div>
               </div>
             ` : ''}
 
             ${showOnline ? `
               <div style="margin-top:12px;text-align:center;">
                 <div style="font-size:14px;margin-bottom:8px;">📱 <b>${inr(online)}</b> pay karo</div>
-                ${upiId ? `<div style="font-size:11px;color:#888;margin-bottom:6px;">UPI: ${upiId}</div>` : ''}
-
-                ${!upiId ? `
-                  <div style="color:#c62828;padding:12px;background:#ffebee;border-radius:8px;font-size:13px;">
-                    ❌ UPI ID set nahi hai.<br>
-                    Owner se Settings me UPI daalne ko bolo.
-                  </div>
-                ` : ''}
-
+                ${upiId ? `<div style="font-size:11px;color:#888;margin-bottom:6px;">UPI: ${upiId}</div>` : '<div style="color:#c62828;padding:8px;background:#ffebee;border-radius:8px;font-size:12px;">❌ UPI set nahi hai</div>'}
                 ${qrImg ? `<img src="${qrImg}" style="width:220px;height:220px;border:1px solid #eee;border-radius:8px;margin-bottom:6px;">` : ''}
-
                 ${upiId ? `
                   <div style="font-size:12px;color:#666;margin:8px 0;">📲 Ya seedha app me kholo:</div>
                   <div class="upi-apps">
@@ -389,12 +363,6 @@
       const keys = Object.keys(CART);
       if (!keys.length) return toast('Cart khali');
 
-      // Token check
-      const token = await getActiveToken();
-      if (!token) {
-        return toast('❌ Token set nahi. Owner se Settings me daalne ko bolo.');
-      }
-
       const total = cartTotal();
       let cashPaid = 0, onlinePaid = 0;
       if (payState.mode === 'cash') { cashPaid = total; }
@@ -407,7 +375,10 @@
       const items = keys.map(key => {
         const [pid, ul] = key.split('::');
         const p = DATA.products.find(x => x.id === pid);
-        return { product_id: pid, product_name: p.name, unit: ul, qty: CART[key], price: getUnitPrice(p, ul, ME) };
+        return {
+          product_id: pid, product_name: p.name,
+          unit: ul, qty: CART[key], price: getUnitPrice(p, ul, ME)
+        };
       });
 
       const order = {
@@ -417,24 +388,30 @@
         payment_mode: payState.mode,
         cash_paid: cashPaid,
         online_paid: onlinePaid,
-        status: 'pending',
-        payment: 'pending',
+        payment_status: 'pending',
+        order_status: 'pending',
+        owner_approved: false,
+        user_confirmed_at: new Date().toISOString(),
+        owner_confirmed_at: null,
+        history: [{ at: new Date().toISOString(), by: 'user', action: 'order_placed' }],
         created_at: new Date().toISOString()
       };
 
-      DATA.orders.push(order);
       try {
-        await saveData(DATA);
+        toast('Order place ho raha hai...');
+        await fbSaveOrder(order);
         CART = {}; saveCart(); renderCart();
         closePayment();
-        toast('✅ Order place');
+        toast('✅ Order place — owner approval pending');
         document.querySelector('.bottom-nav a[data-tab="orders"]').click();
-      } catch (e) { toast('❌ ' + e.message); }
+      } catch (e) {
+        console.error('Order fail:', e);
+        toast('❌ ' + e.message);
+      }
     }
 
-    /* ---------- ORDERS ---------- */
     function renderOrders() {
-      const mine = DATA.orders.filter(o => o.user_id === ME.id).reverse();
+      const mine = DATA.orders.filter(o => o.user_id === ME.id);
       const list = document.getElementById('myOrders');
       if (!mine.length) { list.innerHTML = '<div class="card center">Koi order nahi</div>'; return; }
       list.innerHTML = mine.map(o => {
@@ -442,29 +419,30 @@
           const p = DATA.products.find(x => x.id === it.product_id) || { name: it.product_name || '?' };
           return `<div style="font-size:13px;">• ${p.name} — ${it.qty} ${it.unit} × ${inr(it.price)} = ${inr(it.qty*it.price)}</div>`;
         }).join('');
-        const badge = o.status==='delivered'?'✅':o.status==='packed'?'📦':'⏳';
-        const isPaid = o.payment === 'paid';
+        const isPaid = o.payment_status === 'paid';
+        const isApproved = o.order_status === 'approved';
+        const isDelivered = o.order_status === 'delivered';
         return `
           <div class="card">
             <div style="display:flex;justify-content:space-between;">
-              <b>${badge} ${o.status.toUpperCase()}</b>
-              <span style="font-size:12px;color:#666;">${new Date(o.created_at).toLocaleDateString('hi-IN')}</span>
+              <b>${new Date(o.created_at).toLocaleString('hi-IN')}</b>
             </div>
             <div class="mt">${items}</div>
             <div style="font-weight:bold;color:#2e7d32;margin-top:4px;">Total: ${inr(o.total)}</div>
-            <div style="font-size:12px;color:${isPaid?'#2e7d32':'#e65100'};">
-              Payment: <b>${isPaid?'✅ PAID':'⏳ '+(o.payment_mode||'cash').toUpperCase()+' PENDING'}</b>
+            <div style="font-size:12px;color:${isDelivered?'#2e7d32':isApproved?'#1976d2':'#e65100'};margin-top:4px;">
+              📦 ${isDelivered?'DELIVERED':isApproved?'APPROVED':'PENDING'}
             </div>
-            ${o.payment_mode === 'split' ? `<div style="font-size:11px;color:#666;">💵 ${inr(o.cash_paid||0)} + 📱 ${inr(o.online_paid||0)}</div>` : ''}
+            <div style="font-size:12px;color:${isPaid?'#2e7d32':'#e65100'};">
+              💰 ${isPaid?'PAID':'PAYMENT PENDING'}
+            </div>
           </div>`;
       }).join('');
     }
 
-    /* ---------- PROFILE ---------- */
     function renderProfile() {
       const myOrders = DATA.orders.filter(o => o.user_id === ME.id);
       const totalSpent = myOrders.reduce((a, o) => a + o.total, 0);
-      const totalPaid = myOrders.filter(o => o.payment === 'paid').reduce((a, o) => a + o.total, 0);
+      const totalPaid = myOrders.filter(o => o.payment_status === 'paid').reduce((a, o) => a + o.total, 0);
       const pending = totalSpent - totalPaid;
 
       const summary = {};
