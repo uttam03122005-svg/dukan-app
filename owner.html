@@ -9,69 +9,82 @@
 </head>
 <body>
   <div class="header">
-    <h1>👨‍💼 Owner Panel</h1>
+    <h1>👨‍💼 Owner</h1>
     <button onclick="logout()">Logout</button>
   </div>
 
   <div class="container">
     <div class="card" style="display:flex;padding:0;overflow:auto;">
-      <button class="primary tabBtn" data-tab="products" style="border-radius:0;">Products</button>
-      <button class="primary tabBtn" data-tab="users" style="border-radius:0;background:#ccc;color:#333;">Customers</button>
-      <button class="primary tabBtn" data-tab="orders" style="border-radius:0;background:#ccc;color:#333;">Orders</button>
+      <button class="primary tabBtn" data-tab="products" style="border-radius:0;font-size:13px;">Products</button>
+      <button class="primary tabBtn" data-tab="users" style="border-radius:0;background:#ccc;color:#333;font-size:13px;">Customers</button>
+      <button class="primary tabBtn" data-tab="orders" style="border-radius:0;background:#ccc;color:#333;font-size:13px;">Orders</button>
+      <button class="primary tabBtn" data-tab="settings" style="border-radius:0;background:#ccc;color:#333;font-size:13px;">⚙️</button>
     </div>
 
-    <!-- PRODUCTS TAB -->
+    <!-- PRODUCTS -->
     <div id="tab-products">
       <div class="card">
         <h3 id="pFormTitle">➕ Naya Product</h3>
         <input type="hidden" id="pId">
-        <input id="pName" placeholder="Product name (jaise Gold Flake, Aata)">
+        <input id="pName" placeholder="Product name">
         <input id="pImg" type="file" accept="image/*">
         <img id="pPreview" style="max-width:100%;margin-top:6px;border-radius:6px;display:none;">
-        <input id="pCat" placeholder="Category (smoking, grocery, snacks)">
-
-        <label style="font-size:14px;font-weight:bold;margin-top:10px;display:block;color:#2e7d32;">
-          💰 Units aur Price (ek se zyada unit add kar sakte ho)
-        </label>
-
+        <input id="pCat" placeholder="Category">
+        <label style="font-size:13px;font-weight:bold;color:#2e7d32;margin-top:8px;display:block;">Units & Price</label>
         <div id="unitList"></div>
-
-        <button class="primary" style="background:#1976d2;" onclick="addUnit()">➕ Unit Add Karo</button>
-        <button class="primary" onclick="saveProduct()">💾 Save Product</button>
+        <button class="primary" style="background:#1976d2;" onclick="addUnit()">➕ Unit</button>
+        <button class="primary" onclick="saveProduct()">💾 Save</button>
         <button class="primary" style="background:#777;" onclick="resetProductForm()">Reset</button>
       </div>
-
-      <input class="search-bar" id="pSearch" placeholder="🔍 Product search...">
+      <input class="search-bar" id="pSearch" placeholder="🔍 Search">
       <div id="productList"></div>
     </div>
 
-    <!-- USERS TAB -->
+    <!-- USERS -->
     <div id="tab-users" class="hidden">
-      <input class="search-bar" id="uSearch" placeholder="🔍 Customer search (naam / phone)">
+      <input class="search-bar" id="uSearch" placeholder="🔍 Customer">
       <div id="userList"></div>
     </div>
 
-    <!-- ORDERS TAB -->
+    <!-- ORDERS -->
     <div id="tab-orders" class="hidden">
       <div id="orderList"></div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div id="tab-settings" class="hidden">
+      <div class="card">
+        <h3>⚙️ Settings</h3>
+        <p style="font-size:13px;color:#666;margin-bottom:8px;">
+          Yahan se token change karo — sab jagah automatic lag jayega.
+        </p>
+
+        <label style="font-size:13px;color:#666;font-weight:bold;">GitHub Token</label>
+        <input id="setToken" placeholder="ghp_... ya github_pat_...">
+
+        <label style="font-size:13px;color:#666;font-weight:bold;margin-top:6px;display:block;">ImgBB Key</label>
+        <input id="setImgbb" placeholder="ImgBB key">
+
+        <button class="primary" onclick="saveSettings()">💾 Save Settings</button>
+        <button class="primary" style="background:#f57c00;" onclick="testToken()">🧪 Test Token</button>
+      </div>
+      <div class="card">
+        <b style="font-size:14px;">Current:</b>
+        <div id="curSet" style="font-size:12px;color:#555;margin-top:6px;"></div>
+      </div>
     </div>
   </div>
 
   <script src="app.js"></script>
   <script>
     const s = getSession();
-    if (!s || s.role !== 'owner') location.href = 'index.html';
+    if (!s || s.role !== 'owner') location.replace('index.html');
 
-    let DATA = null;
-    let CUST = null;
-    let editingImageUrl = '';
-    let currentUnits = []; // [{label, retail, wholesale, stock}]
+    let DATA = null, CUST = null, editingImageUrl = '', currentUnits = [];
 
     async function init() {
       DATA = await loadData();
       CUST = await loadCustomers();
-
-      // Merge: customers.json (sab registered) + data.json (owner-upgraded)
       DATA.users = CUST.users.map(cu => {
         const ou = DATA.users.find(u => u.phone === cu.phone || u.id === cu.id);
         return {
@@ -81,11 +94,7 @@
           created_at: cu.created_at
         };
       });
-
-      renderProducts();
-      renderUsers();
-      renderOrders();
-      resetProductForm();
+      renderProducts(); renderUsers(); renderOrders(); renderSettings(); resetProductForm();
     }
 
     document.querySelectorAll('.tabBtn').forEach(btn => {
@@ -94,13 +103,50 @@
           b.style.background = '#ccc'; b.style.color = '#333';
         });
         btn.style.background = '#2e7d32'; btn.style.color = '#fff';
-        ['products','users','orders'].forEach(t => {
+        ['products','users','orders','settings'].forEach(t => {
           document.getElementById('tab-'+t).classList.toggle('hidden', t !== btn.dataset.tab);
         });
       };
     });
 
-    /* ---------- PRODUCT FORM ---------- */
+    /* ============ SETTINGS ============ */
+    function renderSettings() {
+      document.getElementById('setToken').value = localStorage.getItem('gh_token') || '';
+      document.getElementById('setImgbb').value = localStorage.getItem('imgbb_key') || '';
+      const t = localStorage.getItem('gh_token') || '';
+      document.getElementById('curSet').innerHTML = `
+        <div>Token: ${t ? t.substring(0,20) + '...' + t.slice(-6) : 'not set'}</div>
+        <div>ImgBB: ${(localStorage.getItem('imgbb_key')||'not set').substring(0,10)}...</div>
+      `;
+    }
+
+    async function saveSettings() {
+      const tk = document.getElementById('setToken').value.trim();
+      const ib = document.getElementById('setImgbb').value.trim();
+      if (tk) localStorage.setItem('gh_token', tk);
+      if (ib) localStorage.setItem('imgbb_key', ib);
+      toast('✅ Settings save ho gayi');
+      renderSettings();
+    }
+
+    async function testToken() {
+      const tk = document.getElementById('setToken').value.trim() || localStorage.getItem('gh_token');
+      if (!tk) return toast('Token daalo');
+      try {
+        const r1 = await fetch(`https://api.github.com/repos/${CONFIG.GITHUB_USER}/${CONFIG.GITHUB_REPO}`, {
+          headers: { Authorization: `token ${tk}` }
+        });
+        const r2 = await fetch(`https://api.github.com/repos/${CONFIG.GITHUB_USER}/${CONFIG.CUST_REPO}`, {
+          headers: { Authorization: `token ${tk}` }
+        });
+        if (r1.ok && r2.ok) toast('✅ Dono repos ka access hai');
+        else if (r1.ok) toast('⚠️ dukan-data OK, dukan-customers nahi');
+        else if (r2.ok) toast('⚠️ dukan-customers OK, dukan-data nahi');
+        else toast('❌ Token me kisi bhi repo ka access nahi');
+      } catch (e) { toast('❌ ' + e.message); }
+    }
+
+    /* ============ PRODUCTS ============ */
     document.getElementById('pImg').onchange = e => {
       const f = e.target.files[0];
       if (f) {
@@ -111,35 +157,26 @@
     };
 
     function addUnit(data) {
-      const u = data || { label: 'piece', retail: '', wholesale: '', stock: '' };
-      currentUnits.push(u);
+      currentUnits.push(data || { label:'piece', retail:'', wholesale:'', stock:'' });
       renderUnits();
     }
-
-    function removeUnit(i) {
-      currentUnits.splice(i, 1);
-      renderUnits();
-    }
-
-    function updateUnit(i, key, val) {
-      currentUnits[i][key] = val;
-    }
+    function removeUnit(i) { currentUnits.splice(i,1); renderUnits(); }
+    function updateUnit(i,k,v) { currentUnits[i][k] = v; }
 
     function renderUnits() {
       const box = document.getElementById('unitList');
-      const UNIT_OPTIONS = ['kg','gram','liter','ml','piece','packet','box','dozen','strip','bottle'];
-
-      box.innerHTML = currentUnits.map((u, i) => `
+      const OPT = ['kg','gram','liter','ml','piece','packet','box','dozen','strip','bottle'];
+      box.innerHTML = currentUnits.map((u,i) => `
         <div style="background:#f9f9f9;padding:8px;border-radius:8px;margin-bottom:8px;border:1px solid #eee;">
           <div class="row">
             <select onchange="updateUnit(${i},'label',this.value)">
-              ${UNIT_OPTIONS.map(o => `<option value="${o}" ${u.label===o?'selected':''}>${o}</option>`).join('')}
+              ${OPT.map(o => `<option value="${o}" ${u.label===o?'selected':''}>${o}</option>`).join('')}
             </select>
             <button class="primary small danger" style="flex:0;width:auto;" onclick="removeUnit(${i})">✕</button>
           </div>
           <div class="row">
             <input placeholder="Retail ₹" inputmode="decimal" value="${u.retail}" onchange="updateUnit(${i},'retail',this.value)">
-            <input placeholder="Wholesale ₹" inputmode="decimal" value="${u.wholesale}" onchange="updateUnit(${i},'wholesale',this.value)">
+            <input placeholder="Whole ₹" inputmode="decimal" value="${u.wholesale}" onchange="updateUnit(${i},'wholesale',this.value)">
           </div>
           <input placeholder="Stock" inputmode="decimal" value="${u.stock}" onchange="updateUnit(${i},'stock',this.value)">
         </div>
@@ -152,7 +189,7 @@
       document.getElementById('pPreview').style.display = 'none';
       editingImageUrl = '';
       currentUnits = [];
-      addUnit({ label: 'kg', retail: '', wholesale: '', stock: '' });
+      addUnit({ label:'piece', retail:'', wholesale:'', stock:'' });
       document.getElementById('pFormTitle').textContent = '➕ Naya Product';
     }
 
@@ -161,20 +198,13 @@
       const cat = document.getElementById('pCat').value.trim();
       const file = document.getElementById('pImg').files[0];
       const editId = document.getElementById('pId').value;
-
       if (!name) return toast('Naam zaroori');
-      if (!currentUnits.length) return toast('Kam se kam ek unit add karo');
-
-      // validate
-      for (const u of currentUnits) {
-        if (!u.retail) return toast(`${u.label} ka retail price daalo`);
-      }
+      if (!currentUnits.length) return toast('Unit add karo');
+      for (const u of currentUnits) if (!u.retail) return toast(`${u.label} retail daalo`);
 
       const units = currentUnits.map(u => ({
-        label: u.label,
-        retail: +u.retail || 0,
-        wholesale: +u.wholesale || +u.retail,
-        stock: +u.stock || 0
+        label: u.label, retail: +u.retail || 0,
+        wholesale: +u.wholesale || +u.retail, stock: +u.stock || 0
       }));
 
       try {
@@ -192,11 +222,9 @@
             created_at: new Date().toISOString()
           });
         }
-
         await saveData(DATA);
-        toast('✅ Save ho gaya!');
-        resetProductForm();
-        renderProducts();
+        toast('✅ Save');
+        resetProductForm(); renderProducts();
       } catch (e) { toast('❌ ' + e.message); }
     }
 
@@ -209,17 +237,17 @@
       editingImageUrl = p.image || '';
       const prev = document.getElementById('pPreview');
       if (p.image) { prev.src = p.image; prev.style.display = 'block'; }
-      currentUnits = (p.units || []).map(u => ({ ...u }));
-      if (!currentUnits.length) currentUnits = [{ label:'piece', retail:'', wholesale:'', stock:'' }];
+      currentUnits = (p.units||[]).map(u => ({...u}));
+      if (!currentUnits.length) currentUnits = [{label:'piece',retail:'',wholesale:'',stock:''}];
       renderUnits();
       document.getElementById('pFormTitle').textContent = '✏️ Edit Product';
-      window.scrollTo(0, 0);
+      window.scrollTo(0,0);
     }
 
     async function deleteProduct(id) {
-      if (!confirm('Delete karna hai?')) return;
+      if (!confirm('Delete?')) return;
       DATA.products = DATA.products.filter(p => p.id !== id);
-      try { await saveData(DATA); toast('🗑️ Delete'); renderProducts(); }
+      try { await saveData(DATA); toast('🗑️'); renderProducts(); }
       catch (e) { toast('❌ ' + e.message); }
     }
 
@@ -231,51 +259,47 @@
     }
 
     function renderProducts() {
-      const q = (document.getElementById('pSearch').value || '').toLowerCase();
+      const q = (document.getElementById('pSearch').value||'').toLowerCase();
       const list = document.getElementById('productList');
       const items = DATA.products.filter(p => p.name.toLowerCase().includes(q));
       if (!items.length) { list.innerHTML = '<div class="card center">Koi product nahi</div>'; return; }
-
       list.innerHTML = items.map(p => {
-        const unitRows = (p.units || []).map(u => `
-          <div style="font-size:13px;color:#333;padding:2px 0;">
-            <b>${u.label}</b>: ${inr(u.retail)} <span style="color:#777;">(Whole ${inr(u.wholesale)})</span> — Stock: ${u.stock}
-          </div>
-        `).join('');
+        const rows = (p.units||[]).map(u => `
+          <div style="font-size:13px;padding:2px 0;">
+            <b>${u.label}</b>: ${inr(u.retail)} <span style="color:#777;">(W ${inr(u.wholesale)})</span> — Stock: ${u.stock}
+          </div>`).join('');
         return `
         <div class="card">
           <div class="row">
             <img src="${p.image || 'https://via.placeholder.com/80'}" style="width:80px;height:80px;object-fit:cover;border-radius:8px;flex:0 0 80px;">
             <div style="flex:1;">
-              <div style="font-weight:600;">${p.name} ${p.hidden ? '<span style="color:#c62828;font-size:12px;">(Hidden)</span>' : ''}</div>
-              <div style="font-size:12px;color:#777;">${p.category || '-'}</div>
+              <div style="font-weight:600;">${p.name} ${p.hidden?'<span style="color:#c62828;font-size:12px;">(Hidden)</span>':''}</div>
+              <div style="font-size:12px;color:#777;">${p.category||'-'}</div>
             </div>
           </div>
-          <div class="mt">${unitRows}</div>
+          <div class="mt">${rows}</div>
           <div class="row mt">
-            <button class="primary small" onclick="editProduct('${p.id}')">✏️ Edit</button>
-            <button class="primary small" style="background:#f57c00;" onclick="toggleHide('${p.id}')">${p.hidden ? '👁️ Show' : '🙈 Hide'}</button>
-            <button class="primary small danger" onclick="deleteProduct('${p.id}')">🗑️ Delete</button>
+            <button class="primary small" onclick="editProduct('${p.id}')">✏️</button>
+            <button class="primary small" style="background:#f57c00;" onclick="toggleHide('${p.id}')">${p.hidden?'👁️':'🙈'}</button>
+            <button class="primary small danger" onclick="deleteProduct('${p.id}')">🗑️</button>
           </div>
         </div>`;
       }).join('');
     }
     document.getElementById('pSearch').oninput = renderProducts;
 
-    /* ---------- USERS ---------- */
+    /* ============ USERS ============ */
     async function toggleWholesale(id) {
       const u = DATA.users.find(x => x.id === id);
       const newType = u.price_type === 'wholesale' ? 'retail' : 'wholesale';
-      if (!confirm(`${u.name} ko ${newType.toUpperCase()} kar dein?`)) return;
-
+      if (!confirm(`${u.name} → ${newType.toUpperCase()}?`)) return;
       u.price_type = newType;
 
-      // data.json me save karo
       const ownerData = await loadData();
-      let existing = ownerData.users.find(x => x.phone === u.phone);
-      if (existing) {
-        existing.price_type = u.price_type;
-        existing.special_prices = u.special_prices;
+      let ex = ownerData.users.find(x => x.phone === u.phone);
+      if (ex) {
+        ex.price_type = u.price_type;
+        ex.special_prices = u.special_prices;
       } else {
         ownerData.users.push({
           id: u.id, name: u.name, phone: u.phone,
@@ -286,35 +310,41 @@
       }
       try {
         await saveData(ownerData);
-        toast(newType === 'wholesale' ? '💼 Wholesale ho gaya' : '🛒 Retail kar diya');
+        DATA = ownerData;
+        // re-merge customers
+        DATA.users = CUST.users.map(cu => {
+          const ou = DATA.users.find(u => u.phone === cu.phone);
+          return {
+            id: cu.id, name: cu.name, phone: cu.phone,
+            price_type: ou?.price_type || 'retail',
+            special_prices: ou?.special_prices || {},
+            created_at: cu.created_at
+          };
+        });
+        toast(newType === 'wholesale' ? '💼' : '🛒');
         renderUsers();
       } catch (e) { toast('❌ ' + e.message); }
     }
 
     function renderUsers() {
-      const q = (document.getElementById('uSearch').value || '').toLowerCase();
+      const q = (document.getElementById('uSearch').value||'').toLowerCase();
       const list = document.getElementById('userList');
-      const items = DATA.users.filter(u =>
-        u.name.toLowerCase().includes(q) || u.phone.includes(q)
-      );
-      if (!items.length) {
-        list.innerHTML = '<div class="card center">Koi customer nahi. Customer login karega to yahan aa jayega.</div>';
-        return;
-      }
+      const items = DATA.users.filter(u => u.name.toLowerCase().includes(q) || u.phone.includes(q));
+      if (!items.length) { list.innerHTML = '<div class="card center">Koi customer nahi</div>'; return; }
       list.innerHTML = items.map(u => {
-        const isWhole = u.price_type === 'wholesale';
+        const w = u.price_type === 'wholesale';
         return `
           <div class="card">
             <div style="display:flex;justify-content:space-between;">
               <b>${u.name}</b>
-              <span style="font-size:12px;padding:2px 8px;border-radius:10px;background:${isWhole?'#fff3e0':'#e8f5e9'};color:${isWhole?'#e65100':'#2e7d32'};">
-                ${isWhole ? '💼 Wholesale' : '🛒 Retail'}
+              <span style="font-size:12px;padding:2px 8px;border-radius:10px;background:${w?'#fff3e0':'#e8f5e9'};color:${w?'#e65100':'#2e7d32'};">
+                ${w ? '💼 Wholesale' : '🛒 Retail'}
               </span>
             </div>
             <div style="font-size:13px;color:#666;">📞 ${u.phone}</div>
             <div class="row mt">
-              <button class="primary small" style="background:${isWhole?'#2e7d32':'#f57c00'};" onclick="toggleWholesale('${u.id}')">
-                ${isWhole ? '🛒 Retail Karo' : '💼 Wholesale Karo'}
+              <button class="primary small" style="background:${w?'#2e7d32':'#f57c00'};" onclick="toggleWholesale('${u.id}')">
+                ${w ? '🛒 Retail Karo' : '💼 Wholesale Karo'}
               </button>
             </div>
           </div>`;
@@ -322,7 +352,7 @@
     }
     document.getElementById('uSearch').oninput = renderUsers;
 
-    /* ---------- ORDERS ---------- */
+    /* ============ ORDERS ============ */
     async function updateOrder(orderId, patch) {
       const o = DATA.orders.find(x => x.id === orderId);
       Object.assign(o, patch);
@@ -335,22 +365,22 @@
       if (!DATA.orders.length) { list.innerHTML = '<div class="card center">Koi order nahi</div>'; return; }
       list.innerHTML = DATA.orders.slice().reverse().map(o => {
         const items = o.items.map(it => {
-          const p = DATA.products.find(x => x.id === it.product_id) || { name: '?' };
-          return `<div style="font-size:13px;">• ${p.name} — ${it.qty} ${it.unit} × ${inr(it.price)} = ${inr(it.price * it.qty)}</div>`;
+          const p = DATA.products.find(x => x.id === it.product_id) || { name: it.product_name || '?' };
+          return `<div style="font-size:13px;">• ${p.name} — ${it.qty} ${it.unit} × ${inr(it.price)} = ${inr(it.price*it.qty)}</div>`;
         }).join('');
         return `
           <div class="card">
             <div style="display:flex;justify-content:space-between;">
-              <b>${o.user_name || 'Unknown'} <span style="font-size:11px;color:#666;">📞 ${o.user_phone || ''}</span></b>
+              <b>${o.user_name||'?'} <span style="font-size:11px;color:#666;">📞 ${o.user_phone||''}</span></b>
               <span style="font-size:12px;color:#666;">${new Date(o.created_at).toLocaleString('hi-IN')}</span>
             </div>
             <div class="mt">${items}</div>
             <div style="font-weight:bold;color:#2e7d32;margin-top:6px;">Total: ${inr(o.total)}</div>
             <div style="font-size:13px;margin-top:4px;">Status: <b>${o.status}</b> | Payment: <b>${o.payment}</b></div>
             <div class="row mt">
-              <button class="primary small" onclick="updateOrder('${o.id}',{status:'packed'})">📦 Packed</button>
-              <button class="primary small" onclick="updateOrder('${o.id}',{status:'delivered'})">✅ Delivered</button>
-              <button class="primary small" style="background:#f57c00;" onclick="updateOrder('${o.id}',{payment:'paid'})">💰 Paid</button>
+              <button class="primary small" onclick="updateOrder('${o.id}',{status:'packed'})">📦</button>
+              <button class="primary small" onclick="updateOrder('${o.id}',{status:'delivered'})">✅</button>
+              <button class="primary small" style="background:#f57c00;" onclick="updateOrder('${o.id}',{payment:'paid'})">💰</button>
             </div>
           </div>`;
       }).join('');
