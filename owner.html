@@ -1,158 +1,643 @@
 <!DOCTYPE html>
 <html lang="hi">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Owner Panel</title>
-  <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="style.css">
-  <style>
-    .icon-btn { display:inline-flex; align-items:center; justify-content:center; width:38px; height:38px; border-radius:50%; border:none; cursor:pointer; font-size:18px; margin-right:4px; }
-    .btn-call { background:#2e7d32; color:#fff; }
-    .btn-wa { background:#25d366; color:#fff; }
-    .btn-sms { background:#1976d2; color:#fff; }
-    
-    .media-btn-row { display: flex; gap: 8px; margin-top: 8px; }
-    .media-btn {
-      flex: 1; padding: 14px 8px; border: none; border-radius: 8px;
-      font-size: 15px; font-weight: bold; color: #fff; cursor: pointer;
-      display: flex; align-items: center; justify-content: center; gap: 6px;
-      transition: transform 0.1s;
-    }
-    .media-btn:active { transform: scale(0.97); opacity: 0.85; }
-    .btn-cam { background: #2e7d32; }
-    .btn-gal { background: #1976d2; }
-    
-    .img-status { 
-      font-size: 12px; color: #666; margin-top: 8px; text-align: center;
-      min-height: 16px; padding: 4px; border-radius: 4px;
-    }
-    .img-status.success { background: #e8f5e9; color: #2e7d32; font-weight: bold; }
-    .img-status.error { background: #ffebee; color: #c62828; }
-    
-    #pPreview {
-      max-width: 100%; margin-top: 8px; border-radius: 8px; display: none;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.15); max-height: 300px;
-      object-fit: contain; background: #f5f5f5;
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Owner Panel</title>
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="style.css">
+<style>
+.icon-btn{display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:50%;border:none;cursor:pointer;font-size:18px;margin-right:4px;}
+.btn-call{background:#2e7d32;color:#fff;}
+.btn-wa{background:#25d366;color:#fff;}
+.btn-sms{background:#1976d2;color:#fff;}
+.media-btn-row{display:flex;gap:8px;margin-top:8px;}
+.media-btn{flex:1;padding:14px 8px;border:none;border-radius:8px;font-size:15px;font-weight:bold;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;}
+.media-btn:active{opacity:.85;}
+.btn-cam{background:#2e7d32;}
+.btn-gal{background:#1976d2;}
+.img-status{font-size:12px;color:#666;margin-top:8px;text-align:center;min-height:16px;padding:4px;border-radius:4px;}
+.img-status.success{background:#e8f5e9;color:#2e7d32;font-weight:bold;}
+.img-status.error{background:#ffebee;color:#c62828;}
+#pPreview{max-width:100%;margin-top:8px;border-radius:8px;display:none;box-shadow:0 2px 8px rgba(0,0,0,.15);max-height:300px;object-fit:contain;background:#f5f5f5;}
+</style>
 </head>
 <body>
-  <div class="header">
-    <h1>👨‍💼 Owner</h1>
-    <button onclick="logout()">Logout</button>
-  </div>
+<div class="header">
+<h1>👨‍💼 Owner</h1>
+<button onclick="logout()">Logout</button>
+</div>
 
-  <div class="container">
-    <div class="card" style="display:flex;padding:0;overflow:auto;">
-      <button class="primary tabBtn" data-tab="products" style="border-radius:0;font-size:12px;">Products</button>
-      <button class="primary tabBtn" data-tab="users" style="border-radius:0;background:#ccc;color:#333;font-size:12px;">Customers</button>
-      <button class="primary tabBtn" data-tab="orders" style="border-radius:0;background:#ccc;color:#333;font-size:12px;">Orders</button>
-      <button class="primary tabBtn" data-tab="udhar" style="border-radius:0;background:#ccc;color:#333;font-size:12px;">Udhar</button>
-      <button class="primary tabBtn" data-tab="info" style="border-radius:0;background:#ccc;color:#333;font-size:12px;">ℹ️</button>
+<div class="container">
+<div class="card" style="display:flex;padding:0;overflow:auto;">
+<button class="primary tabBtn" data-tab="products" style="border-radius:0;font-size:12px;">Products</button>
+<button class="primary tabBtn" data-tab="users" style="border-radius:0;background:#ccc;color:#333;font-size:12px;">Customers</button>
+<button class="primary tabBtn" data-tab="orders" style="border-radius:0;background:#ccc;color:#333;font-size:12px;">Orders</button>
+<button class="primary tabBtn" data-tab="udhar" style="border-radius:0;background:#ccc;color:#333;font-size:12px;">Udhar</button>
+<button class="primary tabBtn" data-tab="info" style="border-radius:0;background:#ccc;color:#333;font-size:12px;">ℹ️</button>
+</div>
+
+<!-- ==================== PRODUCTS TAB ==================== -->
+<div id="tab-products">
+<div class="card">
+<h3 id="pFormTitle">➕ Naya Product</h3>
+<input type="hidden" id="pId">
+<input id="pName" placeholder="Product name">
+
+<input id="pImgGallery" type="file" accept="image/*" style="display:none;" onchange="handleImageSelect(event)">
+<input id="pImgCamera" type="file" accept="image/*" capture="environment" style="display:none;" onchange="handleImageSelect(event)">
+
+<div class="media-btn-row">
+<button type="button" class="media-btn btn-cam" onclick="openCamera()">📷 Camera</button>
+<button type="button" class="media-btn btn-gal" onclick="openGallery()">🖼️ Gallery</button>
+</div>
+
+<div id="imgStatus" class="img-status"></div>
+<img id="pPreview" alt="Preview">
+
+<input id="pCat" placeholder="Category">
+<label style="font-size:13px;font-weight:bold;color:#2e7d32;margin-top:8px;display:block;">Units & Price</label>
+<div id="unitList"></div>
+<button class="primary" style="background:#1976d2;" onclick="addUnit()">➕ Unit</button>
+<button class="primary" onclick="saveProduct()">💾 Save</button>
+<button class="primary" style="background:#777;" onclick="resetProductForm()">Reset</button>
+</div>
+<input class="search-bar" id="pSearch" placeholder="🔍 Search">
+<div id="productList"></div>
+</div>
+
+<!-- ==================== USERS TAB ==================== -->
+<div id="tab-users" class="hidden">
+<input class="search-bar" id="uSearch" placeholder="🔍 Customer (naam ya phone)">
+<div id="userList"></div>
+</div>
+
+<!-- ==================== ORDERS TAB ==================== -->
+<div id="tab-orders" class="hidden">
+<div id="orderList"></div>
+</div>
+
+<!-- ==================== UDHAR TAB ==================== -->
+<div id="tab-udhar" class="hidden">
+<div class="card">
+<h3>➕ Naya Udhar</h3>
+<select id="udUser" style="margin-bottom:6px;"></select>
+<input id="udAmount" type="number" placeholder="Amount ₹" inputmode="numeric">
+<input id="udNote" placeholder="Note (jaise: Aata 5kg udhar)">
+<button class="primary" onclick="addUdhar()">💾 Add Udhar</button>
+</div>
+<h3>📋 Udhar List</h3>
+<div id="udharList"></div>
+</div>
+
+<!-- ==================== INFO TAB ==================== -->
+<div id="tab-info" class="hidden">
+<div class="card">
+<h3>ℹ️ Info</h3>
+<div id="secretInfo" style="font-size:13px;color:#555;"></div>
+<div style="margin-top:12px;padding:10px;background:#f9f9f9;border-radius:8px;">
+<div style="font-size:12px;color:#666;margin-bottom:6px;"><b>Mode:</b> <span id="modeInfo">Checking...</span></div>
+<button class="primary" style="background:#1976d2;" onclick="enableNotifications()">🔔 Enable Order Notifications</button>
+<div id="notifStatus" style="font-size:12px;color:#666;margin-top:8px;text-align:center;min-height:16px;"></div>
+</div>
+</div>
+</div>
+</div>
+
+<script src="app.js"></script>
+<script>
+const s = getSession();
+if (!s || s.role !== 'owner') location.replace('index.html');
+
+let DATA = null, editingImageUrl = '', currentUnits = [];
+let compressedImageFile = null;
+
+async function init() {
+  const ok = await waitForFirebase();
+  if (!ok) { alert('Firebase ready nahi'); return; }
+  const uid = await waitForAuth();
+  if (!uid) { alert('Session expire'); location.replace('index.html'); return; }
+  DATA = await loadData();
+  renderProducts(); renderUsers(); renderOrders(); renderUdhar(); renderInfo();
+  resetProductForm(); fillUserSelect();
+  
+  const modeInfo = document.getElementById('modeInfo');
+  const modes = [];
+  if (isPWA()) modes.push('📱 PWA App');
+  if (isWebView()) modes.push('🔍 WebView');
+  if (!isPWA() && !isWebView()) modes.push('🌐 Browser');
+  if (location.protocol === 'https:') modes.push('🔒 HTTPS');
+  modeInfo.textContent = modes.join(' • ') || 'Unknown';
+}
+
+function switchTab(t) {
+  document.querySelectorAll('.tabBtn').forEach(b => {
+    if (b.dataset.tab === t) { b.style.background = '#2e7d32'; b.style.color = '#fff'; }
+    else { b.style.background = '#ccc'; b.style.color = '#333'; }
+  });
+  ['products','users','orders','udhar','info'].forEach(x => {
+    document.getElementById('tab-'+x).classList.toggle('hidden', x !== t);
+  });
+}
+document.querySelectorAll('.tabBtn').forEach(btn => {
+  btn.onclick = () => switchTab(btn.dataset.tab);
+});
+
+function renderInfo() {
+  document.getElementById('secretInfo').innerHTML = `
+    <div style="padding:4px 0;">ImgBB: ${SECRET.imgbb_key ? '✅' : '❌'}</div>
+    <div style="padding:4px 0;">UPI: ${SECRET.upi_id || '❌'}</div>
+    <div style="padding:4px 0;">Firebase: ${FB_READY ? '✅ ready' : '❌ not ready'}</div>
+    <div style="padding:4px 0;">Owner UID: ${(getAuthUid() || '').substring(0,10)}...</div>
+    <div style="padding:4px 0;">Notification: ${typeof Notification !== 'undefined' ? Notification.permission : 'N/A'}</div>
+  `;
+}
+
+async function enableNotifications() {
+  const status = document.getElementById('notifStatus');
+  status.style.color = '#666';
+  status.textContent = '⏳ Setting up...';
+  try {
+    const token = await setupOwnerNotifications();
+    if (token) {
+      status.style.color = '#2e7d32';
+      status.textContent = '✅ Notifications ON';
+      toast('✅ Notifications enable!');
+    } else {
+      status.style.color = '#c62828';
+      status.textContent = '❌ Token nahi mila';
+    }
+  } catch (e) {
+    console.error('Notification error:', e);
+    status.style.color = '#c62828';
+    status.textContent = '❌ ' + (e.message || 'Error');
+    toast('❌ ' + (e.message || 'Error'));
+  }
+}
+
+/* ================= CAMERA & GALLERY ================= */
+function openCamera() {
+  console.log('📷 Opening camera...');
+  const inp = document.getElementById('pImgCamera');
+  try { inp.value = ''; } catch(e){}
+  inp.click();
+}
+
+function openGallery() {
+  console.log('🖼️ Opening gallery...');
+  const inp = document.getElementById('pImgGallery');
+  try { inp.value = ''; } catch(e){}
+  inp.click();
+}
+
+function handleImageSelect(event) {
+  const input = event.target;
+  const file = input.files && input.files[0];
+  const status = document.getElementById('imgStatus');
+  const prev = document.getElementById('pPreview');
+  
+  if (!file) {
+    status.textContent = '';
+    status.className = 'img-status';
+    return;
+  }
+  
+  console.log('📷 File selected:', file.name, file.type, file.size);
+  
+  // Clear input after getting file
+  setTimeout(() => { try { input.value = ''; } catch(e){} }, 200);
+  
+  status.className = 'img-status';
+  
+  if (file.size > 8 * 1024 * 1024) {
+    toast('❌ Image 8MB se choti honi chahiye');
+    status.textContent = '❌ File bahut badi';
+    status.className = 'img-status error';
+    return;
+  }
+  if (!file.type.startsWith('image/')) {
+    toast('❌ Sirf image file chuno');
+    status.textContent = '❌ Ye image nahi hai';
+    status.className = 'img-status error';
+    return;
+  }
+  
+  // Show preview immediately
+  status.textContent = '⏳ Loading...';
+  try {
+    const quickUrl = URL.createObjectURL(file);
+    prev.src = quickUrl;
+    prev.style.display = 'block';
+    status.textContent = `📷 ${(file.size/1024).toFixed(0)} KB — compressing...`;
+  } catch(e) { console.warn('Preview fail:', e); }
+  
+  // Compress in background
+  compressImage(file, 1000, 1000, 0.75).then(compressed => {
+    console.log('✅ Compressed:', compressed.size);
+    compressedImageFile = compressed;
+    const newUrl = URL.createObjectURL(compressed);
+    prev.src = newUrl;
+    prev.style.display = 'block';
+    status.textContent = `✅ Ready (${(compressed.size/1024).toFixed(0)} KB)`;
+    status.className = 'img-status success';
+  }).catch(err => {
+    console.warn('Compress fail:', err);
+    compressedImageFile = file;
+    status.textContent = `📷 ${(file.size/1024).toFixed(0)} KB (original)`;
+    status.className = 'img-status';
+  });
+}
+
+function compressImage(file, maxW, maxH, quality) {
+  return new Promise((resolve) => {
+    const fallback = () => { console.warn('Using original'); resolve(file); };
+    try {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const img = new Image();
+          img.onload = () => {
+            try {
+              let w = img.width, h = img.height;
+              if (w > maxW) { h = Math.round(h * maxW / w); w = maxW; }
+              if (h > maxH) { w = Math.round(w * maxH / h); h = maxH; }
+              const canvas = document.createElement('canvas');
+              canvas.width = w; canvas.height = h;
+              const ctx = canvas.getContext('2d');
+              ctx.fillStyle = '#ffffff';
+              ctx.fillRect(0, 0, w, h);
+              ctx.drawImage(img, 0, 0, w, h);
+              canvas.toBlob((blob) => {
+                if (!blob) return fallback();
+                const outName = (file.name || 'photo').replace(/\.[^.]+$/, '') + '.jpg';
+                resolve(new File([blob], outName, { type: 'image/jpeg' }));
+              }, 'image/jpeg', quality);
+            } catch(err) { fallback(); }
+          };
+          img.onerror = () => fallback();
+          img.src = e.target.result;
+        } catch(err) { fallback(); }
+      };
+      reader.onerror = () => fallback();
+      reader.readAsDataURL(file);
+    } catch(err) { fallback(); }
+  });
+}
+
+/* ================= PRODUCTS ================= */
+function addUnit(data) {
+  currentUnits.push(data || { label:'piece', retail:'', wholesale:'', stock:'' });
+  renderUnits();
+}
+function removeUnit(i) { currentUnits.splice(i,1); renderUnits(); }
+function updateUnit(i,k,v) { currentUnits[i][k] = v; }
+function renderUnits() {
+  const box = document.getElementById('unitList');
+  const OPT = ['kg','gram','liter','ml','piece','packet','box','dozen','strip','bottle'];
+  box.innerHTML = currentUnits.map((u,i) => `
+    <div style="background:#f9f9f9;padding:8px;border-radius:8px;margin-bottom:8px;border:1px solid #eee;">
+      <div class="row">
+        <select onchange="updateUnit(${i},'label',this.value)">
+          ${OPT.map(o => `<option value="${o}" ${u.label===o?'selected':''}>${o}</option>`).join('')}
+        </select>
+        <button class="primary small danger" style="flex:0;width:auto;" onclick="removeUnit(${i})">✕</button>
+      </div>
+      <div class="row">
+        <input placeholder="Retail ₹" inputmode="decimal" value="${u.retail}" onchange="updateUnit(${i},'retail',this.value)">
+        <input placeholder="Whole ₹" inputmode="decimal" value="${u.wholesale}" onchange="updateUnit(${i},'wholesale',this.value)">
+      </div>
+      <input placeholder="Stock" inputmode="decimal" value="${u.stock}" onchange="updateUnit(${i},'stock',this.value)">
     </div>
+  `).join('');
+}
 
-    <div id="tab-products">
-      <div class="card">
-        <h3 id="pFormTitle">➕ Naya Product</h3>
-        <input type="hidden" id="pId">
-        <input id="pName" placeholder="Product name">
-        
-        <!-- Gallery input -->
-        <input id="pImgGallery" type="file" accept="image/*" style="display:none;" onchange="handleImageSelect(event)">
-        <!-- Camera input -->
-        <input id="pImgCamera" type="file" accept="image/*" capture="environment" style="display:none;" onchange="handleImageSelect(event)">
-        
-        <div class="media-btn-row">
-          <button type="button" class="media-btn btn-cam" onclick="openCamera()">📷 Camera</button>
-          <button type="button" class="media-btn btn-gal" onclick="openGallery()">🖼️ Gallery</button>
+function resetProductForm() {
+  ['pId','pName','pCat'].forEach(id => document.getElementById(id).value = '');
+  try {
+    document.getElementById('pImgGallery').value = '';
+    document.getElementById('pImgCamera').value = '';
+  } catch(e){}
+  const prev = document.getElementById('pPreview');
+  prev.style.display = 'none';
+  prev.src = '';
+  const status = document.getElementById('imgStatus');
+  status.textContent = '';
+  status.className = 'img-status';
+  compressedImageFile = null;
+  editingImageUrl = ''; currentUnits = [];
+  addUnit({ label:'piece', retail:'', wholesale:'', stock:'' });
+  document.getElementById('pFormTitle').textContent = '➕ Naya Product';
+}
+
+async function saveProduct() {
+  const name = document.getElementById('pName').value.trim();
+  const cat = document.getElementById('pCat').value.trim();
+  const editId = document.getElementById('pId').value;
+  if (!name) return toast('Naam zaroori');
+  for (const u of currentUnits) if (!u.retail) return toast(`${u.label} retail daalo`);
+  
+  const units = currentUnits.map(u => ({
+    label: u.label, retail: +u.retail || 0,
+    wholesale: +u.wholesale || +u.retail, stock: +u.stock || 0
+  }));
+  
+  try {
+    toast('Save ho raha hai...');
+    let imageUrl = editingImageUrl;
+    if (compressedImageFile) {
+      toast('📤 Image upload ho raha hai...');
+      imageUrl = await uploadImage(compressedImageFile);
+    }
+    let product;
+    if (editId) {
+      product = DATA.products.find(x => x.id === editId);
+      Object.assign(product, { name, units, category: cat, image: imageUrl });
+    } else {
+      product = { id: uid(), name, units, image: imageUrl, category: cat, hidden: false, created_at: new Date().toISOString() };
+    }
+    await fbSaveProduct(product);
+    DATA = await loadData();
+    toast('✅ Save ho gaya');
+    resetProductForm();
+    renderProducts();
+  } catch (e) {
+    console.error('Save error:', e);
+    toast('❌ ' + e.message);
+  }
+}
+
+function editProduct(id) {
+  const p = DATA.products.find(x => x.id === id);
+  if (!p) return;
+  document.getElementById('pId').value = p.id;
+  document.getElementById('pName').value = p.name;
+  document.getElementById('pCat').value = p.category || '';
+  editingImageUrl = p.image || '';
+  compressedImageFile = null;
+  const prev = document.getElementById('pPreview');
+  const status = document.getElementById('imgStatus');
+  if (p.image) {
+    prev.src = p.image;
+    prev.style.display = 'block';
+    status.textContent = '📷 Existing image';
+    status.className = 'img-status';
+  } else {
+    prev.style.display = 'none';
+    status.textContent = '';
+    status.className = 'img-status';
+  }
+  currentUnits = (p.units||[]).map(u => ({...u}));
+  if (!currentUnits.length) currentUnits = [{label:'piece',retail:'',wholesale:'',stock:''}];
+  renderUnits();
+  document.getElementById('pFormTitle').textContent = '✏️ Edit';
+  switchTab('products');
+}
+
+async function deleteProduct(id) {
+  if (!confirm('Delete?')) return;
+  try { await fbDeleteProduct(id); DATA = await loadData(); toast('🗑️ Delete'); renderProducts(); }
+  catch (e) { toast('❌ ' + e.message); }
+}
+
+async function toggleHide(id) {
+  const p = DATA.products.find(x => x.id === id);
+  p.hidden = !p.hidden;
+  try { await fbSaveProduct(p); DATA = await loadData(); renderProducts(); }
+  catch (e) { toast('❌ ' + e.message); }
+}
+
+function renderProducts() {
+  const q = (document.getElementById('pSearch').value||'').toLowerCase();
+  const list = document.getElementById('productList');
+  const items = DATA.products.filter(p => p.name.toLowerCase().includes(q));
+  if (!items.length) { list.innerHTML = '<div class="card center">Koi product nahi</div>'; return; }
+  list.innerHTML = items.map(p => {
+    const rows = (p.units||[]).map(u => `
+      <div style="font-size:13px;padding:2px 0;">
+        <b>${u.label}</b>: ${inr(u.retail)} <span style="color:#777;">(W ${inr(u.wholesale)})</span> — Stock: ${u.stock}
+      </div>`).join('');
+    return `
+    <div class="card">
+      <div class="row">
+        <img src="${p.image || 'https://via.placeholder.com/80'}" style="width:80px;height:80px;object-fit:cover;border-radius:8px;flex:0 0 80px;">
+        <div style="flex:1;">
+          <div style="font-weight:600;">${p.name} ${p.hidden?'<span style="color:#c62828;font-size:12px;">(Hidden)</span>':''}</div>
+          <div style="font-size:12px;color:#777;">${p.category||'-'}</div>
         </div>
-        
-        <div id="imgStatus" class="img-status"></div>
-        <img id="pPreview" alt="Preview">
-        
-        <input id="pCat" placeholder="Category">
-        <label style="font-size:13px;font-weight:bold;color:#2e7d32;margin-top:8px;display:block;">Units & Price</label>
-        <div id="unitList"></div>
-        <button class="primary" style="background:#1976d2;" onclick="addUnit()">➕ Unit</button>
-        <button class="primary" onclick="saveProduct()">💾 Save</button>
-        <button class="primary" style="background:#777;" onclick="resetProductForm()">Reset</button>
       </div>
-      <input class="search-bar" id="pSearch" placeholder="🔍 Search">
-      <div id="productList"></div>
-    </div>
-
-    <div id="tab-users" class="hidden">
-      <input class="search-bar" id="uSearch" placeholder="🔍 Customer (naam ya phone)">
-      <div id="userList"></div>
-    </div>
-
-    <div id="tab-orders" class="hidden">
-      <div id="orderList"></div>
-    </div>
-
-    <div id="tab-udhar" class="hidden">
-      <div class="card">
-        <h3>➕ Naya Udhar</h3>
-        <select id="udUser" style="margin-bottom:6px;"></select>
-        <input id="udAmount" type="number" placeholder="Amount ₹" inputmode="numeric">
-        <input id="udNote" placeholder="Note (jaise: Aata 5kg udhar)">
-        <button class="primary" onclick="addUdhar()">💾 Add Udhar</button>
+      <div class="mt">${rows}</div>
+      <div class="row mt">
+        <button class="primary small" onclick="editProduct('${p.id}')">✏️</button>
+        <button class="primary small" style="background:#f57c00;" onclick="toggleHide('${p.id}')">${p.hidden?'👁️':'🙈'}</button>
+        <button class="primary small danger" onclick="deleteProduct('${p.id}')">🗑️</button>
       </div>
-      <h3>📋 Udhar List</h3>
-      <div id="udharList"></div>
-    </div>
+    </div>`;
+  }).join('');
+}
+document.getElementById('pSearch').oninput = renderProducts;
 
-    <div id="tab-info" class="hidden">
+/* ================= USERS ================= */
+function renderUsers() {
+  const q = (document.getElementById('uSearch').value||'').toLowerCase();
+  const list = document.getElementById('userList');
+  const items = DATA.users.filter(u =>
+    (u.name||'').toLowerCase().includes(q) || (u.phone||'').includes(q)
+  );
+  if (!items.length) { list.innerHTML = '<div class="card center">Koi customer nahi</div>'; return; }
+  list.innerHTML = items.map(u => {
+    const w = u.price_type === 'wholesale';
+    const stats = calculateUserStats(u.id, DATA.orders, DATA.udhar);
+    return `
       <div class="card">
-        <h3>ℹ️ Info</h3>
-        <div id="secretInfo" style="font-size:13px;color:#555;"></div>
-        
-        <div style="margin-top:12px;padding:10px;background:#f9f9f9;border-radius:8px;">
-          <div style="font-size:12px;color:#666;margin-bottom:6px;">
-            <b>Mode:</b> <span id="modeInfo">Checking...</span>
-          </div>
-          <button class="primary" style="background:#1976d2;" onclick="enableNotifications()">
-            🔔 Enable Order Notifications
+        <div style="display:flex;justify-content:space-between;">
+          <b>${u.name}</b>
+          <span style="font-size:12px;padding:2px 8px;border-radius:10px;background:${w?'#fff3e0':'#e8f5e9'};color:${w?'#e65100':'#2e7d32'};">
+            ${w ? '💼 Wholesale' : '🛒 Retail'}
+          </span>
+        </div>
+        <div style="font-size:13px;color:#666;">📞 ${u.phone}</div>
+        ${u.address ? `<div style="font-size:12px;color:#888;">📍 ${u.address}</div>` : ''}
+        <div style="display:flex;gap:6px;margin-top:8px;">
+          <button class="icon-btn btn-call" onclick="callPhone('${u.phone}')">📞</button>
+          <button class="icon-btn btn-wa" onclick="whatsappPhone('${u.phone}', 'Namaste ${u.name}, Dukan se')">💬</button>
+          <button class="icon-btn btn-sms" onclick="smsPhone('${u.phone}')">✉️</button>
+        </div>
+        <div style="display:flex;gap:8px;font-size:13px;margin-top:8px;padding:8px;background:#f9f9f9;border-radius:6px;">
+          <div style="flex:1;text-align:center;"><div style="font-weight:bold;color:#2e7d32;">${inr(stats.total_orders)}</div><div style="font-size:11px;color:#666;">Total</div></div>
+          <div style="flex:1;text-align:center;"><div style="font-weight:bold;color:#2e7d32;">${inr(stats.total_paid)}</div><div style="font-size:11px;color:#666;">Paid</div></div>
+          <div style="flex:1;text-align:center;"><div style="font-weight:bold;color:${stats.total_pending>0?'#e65100':'#2e7d32'};">${inr(stats.total_pending)}</div><div style="font-size:11px;color:#666;">Bakaya</div></div>
+        </div>
+        <div class="row mt">
+          <button class="primary small" style="background:#1976d2;" onclick="editCustomerName('${u.id}')">✏️ Naam</button>
+          <button class="primary small" style="background:${w?'#2e7d32':'#f57c00'};" onclick="toggleWholesale('${u.id}')">
+            ${w ? '🛒 Retail' : '💼 Wholesale'}
           </button>
-          <div id="notifStatus" style="font-size:12px;color:#666;margin-top:8px;text-align:center;min-height:16px;"></div>
         </div>
-      </div>
-    </div>
-  </div>
+      </div>`;
+  }).join('');
+}
+document.getElementById('uSearch').oninput = renderUsers;
 
-  <script src="app.js"></script>
-  <script>
-    const s = getSession();
-    if (!s || s.role !== 'owner') location.replace('index.html');
+async function editCustomerName(id) {
+  const u = DATA.users.find(x => x.id === id);
+  const newName = prompt('Customer ka naam:', u.name);
+  if (!newName || !newName.trim()) return;
+  u.name = newName.trim();
+  try { await fbSaveUser(u); DATA = await loadData(); toast('✅ Naam save'); renderUsers(); }
+  catch (e) { toast('❌ ' + e.message); }
+}
 
-    let DATA = null, editingImageUrl = '', currentUnits = [];
-    let compressedImageFile = null;
-    let lastSelectedInput = null;
+async function toggleWholesale(id) {
+  const u = DATA.users.find(x => x.id === id);
+  const newType = u.price_type === 'wholesale' ? 'retail' : 'wholesale';
+  if (!confirm(`${u.name} → ${newType.toUpperCase()}?`)) return;
+  u.price_type = newType;
+  try { await fbSaveUser(u); DATA = await loadData(); toast(newType==='wholesale'?'💼':'🛒'); renderUsers(); }
+  catch (e) { toast('❌ ' + e.message); }
+}
 
-    async function init() {
-      const ok = await waitForFirebase();
-      if (!ok) { alert('Firebase ready nahi'); return; }
+/* ================= ORDERS ================= */
+async function approvePayment(orderId) {
+  if (!confirm('Payment confirm?')) return;
+  try {
+    const o = DATA.orders.find(x => x.id === orderId);
+    const history = o.history || [];
+    history.push({ at: new Date().toISOString(), by: 'owner', action: 'payment_confirmed' });
+    await fbUpdateOrder(orderId, { payment_status: 'paid', owner_confirmed_at: new Date().toISOString(), history });
+    DATA = await loadData(); toast('✅ Payment confirm'); renderOrders();
+  } catch (e) { toast('❌ ' + e.message); }
+}
 
-      const uid = await waitForAuth();
-      if (!uid) { alert('Session expire'); location.replace('index.html'); return; }
+async function approveOrder(orderId) {
+  if (!confirm('Order approve?')) return;
+  try {
+    const o = DATA.orders.find(x => x.id === orderId);
+    const history = o.history || [];
+    history.push({ at: new Date().toISOString(), by: 'owner', action: 'order_approved' });
+    await fbUpdateOrder(orderId, { order_status: 'approved', owner_approved: true, history });
+    DATA = await loadData(); toast('✅ Order approve'); renderOrders();
+  } catch (e) { toast('❌ ' + e.message); }
+}
 
-      DATA = await loadData();
-      renderProducts(); renderUsers(); renderOrders(); renderUdhar(); renderInfo();
-      resetProductForm(); fillUserSelect();
+async function markDelivered(orderId) {
+  if (!confirm('Delivered mark?')) return;
+  try {
+    const o = DATA.orders.find(x => x.id === orderId);
+    const history = o.history || [];
+    history.push({ at: new Date().toISOString(), by: 'owner', action: 'delivered' });
+    await fbUpdateOrder(orderId, { order_status: 'delivered', history });
+    DATA = await loadData(); toast('✅ Delivered'); renderOrders();
+  } catch (e) { toast('❌ ' + e.message); }
+}
 
-      // Show mode
-      const modeInfo = document.getElementById('modeInfo');
-      const modes = [];
-      if (isPWA()) modes.push('📱 PWA App');
-      if (isWebView()) modes.push('🔍 WebView');
-      if (!isPWA() && !isWebView()) modes.push('🌐 Browser');
-      if (location.protocol === 'https:') modes.push('🔒 HTTPS');
-      modeInfo.textContent = modes.join(' • ') || 'Unknown';
+function renderOrders() {
+  const list = document.getElementById('orderList');
+  if (!DATA.orders.length) { list.innerHTML = '<div class="card center">Koi order nahi</div>'; return; }
+  list.innerHTML = DATA.orders.map(o => {
+    const items = o.items.map(it => {
+      const p = DATA.products.find(x => x.id === it.product_id) || { name: it.product_name || '?' };
+      return `<div style="font-size:13px;">• ${p.name} — ${it.qty} ${it.unit} × ${inr(it.price)} = ${inr(it.price*it.qty)}</div>`;
+    }).join('');
+    const isPaid = o.payment_status === 'paid';
+    const isApproved = o.order_status === 'approved' || o.order_status === 'delivered';
+    const isDelivered = o.order_status === 'delivered';
+    return `
+      <div class="card" style="border-left:4px solid ${isDelivered?'#2e7d32':isPaid?'#1976d2':'#f57c00'};">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <b>${o.user_name||'?'}</b>
+            <div style="font-size:11px;color:#666;">📞 ${o.user_phone||''}</div>
+          </div>
+          <div style="display:flex;gap:4px;">
+            <button class="icon-btn btn-call" onclick="callPhone('${o.user_phone}')">📞</button>
+            <button class="icon-btn btn-wa" onclick="whatsappPhone('${o.user_phone}', 'Namaste ${o.user_name}, Dukan se')">💬</button>
+          </div>
+        </div>
+        <div style="font-size:11px;color:#888;text-align:right;">${new Date(o.created_at).toLocaleString('hi-IN')}</div>
+        <div class="mt">${items}</div>
+        ${o.extra_charge > 0 ? `<div style="font-size:12px;color:#e65100;margin-top:4px;">Subtotal: ${inr(o.subtotal)} + Online Fee: ${inr(o.extra_charge)}</div>` : ''}
+        <div style="font-weight:bold;color:#2e7d32;margin-top:6px;font-size:16px;">Total: ${inr(o.total)}</div>
+        <div style="font-size:13px;margin-top:6px;background:#f9f9f9;padding:8px;border-radius:6px;">
+          <div>📦 Order: <b style="color:${isDelivered?'#2e7d32':isApproved?'#1976d2':'#e65100'};">${isDelivered?'✅ DELIVERED':isApproved?'📦 APPROVED':'⏳ PENDING'}</b></div>
+          <div>💰 Payment: <b style="color:${isPaid?'#2e7d32':'#e65100'};">${isPaid?'✅ PAID':'⏳ PENDING'}</b></div>
+          <div>Mode: <b>${(o.payment_mode||'cash').toUpperCase()}</b></div>
+          ${o.cash_paid ? `<div>💵 Cash: ${inr(o.cash_paid)}</div>` : ''}
+          ${o.online_paid ? `<div>📱 Online: ${inr(o.online_paid)}</div>` : ''}
+        </div>
+        <div class="row mt">
+          ${!isPaid ? `<button class="primary small" style="background:#2e7d32;" onclick="approvePayment('${o.id}')">💰 Payment Confirm</button>` : ''}
+          ${isPaid && !isApproved ? `<button class="primary small" style="background:#1976d2;" onclick="approveOrder('${o.id}')">📦 Approve</button>` : ''}
+          ${isApproved && !isDelivered ? `<button class="primary small" onclick="markDelivered('${o.id}')">✅ Delivered</button>` : ''}
+        </div>
+      </div>`;
+  }).join('');
+}
 
-      // Show notif status
-      if (Notification.permission === 'granted') {
-        setTimeout(async () => {
-          try {
-            await setupOwnerNotifications();
-            document
+/* ================= UDHAR ================= */
+function fillUserSelect() {
+  const sel = document.getElementById('udUser');
+  sel.innerHTML = '<option value="">-- Customer --</option>' +
+    DATA.users.map(u => `<option value="${u.id}">${u.name} (${u.phone})</option>`).join('');
+}
+
+async function addUdhar() {
+  const user_id = document.getElementById('udUser').value;
+  const amt = parseFloat(document.getElementById('udAmount').value) || 0;
+  const note = document.getElementById('udNote').value.trim();
+  if (!user_id) return toast('Customer select karo');
+  if (!amt || amt <= 0) return toast('Amount daalo');
+  const u = DATA.users.find(x => x.id === user_id);
+  const rec = {
+    id: uid(), user_id: user_id, user_name: u.name, user_phone: u.phone,
+    amount: amt, note: note || 'Udhar', status: 'pending',
+    created_at: new Date().toISOString()
+  };
+  try {
+    await fbSaveUdhar(rec);
+    DATA = await loadData();
+    document.getElementById('udAmount').value = '';
+    document.getElementById('udNote').value = '';
+    toast('✅ Udhar add');
+    renderUdhar(); fillUserSelect();
+  } catch (e) { toast('❌ ' + e.message); }
+}
+
+async function markUdharPaid(id) {
+  if (!confirm('Paid mark?')) return;
+  try {
+    await FB.collection('udhar').doc(id).set({ status: 'paid', paid_at: new Date().toISOString() }, { merge: true });
+    DATA = await loadData(); toast('✅ Paid'); renderUdhar();
+  } catch (e) { toast('❌ ' + e.message); }
+}
+
+function renderUdhar() {
+  const list = document.getElementById('udharList');
+  if (!DATA.udhar.length) { list.innerHTML = '<div class="card center">Koi udhar nahi</div>'; return; }
+  list.innerHTML = DATA.udhar.map(u => {
+    const isPaid = u.status === 'paid';
+    return `
+      <div class="card" style="border-left:4px solid ${isPaid?'#2e7d32':'#e65100'};">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <b>${u.user_name}</b>
+            <div style="font-size:11px;color:#666;">📞 ${u.user_phone}</div>
+          </div>
+          <div style="display:flex;gap:4px;">
+            <button class="icon-btn btn-call" onclick="callPhone('${u.user_phone}')">📞</button>
+            <button class="icon-btn btn-wa" onclick="whatsappPhone('${u.user_phone}', 'Namaste ${u.user_name}, aapka udhar ${inr(u.amount)} pending hai')">💬</button>
+          </div>
+        </div>
+        <div style="margin-top:6px;">
+          <div style="font-size:14px;"><b>${inr(u.amount)}</b> — ${u.note}</div>
+          <div style="font-size:11px;color:#666;">${new Date(u.created_at).toLocaleString('hi-IN')}</div>
+        </div>
+        <div style="font-size:13px;margin-top:6px;">Status: <b style="color:${isPaid?'#2e7d32':'#e65100'};">${isPaid?'✅ PAID':'⏳ PENDING'}</b></div>
+        ${!isPaid ? `<button class="primary small" style="background:#2e7d32;margin-top:6px;" onclick="markUdharPaid('${u.id}')">💰 Paid Karo</button>` : ''}
+      </div>`;
+  }).join('');
+}
+
+init();
+</script>
+</body>
+</html>
