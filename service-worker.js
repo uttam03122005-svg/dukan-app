@@ -1,4 +1,4 @@
-const CACHE = 'dukan-v5';
+const CACHE = 'dukan-v6';
 const FILES = ['./', './index.html', './owner.html', './user.html', './app.js', './style.css', './manifest.json'];
 
 const FIREBASE_CONFIG = {
@@ -17,9 +17,8 @@ try {
   if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
   const messaging = firebase.messaging();
   messaging.onBackgroundMessage(payload => {
-    console.log('🔔 Background:', payload);
     const title = (payload.notification && payload.notification.title) || '🛒 Naya Order!';
-    const body = (payload.notification && payload.notification.body) || 'Naya order aaya';
+    const body = (payload.notification && payload.notification.body) || 'Dukan par naya order aaya hai';
     return self.registration.showNotification(title, {
       body: body, icon: './icon-192.png', badge: './icon-192.png',
       vibrate: [300, 100, 300, 100, 300],
@@ -27,7 +26,8 @@ try {
       renotify: true, requireInteraction: true, data: payload.data || {}
     });
   });
-} catch (e) { console.warn('FCM SW init fail:', e); }
+  console.log('✅ FCM SW ready');
+} catch (e) { console.warn('FCM SW fail:', e); }
 
 self.addEventListener('notificationclick', event => {
   event.notification.close();
