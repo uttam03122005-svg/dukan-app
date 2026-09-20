@@ -11,6 +11,13 @@
     .btn-call { background:#2e7d32; color:#fff; }
     .btn-wa { background:#25d366; color:#fff; }
     .btn-sms { background:#1976d2; color:#fff; }
+    .camera-btn {
+      width:100%; padding:14px; background:#1976d2; color:#fff;
+      border:none; border-radius:8px; font-size:15px; font-weight:bold;
+      cursor:pointer; margin-top:8px;
+    }
+    .camera-btn:active { background:#0d47a1; }
+    .img-status { font-size:12px; color:#666; margin-top:6px; text-align:center; }
   </style>
 </head>
 <body>
@@ -33,8 +40,13 @@
         <h3 id="pFormTitle">➕ Naya Product</h3>
         <input type="hidden" id="pId">
         <input id="pName" placeholder="Product name">
-        <input id="pImg" type="file" accept="image/*" capture="environment">
-        <img id="pPreview" style="max-width:100%;margin-top:6px;border-radius:6px;display:none;">
+        
+        <!-- Camera / Gallery Input -->
+        <input id="pImg" type="file" accept="image/*" capture="environment" style="display:none;" onchange="handleImageSelect(event)">
+        <button type="button" class="camera-btn" onclick="openCamera()">📷 Photo Lo / Gallery se Chuno</button>
+        <div id="imgStatus" class="img-status"></div>
+        <img id="pPreview" style="max-width:100%;margin-top:8px;border-radius:8px;display:none;">
+        
         <input id="pCat" placeholder="Category">
         <label style="font-size:13px;font-weight:bold;color:#2e7d32;margin-top:8px;display:block;">Units & Price</label>
         <div id="unitList"></div>
@@ -71,6 +83,8 @@
       <div class="card">
         <h3>ℹ️ Info</h3>
         <div id="secretInfo" style="font-size:13px;color:#555;"></div>
+        <button class="primary" style="background:#1976d2;margin-top:10px;" onclick="enableNotifications()">🔔 Enable Order Notifications</button>
+        <div id="notifStatus" style="font-size:12px;color:#666;margin-top:6px;"></div>
       </div>
     </div>
   </div>
@@ -81,6 +95,7 @@
     if (!s || s.role !== 'owner') location.replace('index.html');
 
     let DATA = null, editingImageUrl = '', currentUnits = [];
+    let compressedImageFile = null;
 
     async function init() {
       const ok = await waitForFirebase();
@@ -92,6 +107,14 @@
       DATA = await loadData();
       renderProducts(); renderUsers(); renderOrders(); renderUdhar(); renderInfo();
       resetProductForm(); fillUserSelect();
+
+      // Auto-setup notifications
+      setTimeout(async () => {
+        if (Notification.permission === 'granted') {
+          await setupOwnerNotifications();
+          document.getElementById('notifStatus').textContent = '✅ Notifications ON';
+        }
+      }, 1500);
     }
 
     function switchTab(t) {
@@ -119,15 +142,87 @@
       `;
     }
 
-    /* PRODUCTS */
-    document.getElementById('pImg').onchange = e => {
-      const f = e.target.files[0];
-      if (f) {
-        const prev = document.getElementById('pPreview');
-        prev.src = URL.createObjectURL(f);
-        prev.style.display = 'block';
+    async function enableNotifications() {
+      const status = document.getElementById('notifStatus');
+      status.textContent = '⏳ Setting up...';
+      try {
+        await setupOwnerNotifications();
+        status.textContent = Notification.permission === 'granted'
+          ? '✅ Notifications ON — order aane par alert milega'
+          : '❌ Permission denied';
+      } catch (e) {
+        status.textContent = '❌ ' + e.message;
       }
-    };
+    }
+
+    /* ================= CAMERA / IMAGE ================= */
+    function openCamera() {
+      const inp = document.getElementById('pImg');
+      inp.value = '';
+      inp.click();
+    }
+
+    function handleImageSelect(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      if (file.size > 8 * 1024 * 1024) {
+        toast('❌ Image 8MB se choti honi chahiye');
+        event.target.value = '';
+        return;
+      }
+      if (!file.type.startsWith('image/')) {
+        toast('❌ Sirf image file chuno');
+        event.target.value = '';
+        return;
+      }
+
+      const status = document.getElementById('imgStatus');
+      status.textContent = '⏳ Compressing...';
+
+      compressImage(file, 1000, 1000, 0.75).then(compressed => {
+        compressedImageFile = compressed;
+        const prev = document.getElementById('pPreview');
+        prev.src = URL.createObjectURL(compressed);
+        prev.style.display = 'block';
+        status.textContent = `✅ Ready (${(compressed.size/1024).toFixed(0)} KB)`;
+      }).catch(err => {
+        console.warn('Compress fail, using original:', err);
+        compressedImageFile = file;
+        const prev = document.getElementById('pPreview');
+        prev.src = URL.createObjectURL(file);
+        prev.style.display = 'block';
+        status.textContent = `📷 ${(file.size/1024).toFixed(0)} KB`;
+      });
+    }
+
+    function compressImage(file, maxW, maxH, quality) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = e => {
+          const img = new Image();
+          img.onload = () => {
+            let w = img.width, h = img.height;
+            if (w > maxW) { h = h * maxW / w; w = maxW; }
+            if (h > maxH) { w = w * maxH / h; h = maxH; }
+            const canvas = document.createElement('canvas');
+            canvas.width = w; canvas.height = h;
+            canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+            canvas.toBlob(blob => {
+              if (!blob) return reject(new Error('Compress fail'));
+              const out = new File([blob], (file.name || 'photo').replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' });
+              resolve(out);
+            }, 'image/jpeg', quality);
+          };
+          img.onerror = reject;
+          img.src = e.target.result;
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    /* ================= PRODUCTS ================= */
     function addUnit(data) {
       currentUnits.push(data || { label:'piece', retail:'', wholesale:'', stock:'' });
       renderUnits();
@@ -157,6 +252,8 @@
       ['pId','pName','pCat'].forEach(id => document.getElementById(id).value = '');
       document.getElementById('pImg').value = '';
       document.getElementById('pPreview').style.display = 'none';
+      document.getElementById('imgStatus').textContent = '';
+      compressedImageFile = null;
       editingImageUrl = ''; currentUnits = [];
       addUnit({ label:'piece', retail:'', wholesale:'', stock:'' });
       document.getElementById('pFormTitle').textContent = '➕ Naya Product';
@@ -164,7 +261,7 @@
     async function saveProduct() {
       const name = document.getElementById('pName').value.trim();
       const cat = document.getElementById('pCat').value.trim();
-      const file = document.getElementById('pImg').files[0];
+      const file = compressedImageFile || document.getElementById('pImg').files[0];
       const editId = document.getElementById('pId').value;
       if (!name) return toast('Naam zaroori');
       for (const u of currentUnits) if (!u.retail) return toast(`${u.label} retail daalo`);
@@ -197,8 +294,11 @@
       document.getElementById('pName').value = p.name;
       document.getElementById('pCat').value = p.category || '';
       editingImageUrl = p.image || '';
+      compressedImageFile = null;
       const prev = document.getElementById('pPreview');
       if (p.image) { prev.src = p.image; prev.style.display = 'block'; }
+      else { prev.style.display = 'none'; }
+      document.getElementById('imgStatus').textContent = p.image ? '📷 Existing image' : '';
       currentUnits = (p.units||[]).map(u => ({...u}));
       if (!currentUnits.length) currentUnits = [{label:'piece',retail:'',wholesale:'',stock:''}];
       renderUnits();
@@ -246,7 +346,7 @@
     }
     document.getElementById('pSearch').oninput = renderProducts;
 
-    /* USERS */
+    /* ================= USERS ================= */
     function renderUsers() {
       const q = (document.getElementById('uSearch').value||'').toLowerCase();
       const list = document.getElementById('userList');
@@ -305,7 +405,7 @@
       catch (e) { toast('❌ ' + e.message); }
     }
 
-    /* ORDERS */
+    /* ================= ORDERS ================= */
     async function approvePayment(orderId) {
       if (!confirm('Payment confirm?')) return;
       try {
@@ -361,6 +461,7 @@
             </div>
             <div style="font-size:11px;color:#888;text-align:right;">${new Date(o.created_at).toLocaleString('hi-IN')}</div>
             <div class="mt">${items}</div>
+            ${o.extra_charge > 0 ? `<div style="font-size:12px;color:#e65100;margin-top:4px;">Subtotal: ${inr(o.subtotal)} + Online Fee (2%): ${inr(o.extra_charge)}</div>` : ''}
             <div style="font-weight:bold;color:#2e7d32;margin-top:6px;font-size:16px;">Total: ${inr(o.total)}</div>
             <div style="font-size:13px;margin-top:6px;background:#f9f9f9;padding:8px;border-radius:6px;">
               <div>📦 Order: <b style="color:${isDelivered?'#2e7d32':isApproved?'#1976d2':'#e65100'};">${isDelivered?'✅ DELIVERED':isApproved?'📦 APPROVED':'⏳ PENDING'}</b></div>
@@ -378,7 +479,7 @@
       }).join('');
     }
 
-    /* UDHAR */
+    /* ================= UDHAR ================= */
     function fillUserSelect() {
       const sel = document.getElementById('udUser');
       sel.innerHTML = '<option value="">-- Customer --</option>' +
