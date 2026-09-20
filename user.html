@@ -1,546 +1,467 @@
 <!DOCTYPE html>
 <html lang="hi">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Dukan</title>
-  <link rel="manifest" href="manifest.json">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="theme-color" content="#2e7d32">
-  <link rel="stylesheet" href="style.css">
-  <style>
-    .modal-bg { position:fixed; inset:0; background:rgba(0,0,0,.55); display:flex; align-items:center; justify-content:center; z-index:500; padding:16px; }
-    .modal { background:#fff; border-radius:12px; padding:16px; width:100%; max-width:430px; max-height:92vh; overflow-y:auto; }
-    .unit-row { display:flex; align-items:center; gap:8px; padding:10px; border:2px solid #eee; border-radius:8px; margin-bottom:8px; cursor:pointer; }
-    .unit-row.selected { border-color:#2e7d32; background:#f1f8e9; }
-    .qty-btn { width:40px; height:40px; border-radius:50%; font-size:20px; font-weight:bold; }
-    .pay-opt { padding:12px 6px; border:2px solid #eee; border-radius:10px; text-align:center; cursor:pointer; flex:1; font-size:13px; }
-    .pay-opt.selected { border-color:#2e7d32; background:#f1f8e9; }
-    .upi-apps { display:flex; gap:6px; margin-top:8px; flex-wrap:wrap; }
-    .upi-apps button { flex:1; min-width:60px; padding:8px 4px; font-size:11px; border:none; border-radius:6px; color:#fff; font-weight:bold; }
-    .fee-badge { font-size:10px; color:#e65100; display:block; margin-top:2px; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Dukan</title>
+<link rel="manifest" href="manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#2e7d32">
+<link rel="stylesheet" href="style.css">
+<style>
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;z-index:500;padding:16px;}
+.modal{background:#fff;border-radius:12px;padding:16px;width:100%;max-width:430px;max-height:92vh;overflow-y:auto;}
+.unit-row{display:flex;align-items:center;gap:8px;padding:10px;border:2px solid #eee;border-radius:8px;margin-bottom:8px;cursor:pointer;}
+.unit-row.selected{border-color:#2e7d32;background:#f1f8e9;}
+.qty-btn{width:40px;height:40px;border-radius:50%;font-size:20px;font-weight:bold;}
+.pay-opt{padding:12px 6px;border:2px solid #eee;border-radius:10px;text-align:center;cursor:pointer;flex:1;font-size:13px;}
+.pay-opt.selected{border-color:#2e7d32;background:#f1f8e9;}
+.upi-apps{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;}
+.upi-apps button{flex:1;min-width:60px;padding:8px 4px;font-size:11px;border:none;border-radius:6px;color:#fff;font-weight:bold;}
+.fee-badge{font-size:10px;color:#e65100;display:block;margin-top:2px;}
+</style>
 </head>
 <body>
-  <div class="header">
-    <h1>🛒 <span id="welcome">Dukan</span></h1>
-    <button onclick="logoutUser()">Logout</button>
-  </div>
+<div class="header">
+<h1>🛒 <span id="welcome">Dukan</span></h1>
+<button onclick="logoutUser()">Logout</button>
+</div>
 
-  <div class="container">
-    <div id="tab-home">
-      <input class="search-bar" id="search" placeholder="🔍 Product dhundo...">
-      <div class="product-grid" id="grid"></div>
-    </div>
+<div class="container">
+<div id="tab-home">
+<input class="search-bar" id="search" placeholder="🔍 Product dhundo...">
+<div class="product-grid" id="grid"></div>
+</div>
 
-    <div id="tab-cart" class="hidden">
-      <h3>🛒 Cart</h3>
-      <div id="cartList"></div>
-      <button class="primary" onclick="openPaymentModal()">📤 Order Karo</button>
-    </div>
+<div id="tab-cart" class="hidden">
+<h3>🛒 Cart</h3>
+<div id="cartList"></div>
+<button class="primary" onclick="openPaymentModal()">📤 Order Karo</button>
+</div>
 
-    <div id="tab-orders" class="hidden">
-      <h3>📦 Orders</h3>
-      <div id="myOrders"></div>
-    </div>
+<div id="tab-orders" class="hidden">
+<h3>📦 Orders</h3>
+<div id="myOrders"></div>
+</div>
 
-    <div id="tab-profile" class="hidden">
-      <h3>👤 Meri Profile</h3>
-      <div id="profileBox"></div>
-    </div>
-  </div>
+<div id="tab-profile" class="hidden">
+<h3>👤 Meri Profile</h3>
+<div id="profileBox"></div>
+</div>
+</div>
 
-  <div class="bottom-nav">
-    <a href="#" class="active" data-tab="home">🏠<br>Home</a>
-    <a href="#" data-tab="cart">🛒<br>Cart <span class="cart-badge" id="cartCount">0</span></a>
-    <a href="#" data-tab="orders">📦<br>Orders</a>
-    <a href="#" data-tab="profile">👤<br>Profile</a>
-  </div>
+<div class="bottom-nav">
+<a href="#" class="active" data-tab="home">🏠<br>Home</a>
+<a href="#" data-tab="cart">🛒<br>Cart <span class="cart-badge" id="cartCount">0</span></a>
+<a href="#" data-tab="orders">📦<br>Orders</a>
+<a href="#" data-tab="profile">👤<br>Profile</a>
+</div>
 
-  <div id="modalRoot"></div>
+<div id="modalRoot"></div>
 
-  <script src="app.js"></script>
-  <script>
-    const s = getSession();
-    if (!s || s.role !== 'user') location.replace('index.html');
+<script src="app.js"></script>
+<script>
+const s = getSession();
+if (!s || s.role !== 'user') location.replace('index.html');
 
-    let PRODUCTS = [];
-    let ME = null;
-    let MY_ORDERS = [];
-    let MY_UDHAR = [];
-    let CART = JSON.parse(localStorage.getItem('cart') || '{}');
-    const EXTRA_PERCENT = 2; // 2% online fee
+let PRODUCTS = [], ME = null, MY_ORDERS = [], MY_UDHAR = [];
+let CART = JSON.parse(localStorage.getItem('cart') || '{}');
+const EXTRA_PERCENT = 2;
 
-    document.getElementById('welcome').textContent = 'Namaste, ' + (s.data.name || 'Customer');
+document.getElementById('welcome').textContent = 'Namaste, ' + (s.data.name || 'Customer');
 
-    async function init() {
-      const ok = await waitForFirebase();
-      if (!ok) { alert('Firebase ready nahi'); return; }
+async function init() {
+  const ok = await waitForFirebase();
+  if (!ok) { alert('Firebase ready nahi'); return; }
+  const uid = await waitForAuth();
+  if (!uid) { alert('Session expire'); location.replace('index.html'); return; }
+  const data = await loadMyData(uid);
+  PRODUCTS = data.products;
+  ME = data.me || { id: uid, name: s.data.name || 'Customer', phone: s.data.phone, price_type: 'retail', special_prices: {} };
+  MY_ORDERS = data.myOrders || [];
+  MY_UDHAR = data.myUdhar || [];
+  saveSession('user', { id: ME.id, name: ME.name, phone: ME.phone, price_type: ME.price_type });
+  document.getElementById('welcome').textContent = 'Namaste, ' + ME.name;
+  renderGrid(); renderCart(); renderOrders(); renderProfile(); updateCartBadge();
+}
 
-      const uid = await waitForAuth();
-      if (!uid) {
-        alert('Session expire. Dobara login karo.');
-        location.replace('index.html');
-        return;
-      }
-
-      const data = await loadMyData(uid);
-      PRODUCTS = data.products;
-      ME = data.me || {
-        id: uid, name: s.data.name || 'Customer', phone: s.data.phone,
-        price_type: 'retail', special_prices: {}
-      };
-      MY_ORDERS = data.myOrders || [];
-      MY_UDHAR = data.myUdhar || [];
-
-      saveSession('user', { id: ME.id, name: ME.name, phone: ME.phone, price_type: ME.price_type });
-      document.getElementById('welcome').textContent = 'Namaste, ' + ME.name;
-
-      renderGrid(); renderCart(); renderOrders(); renderProfile(); updateCartBadge();
-    }
-
-    document.querySelectorAll('.bottom-nav a').forEach(a => {
-      a.onclick = e => {
-        e.preventDefault();
-        document.querySelectorAll('.bottom-nav a').forEach(x => x.classList.remove('active'));
-        a.classList.add('active');
-        ['home','cart','orders','profile'].forEach(t => {
-          document.getElementById('tab-'+t).classList.toggle('hidden', t !== a.dataset.tab);
-        });
-        if (a.dataset.tab === 'orders') renderOrders();
-        if (a.dataset.tab === 'profile') renderProfile();
-      };
+document.querySelectorAll('.bottom-nav a').forEach(a => {
+  a.onclick = e => {
+    e.preventDefault();
+    document.querySelectorAll('.bottom-nav a').forEach(x => x.classList.remove('active'));
+    a.classList.add('active');
+    ['home','cart','orders','profile'].forEach(t => {
+      document.getElementById('tab-'+t).classList.toggle('hidden', t !== a.dataset.tab);
     });
+    if (a.dataset.tab === 'orders') renderOrders();
+    if (a.dataset.tab === 'profile') renderProfile();
+  };
+});
 
-    function renderGrid() {
-      const q = (document.getElementById('search').value||'').toLowerCase();
-      const items = PRODUCTS.filter(p => !p.hidden && p.name.toLowerCase().includes(q));
-      const grid = document.getElementById('grid');
-      if (!items.length) { grid.innerHTML = '<div class="card center">Koi product nahi</div>'; return; }
-      grid.innerHTML = items.map(p => {
-        const first = p.units?.[0];
-        if (!first) return '';
-        const price = getUnitPrice(p, first.label, ME);
-        const unit = first.label;
-        const totalStock = (p.units||[]).reduce((a,b) => a + (+b.stock||0), 0);
-        const out = totalStock <= 0;
-        return `
-          <div class="product-card">
-            <img src="${p.image || 'https://via.placeholder.com/150'}" alt="${p.name}">
-            <div class="info">
-              <div class="name">${p.name}</div>
-              <div class="price">${inr(price)}/${unit}</div>
-              <div class="stock">${out ? '❌ Khatam' : '✔ ' + totalStock + ' ' + unit}</div>
-              <button class="primary small" style="margin-top:auto;" ${out?'disabled style="background:#ccc;"':''} onclick="openUnitPicker('${p.id}')">
-                ${out ? 'Khatam' : '🛒 Add'}
-              </button>
-            </div>
-          </div>`;
-      }).join('');
-    }
-    document.getElementById('search').oninput = renderGrid;
-
-    let pickerState = null;
-    function openUnitPicker(pid) {
-      const p = PRODUCTS.find(x => x.id === pid);
-      if (!p || !p.units?.length) return;
-      pickerState = { productId: pid, unitLabel: p.units[0].label, qty: UNIT_STEP[p.units[0].label] || 1 };
-      renderPickerModal();
-    }
-    function renderPickerModal() {
-      const p = PRODUCTS.find(x => x.id === pickerState.productId);
-      const u = p.units.find(x => x.label === pickerState.unitLabel);
-      const price = getUnitPrice(p, u.label, ME);
-      const step = UNIT_STEP[u.label] || 1;
-      const subtotal = price * pickerState.qty;
-
-      const rows = p.units.map(un => {
-        const up = getUnitPrice(p, un.label, ME);
-        const sel = un.label === pickerState.unitLabel ? 'selected' : '';
-        return `
-          <div class="unit-row ${sel}" onclick="selectUnit('${un.label}')">
-            <div style="flex:1;">
-              <div style="font-weight:bold;">${un.label}</div>
-              <div style="font-size:13px;color:#2e7d32;">${inr(up)}/${un.label}</div>
-              <div style="font-size:11px;color:#777;">Stock: ${un.stock}</div>
-            </div>
-            ${sel ? '<span style="color:#2e7d32;font-size:20px;">✓</span>' : ''}
-          </div>`;
-      }).join('');
-
-      document.getElementById('modalRoot').innerHTML = `
-        <div class="modal-bg" onclick="if(event.target===this) closePicker()">
-          <div class="modal">
-            <h3>${p.name}</h3>
-            <p style="font-size:13px;color:#666;margin-bottom:10px;">Unit select karo</p>
-            ${rows}
-            <div style="margin-top:14px;padding-top:12px;border-top:1px solid #eee;">
-              <div class="row" style="align-items:center;">
-                <button class="primary small qty-btn" onclick="changeQty(-1)">−</button>
-                <input type="number" value="${pickerState.qty}" step="${step}" style="text-align:center;margin:0;" onchange="setPickerQty(this.value)">
-                <span style="flex:0;white-space:nowrap;font-weight:bold;">${u.label}</span>
-                <button class="primary small qty-btn" onclick="changeQty(1)">+</button>
-              </div>
-              <div style="text-align:center;font-size:16px;margin-top:10px;">
-                Total: <b style="color:#2e7d32;">${inr(subtotal)}</b>
-              </div>
-            </div>
-            <div class="row mt">
-              <button class="primary" style="background:#777;" onclick="closePicker()">Cancel</button>
-              <button class="primary" onclick="confirmAdd()">🛒 Add</button>
-            </div>
-          </div>
-        </div>`;
-    }
-    function selectUnit(label) { pickerState.unitLabel = label; pickerState.qty = UNIT_STEP[label] || 1; renderPickerModal(); }
-    function changeQty(dir) {
-      const p = PRODUCTS.find(x => x.id === pickerState.productId);
-      const u = p.units.find(x => x.label === pickerState.unitLabel);
-      const step = UNIT_STEP[u.label] || 1;
-      let v = pickerState.qty + dir * step;
-      v = Math.round(v*100)/100;
-      if (v < step) v = step;
-      pickerState.qty = v; renderPickerModal();
-    }
-    function setPickerQty(val) {
-      const v = Math.round(parseFloat(val)*100)/100;
-      if (!v || v <= 0) return;
-      pickerState.qty = v; renderPickerModal();
-    }
-    function confirmAdd() {
-      const key = pickerState.productId + '::' + pickerState.unitLabel;
-      CART[key] = Math.round(((CART[key]||0) + pickerState.qty) * 100) / 100;
-      saveCart(); closePicker(); toast('Cart me add');
-    }
-    function closePicker() { document.getElementById('modalRoot').innerHTML = ''; pickerState = null; }
-
-    function saveCart() { localStorage.setItem('cart', JSON.stringify(CART)); updateCartBadge(); }
-    function updateCartBadge() { document.getElementById('cartCount').textContent = Object.keys(CART).length; }
-
-    function cartTotal() {
-      let t = 0;
-      Object.keys(CART).forEach(key => {
-        const [pid, ul] = key.split('::');
-        const p = PRODUCTS.find(x => x.id === pid);
-        if (p) t += getUnitPrice(p, ul, ME) * CART[key];
-      });
-      return t;
-    }
-
-    function renderCart() {
-      const list = document.getElementById('cartList');
-      const keys = Object.keys(CART);
-      if (!keys.length) { list.innerHTML = '<div class="card center">Cart khali</div>'; return; }
-      let total = 0;
-      list.innerHTML = keys.map(key => {
-        const [pid, ul] = key.split('::');
-        const p = PRODUCTS.find(x => x.id === pid);
-        if (!p) return '';
-        const qty = CART[key];
-        const price = getUnitPrice(p, ul, ME);
-        total += price * qty;
-        const step = UNIT_STEP[ul] || 1;
-        return `
-          <div class="card">
-            <div class="row">
-              <img src="${p.image||'https://via.placeholder.com/60'}" style="width:60px;height:60px;object-fit:cover;border-radius:6px;flex:0 0 60px;">
-              <div style="flex:1;">
-                <div style="font-weight:600;font-size:14px;">${p.name}</div>
-                <div style="color:#2e7d32;font-weight:bold;">${inr(price)}/${ul}</div>
-              </div>
-            </div>
-            <div class="row mt">
-              <button class="primary small" onclick="changeCartQty('${key}',-1)">−</button>
-              <input type="number" value="${qty}" step="${step}" style="text-align:center;margin:0;" onchange="setCartQty('${key}', this.value)">
-              <span style="flex:0;white-space:nowrap;font-weight:bold;">${ul}</span>
-              <button class="primary small" onclick="changeCartQty('${key}',1)">+</button>
-            </div>
-            <div class="center" style="font-size:13px;color:#555;margin-top:4px;">Sub: <b>${inr(price*qty)}</b></div>
-          </div>`;
-      }).join('') + `<div class="card center" style="font-weight:bold;font-size:18px;">Total: ${inr(total)}</div>`;
-    }
-    function changeCartQty(key, dir) {
-      const ul = key.split('::')[1]; const step = UNIT_STEP[ul] || 1;
-      let v = (CART[key]||0) + dir*step; v = Math.round(v*100)/100;
-      if (v <= 0) delete CART[key]; else CART[key] = v;
-      saveCart(); renderCart();
-    }
-    function setCartQty(key, val) {
-      const v = Math.round(parseFloat(val)*100)/100;
-      if (!v || v <= 0) delete CART[key]; else CART[key] = v;
-      saveCart(); renderCart();
-    }
-
-    /* ================= PAYMENT (with 2% online fee) ================= */
-    let payState = { mode: 'cash', cashPaid: 0 };
-
-    function calcCharges() {
-      const subtotal = cartTotal();
-      let extraCharge = 0;
-      let total = subtotal;
-
-      if (payState.mode === 'online') {
-        extraCharge = Math.round(subtotal * EXTRA_PERCENT) / 100;
-        total = subtotal + extraCharge;
-      } else if (payState.mode === 'split') {
-        const cash = Math.min(payState.cashPaid || 0, subtotal);
-        const onlineBase = subtotal - cash;
-        extraCharge = Math.round(onlineBase * EXTRA_PERCENT) / 100;
-        total = subtotal + extraCharge;
-      }
-      return { subtotal, extraCharge, total };
-    }
-
-    function openPaymentModal() {
-      if (!Object.keys(CART).length) return toast('Cart khali');
-      payState = { mode: 'cash', cashPaid: cartTotal() };
-      renderPaymentModal();
-    }
-
-    function renderPaymentModal() {
-      const { subtotal, extraCharge, total } = calcCharges();
-      const cash = payState.cashPaid || 0;
-      const onlineBase = payState.mode === 'split' ? Math.max(0, subtotal - cash) : (payState.mode === 'online' ? subtotal : 0);
-      const onlineWithFee = onlineBase + extraCharge;
-      const showOnline = payState.mode === 'online' || (payState.mode === 'split' && onlineBase > 0);
-      const { id: upiId } = getUpi();
-      let qrImg = '', appLinks = {};
-      if (showOnline && upiId) {
-        qrImg = getUpiQrImage(onlineWithFee, 'Dukan Order');
-        appLinks = getAppLinks(onlineWithFee, 'Dukan Order');
-      }
-
-      document.getElementById('modalRoot').innerHTML = `
-        <div class="modal-bg" onclick="if(event.target===this) closePayment()">
-          <div class="modal">
-            <h3>💰 Payment</h3>
-
-            <div style="background:#f9f9f9;padding:10px;border-radius:8px;margin-bottom:10px;">
-              <div style="display:flex;justify-content:space-between;font-size:14px;">
-                <span>Subtotal:</span><b>${inr(subtotal)}</b>
-              </div>
-              ${extraCharge > 0 ? `
-              <div style="display:flex;justify-content:space-between;font-size:14px;color:#e65100;">
-                <span>Online Fee (${EXTRA_PERCENT}%):</span><b>+${inr(extraCharge)}</b>
-              </div>` : ''}
-              <div style="display:flex;justify-content:space-between;font-size:18px;font-weight:bold;color:#2e7d32;margin-top:6px;padding-top:6px;border-top:1px solid #ddd;">
-                <span>Total:</span><b>${inr(total)}</b>
-              </div>
-            </div>
-
-            <p style="font-size:13px;color:#666;margin:8px 0;">Kaise pay karoge?</p>
-            <div style="display:flex;gap:8px;">
-              <div class="pay-opt ${payState.mode==='cash'?'selected':''}" onclick="setPayMode('cash')">
-                💵<br><b>Cash</b><span class="fee-badge">No extra</span>
-              </div>
-              <div class="pay-opt ${payState.mode==='online'?'selected':''}" onclick="setPayMode('online')">
-                📱<br><b>Online</b><span class="fee-badge">+${EXTRA_PERCENT}% fee</span>
-              </div>
-              <div class="pay-opt ${payState.mode==='split'?'selected':''}" onclick="setPayMode('split')">
-                🔀<br><b>Split</b><span class="fee-badge">${EXTRA_PERCENT}% on online</span>
-              </div>
-            </div>
-
-            ${payState.mode === 'split' ? `
-              <div style="margin-top:12px;background:#f9f9f9;padding:10px;border-radius:8px;">
-                <label style="font-size:13px;">💵 Cash diya:</label>
-                <input type="number" inputmode="numeric" value="${cash}" onchange="setCash(this.value)" placeholder="0">
-                <div style="font-size:13px;margin-top:6px;">📱 Online: <b style="color:#e65100;">${inr(onlineBase)} + ${inr(extraCharge)} fee = ${inr(onlineWithFee)}</b></div>
-              </div>
-            ` : ''}
-
-            ${showOnline ? `
-              <div style="margin-top:12px;text-align:center;">
-                <div style="font-size:14px;margin-bottom:8px;">📱 <b>${inr(onlineWithFee)}</b> pay karo</div>
-                ${extraCharge > 0 ? `<div style="font-size:11px;color:#e65100;margin-bottom:6px;">(₹${extraCharge} online convenience fee included)</div>` : ''}
-                ${qrImg ? `<img src="${qrImg}" style="width:220px;height:220px;border:1px solid #eee;border-radius:8px;margin-bottom:6px;">` : ''}
-                ${upiId ? `
-                  <div class="upi-apps">
-                    ${appLinks.gpay ? `<button style="background:#1976d2;" onclick="openApp('${appLinks.gpay}')">GPay</button>` : ''}
-                    ${appLinks.phonepe ? `<button style="background:#5f259f;" onclick="openApp('${appLinks.phonepe}')">PhonePe</button>` : ''}
-                    ${appLinks.paytm ? `<button style="background:#00baf2;color:#000;" onclick="openApp('${appLinks.paytm}')">Paytm</button>` : ''}
-                    ${appLinks.bhim ? `<button style="background:#f57c00;" onclick="openApp('${appLinks.bhim}')">BHIM</button>` : ''}
-                  </div>
-                  <button class="primary" style="margin-top:10px;background:#2e7d32;" onclick="openApp('${appLinks.any}')">📲 Koi bhi UPI App</button>
-                ` : ''}
-              </div>
-            ` : ''}
-
-            ${payState.mode === 'cash' ? `
-              <div style="margin-top:12px;text-align:center;font-size:14px;color:#666;padding:12px;background:#f1f8e9;border-radius:8px;">
-                Saman lene aake <b style="color:#2e7d32;">${inr(total)}</b> cash doge
-              </div>
-            ` : ''}
-
-            <div class="row mt" style="margin-top:16px;">
-              <button class="primary" style="background:#777;" onclick="closePayment()">Cancel</button>
-              <button class="primary" onclick="confirmOrder()">✅ Confirm Order</button>
-            </div>
-          </div>
-        </div>`;
-    }
-    function setPayMode(m) {
-      payState.mode = m;
-      if (m === 'cash') payState.cashPaid = cartTotal();
-      else if (m === 'online') payState.cashPaid = 0;
-      else if (m === 'split') payState.cashPaid = Math.round(cartTotal() / 2 * 100) / 100;
-      renderPaymentModal();
-    }
-    function setCash(val) {
-      payState.cashPaid = Math.max(0, parseFloat(val) || 0);
-      renderPaymentModal();
-    }
-    function closePayment() { document.getElementById('modalRoot').innerHTML = ''; }
-    function openApp(link) { window.location.href = link; }
-
-    async function confirmOrder() {
-      const keys = Object.keys(CART);
-      if (!keys.length) return toast('Cart khali');
-
-      const { subtotal, extraCharge, total } = calcCharges();
-      let cashPaid = 0, onlinePaid = 0;
-      if (payState.mode === 'cash') cashPaid = subtotal;
-      else if (payState.mode === 'online') onlinePaid = total;
-      else if (payState.mode === 'split') {
-        cashPaid = Math.min(payState.cashPaid || 0, subtotal);
-        const onlineBase = subtotal - cashPaid;
-        onlinePaid = onlineBase + (Math.round(onlineBase * EXTRA_PERCENT) / 100);
-      }
-
-      const items = keys.map(key => {
-        const [pid, ul] = key.split('::');
-        const p = PRODUCTS.find(x => x.id === pid);
-        return { product_id: pid, product_name: p.name, unit: ul, qty: CART[key], price: getUnitPrice(p, ul, ME) };
-      });
-
-      const order = {
-        id: uid(), user_id: ME.id, user_name: ME.name, user_phone: ME.phone,
-        items, subtotal, extra_charge: extraCharge, total,
-        payment_mode: payState.mode,
-        cash_paid: cashPaid, online_paid: onlinePaid,
-        payment_status: 'pending', order_status: 'pending',
-        owner_approved: false,
-        user_confirmed_at: new Date().toISOString(),
-        owner_confirmed_at: null,
-        history: [{ at: new Date().toISOString(), by: 'user', action: 'order_placed' }],
-        created_at: new Date().toISOString()
-      };
-
-      try {
-        toast('Order place ho raha hai...');
-        await fbSaveOrder(order);
-        // Send notification request to owner
-        try { await sendOrderNotificationToOwner(order); } catch (e) { console.warn(e); }
-        CART = {}; saveCart(); renderCart();
-        closePayment();
-        toast('✅ Order place — owner approval pending');
-        document.querySelector('.bottom-nav a[data-tab="orders"]').click();
-        const uid2 = getAuthUid();
-        const d = await loadMyData(uid2);
-        MY_ORDERS = d.myOrders || [];
-        renderOrders();
-      } catch (e) { toast('❌ ' + e.message); }
-    }
-
-    function renderOrders() {
-      const list = document.getElementById('myOrders');
-      if (!MY_ORDERS.length) { list.innerHTML = '<div class="card center">Koi order nahi</div>'; return; }
-      list.innerHTML = MY_ORDERS.map(o => {
-        const items = o.items.map(it => {
-          const p = PRODUCTS.find(x => x.id === it.product_id) || { name: it.product_name || '?' };
-          return `<div style="font-size:13px;">• ${p.name} — ${it.qty} ${it.unit} × ${inr(it.price)} = ${inr(it.qty*it.price)}</div>`;
-        }).join('');
-        const isPaid = o.payment_status === 'paid';
-        const isApproved = o.order_status === 'approved';
-        const isDelivered = o.order_status === 'delivered';
-        return `
-          <div class="card">
-            <div style="display:flex;justify-content:space-between;">
-              <b>${new Date(o.created_at).toLocaleString('hi-IN')}</b>
-            </div>
-            <div class="mt">${items}</div>
-            ${o.extra_charge > 0 ? `<div style="font-size:12px;color:#e65100;margin-top:4px;">Subtotal: ${inr(o.subtotal)} + Online Fee: ${inr(o.extra_charge)}</div>` : ''}
-            <div style="font-weight:bold;color:#2e7d32;margin-top:4px;">Total: ${inr(o.total)}</div>
-            <div style="font-size:12px;color:${isDelivered?'#2e7d32':isApproved?'#1976d2':'#e65100'};margin-top:4px;">
-              📦 ${isDelivered?'DELIVERED':isApproved?'APPROVED':'PENDING'}
-            </div>
-            <div style="font-size:12px;color:${isPaid?'#2e7d32':'#e65100'};">
-              💰 ${isPaid?'PAID':'PAYMENT PENDING'}
-            </div>
-          </div>`;
-      }).join('');
-    }
-
-    function renderProfile() {
-      const stats = calculateUserStats(ME.id, MY_ORDERS, MY_UDHAR);
-      const udharRows = MY_UDHAR.map(u => `
-        <div style="padding:6px 0;border-bottom:1px solid #f0f0f0;font-size:13px;">
-          <div style="display:flex;justify-content:space-between;">
-            <b>${new Date(u.created_at).toLocaleDateString('hi-IN')}</b>
-            <span style="color:${u.status==='paid'?'#2e7d32':'#e65100'};">
-              ${u.status === 'paid' ? '✅ Paid' : '⏳ Pending'}
-            </span>
-          </div>
-          <div>${u.note || 'Udhar'}</div>
-          <div style="font-weight:bold;">${inr(u.amount)}</div>
-        </div>`).join('') || '<div style="font-size:13px;color:#888;">Koi udhar nahi</div>';
-
-      document.getElementById('profileBox').innerHTML = `
-        <div class="card">
-          <h3>Meri Info</h3>
-          <label style="font-size:13px;color:#666;">Naam</label>
-          <input id="meName" value="${ME.name || ''}" placeholder="Apna naam">
-          <label style="font-size:13px;color:#666;margin-top:6px;display:block;">Phone</label>
-          <input id="mePhone" value="${ME.phone || ''}" readonly style="background:#f5f5f5;">
-          <label style="font-size:13px;color:#666;margin-top:6px;display:block;">Address</label>
-          <input id="meAddr" value="${ME.address || ''}" placeholder="Ghar ka pata">
-          <button class="primary" onclick="saveMyProfile()">💾 Save</button>
+function renderGrid() {
+  const q = (document.getElementById('search').value||'').toLowerCase();
+  const items = PRODUCTS.filter(p => !p.hidden && p.name.toLowerCase().includes(q));
+  const grid = document.getElementById('grid');
+  if (!items.length) { grid.innerHTML = '<div class="card center">Koi product nahi</div>'; return; }
+  grid.innerHTML = items.map(p => {
+    const first = p.units?.[0];
+    if (!first) return '';
+    const price = getUnitPrice(p, first.label, ME);
+    const unit = first.label;
+    const totalStock = (p.units||[]).reduce((a,b) => a + (+b.stock||0), 0);
+    const out = totalStock <= 0;
+    return `
+      <div class="product-card">
+        <img src="${p.image || 'https://via.placeholder.com/150'}" alt="${p.name}">
+        <div class="info">
+          <div class="name">${p.name}</div>
+          <div class="price">${inr(price)}/${unit}</div>
+          <div class="stock">${out ? '❌ Khatam' : '✔ ' + totalStock + ' ' + unit}</div>
+          <button class="primary small" style="margin-top:auto;" ${out?'disabled style="background:#ccc;"':''} onclick="openUnitPicker('${p.id}')">
+            ${out ? 'Khatam' : '🛒 Add'}
+          </button>
         </div>
+      </div>`;
+  }).join('');
+}
+document.getElementById('search').oninput = renderGrid;
 
-        <div class="card">
-          <h3>💰 Hisaab</h3>
-          <div style="display:flex;justify-content:space-around;text-align:center;">
-            <div>
-              <div style="font-size:20px;font-weight:bold;color:#2e7d32;">${inr(stats.total_orders)}</div>
-              <div style="font-size:12px;color:#666;">Total</div>
-            </div>
-            <div>
-              <div style="font-size:20px;font-weight:bold;color:#2e7d32;">${inr(stats.total_paid)}</div>
-              <div style="font-size:12px;color:#666;">Paid</div>
-            </div>
-            <div>
-              <div style="font-size:20px;font-weight:bold;color:${stats.total_pending>0?'#e65100':'#2e7d32'};">${inr(stats.total_pending)}</div>
-              <div style="font-size:12px;color:#666;">Bakaya</div>
-            </div>
+let pickerState = null;
+function openUnitPicker(pid) {
+  const p = PRODUCTS.find(x => x.id === pid);
+  if (!p || !p.units?.length) return;
+  pickerState = { productId: pid, unitLabel: p.units[0].label, qty: UNIT_STEP[p.units[0].label] || 1 };
+  renderPickerModal();
+}
+function renderPickerModal() {
+  const p = PRODUCTS.find(x => x.id === pickerState.productId);
+  const u = p.units.find(x => x.label === pickerState.unitLabel);
+  const price = getUnitPrice(p, u.label, ME);
+  const step = UNIT_STEP[u.label] || 1;
+  const subtotal = price * pickerState.qty;
+  const rows = p.units.map(un => {
+    const up = getUnitPrice(p, un.label, ME);
+    const sel = un.label === pickerState.unitLabel ? 'selected' : '';
+    return `
+      <div class="unit-row ${sel}" onclick="selectUnit('${un.label}')">
+        <div style="flex:1;">
+          <div style="font-weight:bold;">${un.label}</div>
+          <div style="font-size:13px;color:#2e7d32;">${inr(up)}/${un.label}</div>
+          <div style="font-size:11px;color:#777;">Stock: ${un.stock}</div>
+        </div>
+        ${sel ? '<span style="color:#2e7d32;font-size:20px;">✓</span>' : ''}
+      </div>`;
+  }).join('');
+  document.getElementById('modalRoot').innerHTML = `
+    <div class="modal-bg" onclick="if(event.target===this) closePicker()">
+      <div class="modal">
+        <h3>${p.name}</h3>
+        <p style="font-size:13px;color:#666;margin-bottom:10px;">Unit select karo</p>
+        ${rows}
+        <div style="margin-top:14px;padding-top:12px;border-top:1px solid #eee;">
+          <div class="row" style="align-items:center;">
+            <button class="primary small qty-btn" onclick="changeQty(-1)">−</button>
+            <input type="number" value="${pickerState.qty}" step="${step}" style="text-align:center;margin:0;" onchange="setPickerQty(this.value)">
+            <span style="flex:0;white-space:nowrap;font-weight:bold;">${u.label}</span>
+            <button class="primary small qty-btn" onclick="changeQty(1)">+</button>
+          </div>
+          <div style="text-align:center;font-size:16px;margin-top:10px;">Total: <b style="color:#2e7d32;">${inr(subtotal)}</b></div>
+        </div>
+        <div class="row mt">
+          <button class="primary" style="background:#777;" onclick="closePicker()">Cancel</button>
+          <button class="primary" onclick="confirmAdd()">🛒 Add</button>
+        </div>
+      </div>
+    </div>`;
+}
+function selectUnit(label) { pickerState.unitLabel = label; pickerState.qty = UNIT_STEP[label] || 1; renderPickerModal(); }
+function changeQty(dir) {
+  const p = PRODUCTS.find(x => x.id === pickerState.productId);
+  const u = p.units.find(x => x.label === pickerState.unitLabel);
+  const step = UNIT_STEP[u.label] || 1;
+  let v = pickerState.qty + dir * step;
+  v = Math.round(v*100)/100;
+  if (v < step) v = step;
+  pickerState.qty = v; renderPickerModal();
+}
+function setPickerQty(val) {
+  const v = Math.round(parseFloat(val)*100)/100;
+  if (!v || v <= 0) return;
+  pickerState.qty = v; renderPickerModal();
+}
+function confirmAdd() {
+  const key = pickerState.productId + '::' + pickerState.unitLabel;
+  CART[key] = Math.round(((CART[key]||0) + pickerState.qty) * 100) / 100;
+  saveCart(); closePicker(); toast('Cart me add');
+}
+function closePicker() { document.getElementById('modalRoot').innerHTML = ''; pickerState = null; }
+
+function saveCart() { localStorage.setItem('cart', JSON.stringify(CART)); updateCartBadge(); }
+function updateCartBadge() { document.getElementById('cartCount').textContent = Object.keys(CART).length; }
+
+function cartTotal() {
+  let t = 0;
+  Object.keys(CART).forEach(key => {
+    const [pid, ul] = key.split('::');
+    const p = PRODUCTS.find(x => x.id === pid);
+    if (p) t += getUnitPrice(p, ul, ME) * CART[key];
+  });
+  return t;
+}
+
+function renderCart() {
+  const list = document.getElementById('cartList');
+  const keys = Object.keys(CART);
+  if (!keys.length) { list.innerHTML = '<div class="card center">Cart khali</div>'; return; }
+  let total = 0;
+  list.innerHTML = keys.map(key => {
+    const [pid, ul] = key.split('::');
+    const p = PRODUCTS.find(x => x.id === pid);
+    if (!p) return '';
+    const qty = CART[key];
+    const price = getUnitPrice(p, ul, ME);
+    total += price * qty;
+    const step = UNIT_STEP[ul] || 1;
+    return `
+      <div class="card">
+        <div class="row">
+          <img src="${p.image||'https://via.placeholder.com/60'}" style="width:60px;height:60px;object-fit:cover;border-radius:6px;flex:0 0 60px;">
+          <div style="flex:1;">
+            <div style="font-weight:600;font-size:14px;">${p.name}</div>
+            <div style="color:#2e7d32;font-weight:bold;">${inr(price)}/${ul}</div>
           </div>
         </div>
-
-        <div class="card">
-          <b style="font-size:14px;">📋 Udhar List</b>
-          <div class="mt">${udharRows}</div>
+        <div class="row mt">
+          <button class="primary small" onclick="changeCartQty('${key}',-1)">−</button>
+          <input type="number" value="${qty}" step="${step}" style="text-align:center;margin:0;" onchange="setCartQty('${key}', this.value)">
+          <span style="flex:0;white-space:nowrap;font-weight:bold;">${ul}</span>
+          <button class="primary small" onclick="changeCartQty('${key}',1)">+</button>
         </div>
-      `;
-    }
+        <div class="center" style="font-size:13px;color:#555;margin-top:4px;">Sub: <b>${inr(price*qty)}</b></div>
+      </div>`;
+  }).join('') + `<div class="card center" style="font-weight:bold;font-size:18px;">Total: ${inr(total)}</div>`;
+}
+function changeCartQty(key, dir) {
+  const ul = key.split('::')[1]; const step = UNIT_STEP[ul] || 1;
+  let v = (CART[key]||0) + dir*step; v = Math.round(v*100)/100;
+  if (v <= 0) delete CART[key]; else CART[key] = v;
+  saveCart(); renderCart();
+}
+function setCartQty(key, val) {
+  const v = Math.round(parseFloat(val)*100)/100;
+  if (!v || v <= 0) delete CART[key]; else CART[key] = v;
+  saveCart(); renderCart();
+}
 
-    async function saveMyProfile() {
-      const name = document.getElementById('meName').value.trim();
-      const addr = document.getElementById('meAddr').value.trim();
-      if (!name) return toast('Naam daalo');
+let payState = { mode: 'cash', cashPaid: 0 };
+function calcCharges() {
+  const subtotal = cartTotal();
+  let extraCharge = 0;
+  let total = subtotal;
+  if (payState.mode === 'online') {
+    extraCharge = Math.round(subtotal * EXTRA_PERCENT) / 100;
+    total = subtotal + extraCharge;
+  } else if (payState.mode === 'split') {
+    const cash = Math.min(payState.cashPaid || 0, subtotal);
+    const onlineBase = subtotal - cash;
+    extraCharge = Math.round(onlineBase * EXTRA_PERCENT) / 100;
+    total = subtotal + extraCharge;
+  }
+  return { subtotal, extraCharge, total };
+}
 
-      ME.name = name;
-      ME.address = addr;
-      try {
-        await fbSaveUser(ME);
-        saveSession('user', ME);
-        toast('✅ Profile save');
-        const uid2 = getAuthUid();
-        const data = await loadMyData(uid2);
-        ME = data.me || ME;
-        renderProfile();
-      } catch (e) { toast('❌ ' + e.message); }
-    }
+function openPaymentModal() {
+  if (!Object.keys(CART).length) return toast('Cart khali');
+  payState = { mode: 'cash', cashPaid: cartTotal() };
+  renderPaymentModal();
+}
 
-    init();
-  </script>
+function renderPaymentModal() {
+  const { subtotal, extraCharge, total } = calcCharges();
+  const cash = payState.cashPaid || 0;
+  const onlineBase = payState.mode === 'split' ? Math.max(0, subtotal - cash) : (payState.mode === 'online' ? subtotal : 0);
+  const onlineWithFee = onlineBase + extraCharge;
+  const showOnline = payState.mode === 'online' || (payState.mode === 'split' && onlineBase > 0);
+  const { id: upiId } = getUpi();
+  let qrImg = '', appLinks = {};
+  if (showOnline && upiId) {
+    qrImg = getUpiQrImage(onlineWithFee, 'Dukan Order');
+    appLinks = getAppLinks(onlineWithFee, 'Dukan Order');
+  }
+  document.getElementById('modalRoot').innerHTML = `
+    <div class="modal-bg" onclick="if(event.target===this) closePayment()">
+      <div class="modal">
+        <h3>💰 Payment</h3>
+        <div style="background:#f9f9f9;padding:10px;border-radius:8px;margin-bottom:10px;">
+          <div style="display:flex;justify-content:space-between;font-size:14px;"><span>Subtotal:</span><b>${inr(subtotal)}</b></div>
+          ${extraCharge > 0 ? `<div style="display:flex;justify-content:space-between;font-size:14px;color:#e65100;"><span>Online Fee (${EXTRA_PERCENT}%):</span><b>+${inr(extraCharge)}</b></div>` : ''}
+          <div style="display:flex;justify-content:space-between;font-size:18px;font-weight:bold;color:#2e7d32;margin-top:6px;padding-top:6px;border-top:1px solid #ddd;"><span>Total:</span><b>${inr(total)}</b></div>
+        </div>
+        <p style="font-size:13px;color:#666;margin:8px 0;">Kaise pay karoge?</p>
+        <div style="display:flex;gap:8px;">
+          <div class="pay-opt ${payState.mode==='cash'?'selected':''}" onclick="setPayMode('cash')">💵<br><b>Cash</b><span class="fee-badge">No extra</span></div>
+          <div class="pay-opt ${payState.mode==='online'?'selected':''}" onclick="setPayMode('online')">📱<br><b>Online</b><span class="fee-badge">+${EXTRA_PERCENT}%</span></div>
+          <div class="pay-opt ${payState.mode==='split'?'selected':''}" onclick="setPayMode('split')">🔀<br><b>Split</b><span class="fee-badge">${EXTRA_PERCENT}% on online</span></div>
+        </div>
+        ${payState.mode === 'split' ? `
+          <div style="margin-top:12px;background:#f9f9f9;padding:10px;border-radius:8px;">
+            <label style="font-size:13px;">💵 Cash diya:</label>
+            <input type="number" inputmode="numeric" value="${cash}" onchange="setCash(this.value)" placeholder="0">
+            <div style="font-size:13px;margin-top:6px;">📱 Online: <b style="color:#e65100;">${inr(onlineBase)} + ${inr(extraCharge)} = ${inr(onlineWithFee)}</b></div>
+          </div>` : ''}
+        ${showOnline ? `
+          <div style="margin-top:12px;text-align:center;">
+            <div style="font-size:14px;margin-bottom:8px;">📱 <b>${inr(onlineWithFee)}</b> pay karo</div>
+            ${qrImg ? `<img src="${qrImg}" style="width:220px;height:220px;border:1px solid #eee;border-radius:8px;margin-bottom:6px;">` : ''}
+            ${upiId ? `
+              <div class="upi-apps">
+                ${appLinks.gpay ? `<button style="background:#1976d2;" onclick="openApp('${appLinks.gpay}')">GPay</button>` : ''}
+                ${appLinks.phonepe ? `<button style="background:#5f259f;" onclick="openApp('${appLinks.phonepe}')">PhonePe</button>` : ''}
+                ${appLinks.paytm ? `<button style="background:#00baf2;color:#000;" onclick="openApp('${appLinks.paytm}')">Paytm</button>` : ''}
+                ${appLinks.bhim ? `<button style="background:#f57c00;" onclick="openApp('${appLinks.bhim}')">BHIM</button>` : ''}
+              </div>
+              <button class="primary" style="margin-top:10px;background:#2e7d32;" onclick="openApp('${appLinks.any}')">📲 Koi bhi UPI App</button>
+            ` : ''}
+          </div>` : ''}
+        ${payState.mode === 'cash' ? `
+          <div style="margin-top:12px;text-align:center;font-size:14px;color:#666;padding:12px;background:#f1f8e9;border-radius:8px;">
+            Saman lene aake <b style="color:#2e7d32;">${inr(total)}</b> cash doge
+          </div>` : ''}
+        <div class="row mt" style="margin-top:16px;">
+          <button class="primary" style="background:#777;" onclick="closePayment()">Cancel</button>
+          <button class="primary" onclick="confirmOrder()">✅ Confirm Order</button>
+        </div>
+      </div>
+    </div>`;
+}
+function setPayMode(m) {
+  payState.mode = m;
+  if (m === 'cash') payState.cashPaid = cartTotal();
+  else if (m === 'online') payState.cashPaid = 0;
+  else if (m === 'split') payState.cashPaid = Math.round(cartTotal() / 2 * 100) / 100;
+  renderPaymentModal();
+}
+function setCash(val) { payState.cashPaid = Math.max(0, parseFloat(val) || 0); renderPaymentModal(); }
+function closePayment() { document.getElementById('modalRoot').innerHTML = ''; }
+function openApp(link) { window.location.href = link; }
+
+async function confirmOrder() {
+  const keys = Object.keys(CART);
+  if (!keys.length) return toast('Cart khali');
+  const { subtotal, extraCharge, total } = calcCharges();
+  let cashPaid = 0, onlinePaid = 0;
+  if (payState.mode === 'cash') cashPaid = subtotal;
+  else if (payState.mode === 'online') onlinePaid = total;
+  else if (payState.mode === 'split') {
+    cashPaid = Math.min(payState.cashPaid || 0, subtotal);
+    const onlineBase = subtotal - cashPaid;
+    onlinePaid = onlineBase + (Math.round(onlineBase * EXTRA_PERCENT) / 100);
+  }
+  const items = keys.map(key => {
+    const [pid, ul] = key.split('::');
+    const p = PRODUCTS.find(x => x.id === pid);
+    return { product_id: pid, product_name: p.name, unit: ul, qty: CART[key], price: getUnitPrice(p, ul, ME) };
+  });
+  const order = {
+    id: uid(), user_id: ME.id, user_name: ME.name, user_phone: ME.phone,
+    items, subtotal, extra_charge: extraCharge, total,
+    payment_mode: payState.mode, cash_paid: cashPaid, online_paid: onlinePaid,
+    payment_status: 'pending', order_status: 'pending', owner_approved: false,
+    user_confirmed_at: new Date().toISOString(), owner_confirmed_at: null,
+    history: [{ at: new Date().toISOString(), by: 'user', action: 'order_placed' }],
+    created_at: new Date().toISOString()
+  };
+  try {
+    toast('Order place ho raha hai...');
+    await fbSaveOrder(order);
+    try { await sendOrderNotificationToOwner(order); } catch (e) { console.warn(e); }
+    CART = {}; saveCart(); renderCart();
+    closePayment();
+    toast('✅ Order place — owner approval pending');
+    document.querySelector('.bottom-nav a[data-tab="orders"]').click();
+    const uid2 = getAuthUid();
+    const d = await loadMyData(uid2);
+    MY_ORDERS = d.myOrders || [];
+    renderOrders();
+  } catch (e) { toast('❌ ' + e.message); }
+}
+
+function renderOrders() {
+  const list = document.getElementById('myOrders');
+  if (!MY_ORDERS.length) { list.innerHTML = '<div class="card center">Koi order nahi</div>'; return; }
+  list.innerHTML = MY_ORDERS.map(o => {
+    const items = o.items.map(it => {
+      const p = PRODUCTS.find(x => x.id === it.product_id) || { name: it.product_name || '?' };
+      return `<div style="font-size:13px;">• ${p.name} — ${it.qty} ${it.unit} × ${inr(it.price)} = ${inr(it.qty*it.price)}</div>`;
+    }).join('');
+    const isPaid = o.payment_status === 'paid';
+    const isApproved = o.order_status === 'approved';
+    const isDelivered = o.order_status === 'delivered';
+    return `
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;"><b>${new Date(o.created_at).toLocaleString('hi-IN')}</b></div>
+        <div class="mt">${items}</div>
+        ${o.extra_charge > 0 ? `<div style="font-size:12px;color:#e65100;margin-top:4px;">Subtotal: ${inr(o.subtotal)} + Online Fee: ${inr(o.extra_charge)}</div>` : ''}
+        <div style="font-weight:bold;color:#2e7d32;margin-top:4px;">Total: ${inr(o.total)}</div>
+        <div style="font-size:12px;color:${isDelivered?'#2e7d32':isApproved?'#1976d2':'#e65100'};margin-top:4px;">📦 ${isDelivered?'DELIVERED':isApproved?'APPROVED':'PENDING'}</div>
+        <div style="font-size:12px;color:${isPaid?'#2e7d32':'#e65100'};">💰 ${isPaid?'PAID':'PAYMENT PENDING'}</div>
+      </div>`;
+  }).join('');
+}
+
+function renderProfile() {
+  const stats = calculateUserStats(ME.id, MY_ORDERS, MY_UDHAR);
+  const udharRows = MY_UDHAR.map(u => `
+    <div style="padding:6px 0;border-bottom:1px solid #f0f0f0;font-size:13px;">
+      <div style="display:flex;justify-content:space-between;">
+        <b>${new Date(u.created_at).toLocaleDateString('hi-IN')}</b>
+        <span style="color:${u.status==='paid'?'#2e7d32':'#e65100'};">${u.status === 'paid' ? '✅ Paid' : '⏳ Pending'}</span>
+      </div>
+      <div>${u.note || 'Udhar'}</div>
+      <div style="font-weight:bold;">${inr(u.amount)}</div>
+    </div>`).join('') || '<div style="font-size:13px;color:#888;">Koi udhar nahi</div>';
+  document.getElementById('profileBox').innerHTML = `
+    <div class="card">
+      <h3>Meri Info</h3>
+      <label style="font-size:13px;color:#666;">Naam</label>
+      <input id="meName" value="${ME.name || ''}" placeholder="Apna naam">
+      <label style="font-size:13px;color:#666;margin-top:6px;display:block;">Phone</label>
+      <input id="mePhone" value="${ME.phone || ''}" readonly style="background:#f5f5f5;">
+      <label style="font-size:13px;color:#666;margin-top:6px;display:block;">Address</label>
+      <input id="meAddr" value="${ME.address || ''}" placeholder="Ghar ka pata">
+      <button class="primary" onclick="saveMyProfile()">💾 Save</button>
+    </div>
+    <div class="card">
+      <h3>💰 Hisaab</h3>
+      <div style="display:flex;justify-content:space-around;text-align:center;">
+        <div><div style="font-size:20px;font-weight:bold;color:#2e7d32;">${inr(stats.total_orders)}</div><div style="font-size:12px;color:#666;">Total</div></div>
+        <div><div style="font-size:20px;font-weight:bold;color:#2e7d32;">${inr(stats.total_paid)}</div><div style="font-size:12px;color:#666;">Paid</div></div>
+        <div><div style="font-size:20px;font-weight:bold;color:${stats.total_pending>0?'#e65100':'#2e7d32'};">${inr(stats.total_pending)}</div><div style="font-size:12px;color:#666;">Bakaya</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <b style="font-size:14px;">📋 Udhar List</b>
+      <div class="mt">${udharRows}</div>
+    </div>`;
+}
+
+async function saveMyProfile() {
+  const name = document.getElementById('meName').value.trim();
+  const addr = document.getElementById('meAddr').value.trim();
+  if (!name) return toast('Naam daalo');
+  ME.name = name; ME.address = addr;
+  try {
+    await fbSaveUser(ME);
+    saveSession('user', ME);
+    toast('✅ Profile save');
+    const uid2 = getAuthUid();
+    const data = await loadMyData(uid2);
+    ME = data.me || ME;
+    renderProfile();
+  } catch (e) { toast('❌ ' + e.message); }
+}
+
+init();
+</script>
 </body>
 </html>
