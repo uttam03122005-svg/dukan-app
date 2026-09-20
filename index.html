@@ -24,15 +24,22 @@
       height: 4px; border-radius: 2px; margin-top: 4px;
       background: #eee; overflow: hidden;
     }
-    .strength-fill {
-      height: 100%; width: 0%; transition: all 0.3s;
-    }
+    .strength-fill { height: 100%; width: 0%; transition: all 0.3s; }
     .strength-weak { background: #c62828; width: 33%; }
     .strength-medium { background: #f57c00; width: 66%; }
     .strength-strong { background: #2e7d32; width: 100%; }
     .info-text {
-      font-size: 12px; color: #888; margin-top: 4px;
+      font-size: 12px; color: #888; margin-top: 8px;
       padding: 8px; background: #f9f9f9; border-radius: 6px;
+    }
+    .modal-bg {
+      position: fixed; inset: 0; background: rgba(0,0,0,.55);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 500; padding: 16px;
+    }
+    .modal {
+      background: #fff; border-radius: 12px; padding: 20px;
+      width: 100%; max-width: 400px; max-height: 92vh; overflow-y: auto;
     }
   </style>
 </head>
@@ -52,7 +59,6 @@
 
     <!-- ========== CUSTOMER SECTION ========== -->
     <div id="userForm">
-      <!-- Customer Login/Signup Tabs -->
       <div class="card" style="display:flex;padding:0;margin-bottom:10px;">
         <button id="custLoginTab" class="primary" style="border-radius:0;background:#2e7d32;font-size:14px;">Login</button>
         <button id="custSignupTab" class="primary" style="border-radius:0;background:#ccc;color:#333;font-size:14px;">Signup</button>
@@ -84,7 +90,7 @@
         </div>
         <div class="strength-bar"><div id="strengthFill" class="strength-fill"></div></div>
         <div id="strengthText" style="font-size:11px;color:#888;margin-top:2px;"></div>
-        <div class="password-field">
+        <div class="password-field" style="margin-top:6px;">
           <input id="signupPass2" type="password" placeholder="Confirm password">
           <button class="toggle-pass" onclick="togglePassword('signupPass2', this)">👁️</button>
         </div>
@@ -92,9 +98,6 @@
           🔒 Aapka phone number aur password sirf aapke paas rahega. Koi dusra aapka account login nahi kar sakta.
         </div>
         <button class="primary" onclick="customerSignup()">✅ Account Banao</button>
-        <p class="center" style="font-size:12px;color:#888;margin-top:8px;">
-          Pehle se account hai? <b>Login</b> tab dabao
-        </p>
       </div>
     </div>
 
@@ -111,7 +114,6 @@
     </div>
   </div>
 
-  <!-- ========== FORGOT PASSWORD MODAL ========== -->
   <div id="modalRoot"></div>
 
   <script src="app.js"></script>
@@ -144,7 +146,6 @@
       document.getElementById('userForm').classList.add('hidden');
     };
 
-    // Customer Login/Signup tabs
     const custLoginTab = document.getElementById('custLoginTab');
     const custSignupTab = document.getElementById('custSignupTab');
     custLoginTab.onclick = () => {
@@ -160,7 +161,6 @@
       document.getElementById('custLoginForm').classList.add('hidden');
     };
 
-    /* ================= PASSWORD HELPERS ================= */
     function togglePassword(id, btn) {
       const inp = document.getElementById(id);
       if (inp.type === 'password') { inp.type = 'text'; btn.textContent = '🙈'; }
@@ -183,9 +183,7 @@
       else { fill.classList.add('strength-strong'); txt.textContent = '🟢 Strong'; txt.style.color = '#2e7d32'; }
     }
 
-    /* =========================================================
-       CUSTOMER SIGNUP (Phone + Password)
-       ========================================================= */
+    /* ========== CUSTOMER SIGNUP ========== */
     async function customerSignup() {
       const name = document.getElementById('signupName').value.trim();
       const phone = document.getElementById('signupPhone').value.trim();
@@ -193,7 +191,7 @@
       const pass2 = document.getElementById('signupPass2').value;
 
       if (!name) return toast('Naam daalo');
-      if (phone.length !== 10) return toast('10 digit phone daalo');
+      if (phone.length !== 10 || !/^\d{10}$/.test(phone)) return toast('10 digit valid phone daalo');
       if (pass.length < 6) return toast('Password kam se kam 6 character');
       if (pass !== pass2) return toast('Password match nahi kar raha');
 
@@ -203,21 +201,10 @@
 
       try {
         const fakeEmail = phone + '@dukan.local';
-        // Check if account already exists
-        try {
-          await AUTH.signInWithEmailAndPassword(fakeEmail, 'wrong-password-check');
-        } catch (e) {
-          if (e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential') {
-            return toast('❌ Is phone se account already hai. Login karo.');
-          }
-        }
-
-        // Create new account
         const cred = await AUTH.createUserWithEmailAndPassword(fakeEmail, pass);
         const fbUser = cred.user;
         await waitForAuth();
 
-        // Save user doc
         const user = {
           id: fbUser.uid,
           name: name,
@@ -233,15 +220,13 @@
         setTimeout(() => location.replace('user.html'), 600);
       } catch (e) {
         console.error('Signup error:', e);
-        if (e.code === 'auth/email-already-in-use') toast('❌ Ye phone already registered');
+        if (e.code === 'auth/email-already-in-use') toast('❌ Ye phone already registered. Login karo.');
         else if (e.code === 'auth/weak-password') toast('❌ Password kamzor hai');
         else toast('❌ ' + (e.message || 'Signup fail'));
       }
     }
 
-    /* =========================================================
-       CUSTOMER LOGIN (Phone + Password)
-       ========================================================= */
+    /* ========== CUSTOMER LOGIN ========== */
     async function customerLogin() {
       const phone = document.getElementById('loginPhone').value.trim();
       const pass = document.getElementById('loginPass').value;
@@ -275,31 +260,33 @@
         console.error('Login error:', e);
         if (e.code === 'auth/user-not-found') toast('❌ Account nahi hai. Pehle signup karo.');
         else if (e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential') toast('❌ Password galat');
+        else if (e.code === 'auth/too-many-requests') toast('❌ Bahut baar try kiya. Thodi der baad try karo.');
         else toast('❌ ' + (e.message || 'Login fail'));
       }
     }
 
-    /* =========================================================
-       FORGOT PASSWORD (Customer)
-       ========================================================= */
+    /* ========== FORGOT PASSWORD (Customer) ========== */
     function showForgotPassword() {
       document.getElementById('modalRoot').innerHTML = `
         <div class="modal-bg" onclick="if(event.target===this) closeModal()">
-          <div class="modal" style="background:#fff;border-radius:12px;padding:20px;width:90%;max-width:400px;">
+          <div class="modal">
             <h3>🔑 Password Reset</h3>
-            <p style="font-size:13px;color:#666;margin:8px 0;">Apna phone number daalo aur naya password set karo.</p>
-            <input id="fpPhone" placeholder="Phone number" inputmode="numeric" maxlength="10" style="width:100%;padding:10px;margin:6px 0;border:1px solid #ccc;border-radius:6px;">
-            <div class="password-field" style="position:relative;">
-              <input id="fpNewPass" type="password" placeholder="Naya password (min 6)" style="width:100%;padding:10px;margin:6px 0;border:1px solid #ccc;border-radius:6px;">
-              <button class="toggle-pass" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;font-size:18px;cursor:pointer;" onclick="togglePassword('fpNewPass', this)">👁️</button>
+            <p style="font-size:13px;color:#666;margin:8px 0;">Phone, purana password aur naya password daalo.</p>
+            <input id="fpPhone" placeholder="Phone number" inputmode="numeric" maxlength="10" type="tel">
+            <div class="password-field">
+              <input id="fpOldPass" type="password" placeholder="Purana password">
+              <button class="toggle-pass" onclick="togglePassword('fpOldPass', this)">👁️</button>
             </div>
-            <input id="fpOldPass" type="password" placeholder="Purana password" style="width:100%;padding:10px;margin:6px 0;border:1px solid #ccc;border-radius:6px;">
-            <div style="background:#fff3e0;padding:8px;border-radius:6px;font-size:12px;color:#e65100;margin:8px 0;">
+            <div class="password-field">
+              <input id="fpNewPass" type="password" placeholder="Naya password (min 6)">
+              <button class="toggle-pass" onclick="togglePassword('fpNewPass', this)">👁️</button>
+            </div>
+            <div class="info-text" style="background:#fff3e0;color:#e65100;">
               ⚠️ Purana password daalna zaroori hai security ke liye.
             </div>
             <div style="display:flex;gap:8px;margin-top:10px;">
-              <button class="primary" style="background:#777;width:100%;padding:12px;border:none;border-radius:8px;color:#fff;font-weight:bold;cursor:pointer;" onclick="closeModal()">Cancel</button>
-              <button class="primary" style="width:100%;padding:12px;border:none;border-radius:8px;color:#fff;font-weight:bold;cursor:pointer;background:#2e7d32;" onclick="resetCustomerPassword()">Reset</button>
+              <button class="primary" style="background:#777;" onclick="closeModal()">Cancel</button>
+              <button class="primary" onclick="resetCustomerPassword()">Reset</button>
             </div>
           </div>
         </div>`;
@@ -311,14 +298,12 @@
       const newPass = document.getElementById('fpNewPass').value;
 
       if (phone.length !== 10) return toast('10 digit phone daalo');
-      if (newPass.length < 6) return toast('Naya password min 6 char');
       if (!oldPass) return toast('Purana password daalo');
+      if (newPass.length < 6) return toast('Naya password min 6 char');
 
       try {
         const fakeEmail = phone + '@dukan.local';
-        // Verify old password by signing in
         const cred = await AUTH.signInWithEmailAndPassword(fakeEmail, oldPass);
-        // Update to new password
         await cred.user.updatePassword(newPass);
         toast('✅ Password change ho gaya! Ab login karo.');
         closeModal();
@@ -330,19 +315,17 @@
       }
     }
 
-    /* =========================================================
-       OWNER FORGOT PASSWORD
-       ========================================================= */
+    /* ========== FORGOT PASSWORD (Owner) ========== */
     function showOwnerForgotPassword() {
       document.getElementById('modalRoot').innerHTML = `
         <div class="modal-bg" onclick="if(event.target===this) closeModal()">
-          <div class="modal" style="background:#fff;border-radius:12px;padding:20px;width:90%;max-width:400px;">
+          <div class="modal">
             <h3>🔑 Owner Password Reset</h3>
             <p style="font-size:13px;color:#666;margin:8px 0;">Owner email daalo. Reset link email par aayega.</p>
-            <input id="fpOwnerEmail" placeholder="Owner email" type="email" style="width:100%;padding:10px;margin:6px 0;border:1px solid #ccc;border-radius:6px;">
+            <input id="fpOwnerEmail" placeholder="Owner email" type="email">
             <div style="display:flex;gap:8px;margin-top:10px;">
-              <button class="primary" style="background:#777;width:100%;padding:12px;border:none;border-radius:8px;color:#fff;font-weight:bold;cursor:pointer;" onclick="closeModal()">Cancel</button>
-              <button class="primary" style="width:100%;padding:12px;border:none;border-radius:8px;color:#fff;font-weight:bold;cursor:pointer;background:#2e7d32;" onclick="sendOwnerReset()">Send Link</button>
+              <button class="primary" style="background:#777;" onclick="closeModal()">Cancel</button>
+              <button class="primary" onclick="sendOwnerReset()">Send Link</button>
             </div>
           </div>
         </div>`;
@@ -362,9 +345,7 @@
 
     function closeModal() { document.getElementById('modalRoot').innerHTML = ''; }
 
-    /* =========================================================
-       OWNER LOGIN
-       ========================================================= */
+    /* ========== OWNER LOGIN ========== */
     async function ownerLogin() {
       const email = document.getElementById('oEmail').value.trim();
       const pass = document.getElementById('oPass').value.trim();
