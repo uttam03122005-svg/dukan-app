@@ -29,24 +29,33 @@
       align-items: center;
       justify-content: center;
       gap: 6px;
+      transition: transform 0.1s;
     }
-    .media-btn:active { opacity: 0.85; }
+    .media-btn:active { transform: scale(0.97); opacity: 0.85; }
     .btn-cam { background: #2e7d32; }
     .btn-gal { background: #1976d2; }
     
     .img-status { 
       font-size: 12px; 
       color: #666; 
-      margin-top: 6px; 
+      margin-top: 8px; 
       text-align: center;
       min-height: 16px;
+      padding: 4px;
+      border-radius: 4px;
     }
+    .img-status.success { background: #e8f5e9; color: #2e7d32; font-weight: bold; }
+    .img-status.error { background: #ffebee; color: #c62828; }
+    
     #pPreview {
       max-width: 100%;
       margin-top: 8px;
       border-radius: 8px;
       display: none;
       box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      max-height: 300px;
+      object-fit: contain;
+      background: #f5f5f5;
     }
   </style>
 </head>
@@ -74,7 +83,8 @@
         <!-- ========== IMAGE SECTION (Camera + Gallery) ========== -->
         <!-- Hidden file inputs -->
         <input id="pImgGallery" type="file" accept="image/*" style="display:none;" onchange="handleImageSelect(event)" onclick="this.value=null">
-        <input id="pImgCamera" type="file" accept="image/*" capture="environment" style="display:none;" onchange="handleImageSelect(event)" onclick="this.value=null">        
+        <input id="pImgCamera" type="file" accept="image/*" capture="environment" style="display:none;" onchange="handleImageSelect(event)" onclick="this.value=null">
+        
         <!-- 2 Buttons -->
         <div class="media-btn-row">
           <button type="button" class="media-btn btn-cam" onclick="openCamera()">
@@ -197,134 +207,170 @@
       }
     }
 
-    /* ================= CAMERA & GALLERY ================= */
+    /* ================= CAMERA & GALLERY (FIXED) ================= */
     function openCamera() {
+      console.log('📷 Opening camera...');
       const inp = document.getElementById('pImgCamera');
-      inp.value = '';
+      inp.value = null;
       inp.click();
     }
 
     function openGallery() {
+      console.log('🖼️ Opening gallery...');
       const inp = document.getElementById('pImgGallery');
-      inp.value = '';
+      inp.value = null;
       inp.click();
     }
 
-function handleImageSelect(event) {
-  const file = event.target.files && event.target.files[0];
-  if (!file) {
-    console.warn('No file selected');
-    return;
-  }
+    function handleImageSelect(event) {
+      const file = event.target.files && event.target.files[0];
+      const status = document.getElementById('imgStatus');
+      const prev = document.getElementById('pPreview');
 
-  console.log('📷 File selected:', file.name, file.type, file.size);
+      if (!file) {
+        console.warn('No file selected');
+        status.textContent = '';
+        status.className = 'img-status';
+        return;
+      }
 
-  // Size check (max 8MB)
-  if (file.size > 8 * 1024 * 1024) {
-    toast('❌ Image 8MB se choti honi chahiye');
-    return;
-  }
-  // Type check
-  if (!file.type.startsWith('image/')) {
-    toast('❌ Sirf image file chuno');
-    return;
-  }
+      console.log('📷 File selected:', {
+        name: file.name,
+        type: file.type,
+        size: file.size
+      });
 
-  const status = document.getElementById('imgStatus');
-  const prev = document.getElementById('pPreview');
-  
-  // Show preview immediately (original file) - instant feedback
-  status.textContent = '⏳ Loading...';
-  try {
-    const quickUrl = URL.createObjectURL(file);
-    prev.src = quickUrl;
-    prev.style.display = 'block';
-    prev.onload = () => {
-      status.textContent = `📷 ${(file.size/1024).toFixed(0)} KB — compressing...`;
-      URL.revokeObjectURL(quickUrl);
-    };
-  } catch (e) {
-    console.warn('Quick preview fail:', e);
-  }
+      // Reset status
+      status.className = 'img-status';
 
-  // Now compress in background
-  compressImage(file, 1000, 1000, 0.75).then(compressed => {
-    console.log('✅ Compressed:', compressed.size, 'bytes');
-    compressedImageFile = compressed;
-    const newUrl = URL.createObjectURL(compressed);
-    prev.src = newUrl;
-    prev.style.display = 'block';
-    status.textContent = `✅ Ready (${(compressed.size/1024).toFixed(0)} KB)`;
-  }).catch(err => {
-    console.warn('Compress fail, using original:', err);
-    compressedImageFile = file;
-    const newUrl = URL.createObjectURL(file);
-    prev.src = newUrl;
-    prev.style.display = 'block';
-    status.textContent = `📷 ${(file.size/1024).toFixed(0)} KB`;
-  });
-}
+      // Size check (max 8MB)
+      if (file.size > 8 * 1024 * 1024) {
+        toast('❌ Image 8MB se choti honi chahiye');
+        status.textContent = '❌ File bahut badi hai';
+        status.className = 'img-status error';
+        return;
+      }
+
+      // Type check
+      if (!file.type.startsWith('image/')) {
+        toast('❌ Sirf image file chuno');
+        status.textContent = '❌ Ye image file nahi hai';
+        status.className = 'img-status error';
+        return;
+      }
+
+      // STEP 1: Show immediate preview (original file)
+      status.textContent = '⏳ Loading...';
+      try {
+        const quickUrl = URL.createObjectURL(file);
+        prev.onload = () => {
+          status.textContent = `📷 ${(file.size/1024).toFixed(0)} KB — compressing...`;
+          // Revoke URL after image loads
+          setTimeout(() => URL.revokeObjectURL(quickUrl), 1000);
+        };
+        prev.onerror = () => {
+          console.warn('Preview load fail');
+        };
+        prev.src = quickUrl;
+        prev.style.display = 'block';
+      } catch (e) {
+        console.warn('Quick preview fail:', e);
+      }
+
+      // STEP 2: Compress in background
+      compressImage(file, 1000, 1000, 0.75).then(compressed => {
+        console.log('✅ Compressed:', compressed.size, 'bytes');
+        compressedImageFile = compressed;
+        const newUrl = URL.createObjectURL(compressed);
+        prev.src = newUrl;
+        prev.style.display = 'block';
+        prev.onload = () => {
+          status.textContent = `✅ Ready (${(compressed.size/1024).toFixed(0)} KB)`;
+          status.className = 'img-status success';
+        };
+      }).catch(err => {
+        console.warn('Compress fail, using original:', err);
+        compressedImageFile = file;
+        // Preview already shown from original file
+        status.textContent = `📷 ${(file.size/1024).toFixed(0)} KB`;
+        status.className = 'img-status';
+      });
+    }
 
     function compressImage(file, maxW, maxH, quality) {
-  return new Promise((resolve, reject) => {
-    // Fallback: if FileReader fails, just return original file
-    const fallback = () => {
-      console.warn('⚠️ Using original file (compression failed)');
-      resolve(file);
-    };
+      return new Promise((resolve) => {
+        // Fallback: return original file if anything fails
+        const fallback = () => {
+          console.warn('⚠️ Using original file (compression failed)');
+          resolve(file);
+        };
 
-    try {
-      const reader = new FileReader();
-      reader.onload = e => {
         try {
-          const img = new Image();
-          img.onload = () => {
+          const reader = new FileReader();
+          
+          reader.onload = (e) => {
             try {
-              let w = img.width, h = img.height;
-              if (w > maxW) { h = Math.round(h * maxW / w); w = maxW; }
-              if (h > maxH) { w = Math.round(w * maxH / h); h = maxH; }
+              const img = new Image();
               
-              const canvas = document.createElement('canvas');
-              canvas.width = w;
-              canvas.height = h;
-              const ctx = canvas.getContext('2d');
-              ctx.drawImage(img, 0, 0, w, h);
-              
-              canvas.toBlob(blob => {
-                if (!blob) {
-                  console.warn('toBlob returned null, using original');
-                  return fallback();
+              img.onload = () => {
+                try {
+                  let w = img.width, h = img.height;
+                  if (w > maxW) { h = Math.round(h * maxW / w); w = maxW; }
+                  if (h > maxH) { w = Math.round(w * maxH / h); h = maxH; }
+                  
+                  const canvas = document.createElement('canvas');
+                  canvas.width = w;
+                  canvas.height = h;
+                  const ctx = canvas.getContext('2d');
+                  
+                  // White background for transparent PNGs
+                  ctx.fillStyle = '#ffffff';
+                  ctx.fillRect(0, 0, w, h);
+                  ctx.drawImage(img, 0, 0, w, h);
+                  
+                  canvas.toBlob((blob) => {
+                    if (!blob) {
+                      console.warn('toBlob returned null');
+                      return fallback();
+                    }
+                    const outName = (file.name || 'photo').replace(/\.[^.]+$/, '') + '.jpg';
+                    const out = new File([blob], outName, { type: 'image/jpeg' });
+                    resolve(out);
+                  }, 'image/jpeg', quality);
+                  
+                } catch (err) {
+                  console.warn('Canvas processing fail:', err);
+                  fallback();
                 }
-                const outName = (file.name || 'photo').replace(/\.[^.]+$/, '') + '.jpg';
-                const out = new File([blob], outName, { type: 'image/jpeg' });
-                resolve(out);
-              }, 'image/jpeg', quality);
+              };
+              
+              img.onerror = (err) => {
+                console.warn('Image load fail:', err);
+                fallback();
+              };
+              
+              img.src = e.target.result;
+              
             } catch (err) {
-              console.warn('Canvas draw fail:', err);
+              console.warn('Image processing fail:', err);
               fallback();
             }
           };
-          img.onerror = () => {
-            console.warn('Image load fail');
+          
+          reader.onerror = (err) => {
+            console.warn('FileReader error:', err);
             fallback();
           };
-          img.src = e.target.result;
+          
+          reader.readAsDataURL(file);
+          
         } catch (err) {
-          console.warn('Image processing fail:', err);
+          console.warn('FileReader init fail:', err);
           fallback();
         }
-      };
-      reader.onerror = () => {
-        console.warn('FileReader fail');
-        fallback();
-      };
-      reader.readAsDataURL(file);
-    } catch (err) {
-      console.warn('FileReader init fail:', err);
-      fallback();
+      });
     }
-  });
-}
+
     /* ================= PRODUCTS ================= */
     function addUnit(data) {
       currentUnits.push(data || { label:'piece', retail:'', wholesale:'', stock:'' });
@@ -354,11 +400,14 @@ function handleImageSelect(event) {
 
     function resetProductForm() {
       ['pId','pName','pCat'].forEach(id => document.getElementById(id).value = '');
-      document.getElementById('pImgGallery').value = '';
-      document.getElementById('pImgCamera').value = '';
-      document.getElementById('pPreview').style.display = 'none';
-      document.getElementById('pPreview').src = '';
-      document.getElementById('imgStatus').textContent = '';
+      document.getElementById('pImgGallery').value = null;
+      document.getElementById('pImgCamera').value = null;
+      const prev = document.getElementById('pPreview');
+      prev.style.display = 'none';
+      prev.src = '';
+      const status = document.getElementById('imgStatus');
+      status.textContent = '';
+      status.className = 'img-status';
       compressedImageFile = null;
       editingImageUrl = ''; currentUnits = [];
       addUnit({ label:'piece', retail:'', wholesale:'', stock:'' });
@@ -384,6 +433,7 @@ function handleImageSelect(event) {
         
         // Use compressed image if available
         if (compressedImageFile) {
+          toast('📤 Image upload ho raha hai...');
           imageUrl = await uploadImage(compressedImageFile);
         }
         
@@ -407,7 +457,10 @@ function handleImageSelect(event) {
         toast('✅ Save');
         resetProductForm(); 
         renderProducts();
-      } catch (e) { toast('❌ ' + e.message); }
+      } catch (e) { 
+        console.error('Save error:', e);
+        toast('❌ ' + e.message); 
+      }
     }
 
     function editProduct(id) {
@@ -420,13 +473,17 @@ function handleImageSelect(event) {
       compressedImageFile = null;
       
       const prev = document.getElementById('pPreview');
+      const status = document.getElementById('imgStatus');
+      
       if (p.image) { 
         prev.src = p.image; 
         prev.style.display = 'block';
-        document.getElementById('imgStatus').textContent = '📷 Existing image (change karne ke liye nayi chuno)';
+        status.textContent = '📷 Existing image (change ke liye nayi chuno)';
+        status.className = 'img-status';
       } else { 
         prev.style.display = 'none';
-        document.getElementById('imgStatus').textContent = '';
+        status.textContent = '';
+        status.className = 'img-status';
       }
       
       currentUnits = (p.units||[]).map(u => ({...u}));
