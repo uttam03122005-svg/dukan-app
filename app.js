@@ -35,6 +35,7 @@ async function initFirebase() {
   FB_READY_RESOLVE(true);
   console.log('✅ Firebase ready');
 }
+
 function loadScript(src) {
   return new Promise((resolve, reject) => {
     const s = document.createElement('script');
@@ -42,6 +43,7 @@ function loadScript(src) {
     document.head.appendChild(s);
   });
 }
+
 async function waitForFirebase() { return await FB_READY_PROMISE; }
 
 /* ================== AUTH ================== */
@@ -50,6 +52,7 @@ async function ownerSignIn(email, password) {
   const cred = await AUTH.signInWithEmailAndPassword(email, password);
   return cred.user;
 }
+
 function getAuthUid() { return (AUTH && AUTH.currentUser) ? AUTH.currentUser.uid : null; }
 
 function waitForAuth() {
@@ -68,6 +71,7 @@ function waitForAuth() {
     }, 5000);
   });
 }
+
 async function authSignOut() { if (AUTH) await AUTH.signOut(); }
 
 /* ================== TOAST ================== */
@@ -177,7 +181,7 @@ async function uploadImage(file) {
   const res = await fetch(`https://api.imgbb.com/1/upload?key=${key}`, { method: 'POST', body: form });
   const json = await res.json();
   console.log('📥 ImgBB response:', json.success);
-  if (!json.success) throw new Error('Image upload fail: ' + (json.error?.message || 'Unknown'));
+  if (!json.success) throw new Error('Image upload fail');
   return json.data.url;
 }
 
@@ -274,8 +278,10 @@ function getAppLinks(amount, note) {
   const pa = encodeURIComponent(id);
   const base = `pa=${pa}&pn=${pn}&am=${amt}&cu=INR&tn=${tn}`;
   return {
-    gpay: `tez://upi/pay?${base}`, phonepe: `phonepe://pay?${base}`,
-    paytm: `paytmmp://pay?${base}`, bhim: `bhim://pay?${base}`,
+    gpay: `tez://upi/pay?${base}`,
+    phonepe: `phonepe://pay?${base}`,
+    paytm: `paytmmp://pay?${base}`,
+    bhim: `bhim://pay?${base}`,
     any: `upi://pay?${base}`
   };
 }
@@ -285,58 +291,55 @@ let MESSAGING = null, FCM_TOKEN = null;
 
 function isPWA() {
   return window.matchMedia('(display-mode: standalone)').matches ||
-         window.navigator.standalone === true ||
-         document.referrer.includes('android-app://');
+         window.navigator.standalone === true;
 }
 function isWebView() {
   const ua = navigator.userAgent || '';
-  return /wv|WebView|Android.*Version\/[\d.]+/.test(ua) && /Android/.test(ua);
+  return /wv|WebView/.test(ua) && /Android/.test(ua);
 }
 
 async function initMessaging() {
   console.log('🔔 initMessaging start');
   if (!FB_READY || !AUTH) throw new Error('Firebase ready nahi');
-  if (!('Notification' in window)) throw new Error('Browser notifications support nahi karta');
+  if (!('Notification' in window)) throw new Error('Notifications support nahi');
   if (!('serviceWorker' in navigator)) throw new Error('Service Worker support nahi');
   if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
     throw new Error('HTTPS zaroori hai');
   }
-  
+
   let permission = Notification.permission;
   if (permission === 'default') {
     permission = await Notification.requestPermission();
   }
   console.log('🔔 Permission:', permission);
   if (permission !== 'granted') throw new Error('Permission denied');
-  
+
   if (typeof firebase.messaging === 'undefined') {
     await loadScript('https://www.gstatic.com/firebasejs/10.7.0/firebase-messaging-compat.js');
   }
+
   MESSAGING = firebase.messaging();
-  
   const vapidKey = SECRET.firebase?.vapidKey || '';
   if (!vapidKey) throw new Error('VAPID key missing');
-  
+
   const reg = await navigator.serviceWorker.register('./service-worker.js', { scope: './' });
   await navigator.serviceWorker.ready;
-  console.log('✅ SW ready');
-  
+
   try {
     FCM_TOKEN = await MESSAGING.getToken({ vapidKey, serviceWorkerRegistration: reg });
   } catch (e) {
-    console.warn('Token with SW failed, retry:', e);
+    console.warn('Token with SW failed:', e);
     FCM_TOKEN = await MESSAGING.getToken({ vapidKey });
   }
   if (!FCM_TOKEN) throw new Error('FCM token nahi mila');
   console.log('✅ FCM Token:', FCM_TOKEN.substring(0, 30) + '...');
-  
+
   MESSAGING.onMessage(payload => {
-    console.log('📨 Foreground:', payload);
     const title = payload.notification?.title || 'Dukan Order';
     const body = payload.notification?.body || 'Naya order aaya hai!';
     showLocalNotification(title, body, payload.data);
   });
-  
+
   return FCM_TOKEN;
 }
 
