@@ -7,6 +7,34 @@
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#2e7d32">
   <link rel="stylesheet" href="style.css">
+  <style>
+    .password-field { position: relative; }
+    .password-field input { padding-right: 45px; }
+    .toggle-pass {
+      position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+      background: none; border: none; font-size: 20px; cursor: pointer;
+      color: #666; padding: 5px;
+    }
+    .forgot-link {
+      text-align: right; font-size: 13px; color: #1976d2;
+      cursor: pointer; margin-top: -4px; margin-bottom: 8px;
+    }
+    .forgot-link:hover { text-decoration: underline; }
+    .strength-bar {
+      height: 4px; border-radius: 2px; margin-top: 4px;
+      background: #eee; overflow: hidden;
+    }
+    .strength-fill {
+      height: 100%; width: 0%; transition: all 0.3s;
+    }
+    .strength-weak { background: #c62828; width: 33%; }
+    .strength-medium { background: #f57c00; width: 66%; }
+    .strength-strong { background: #2e7d32; width: 100%; }
+    .info-text {
+      font-size: 12px; color: #888; margin-top: 4px;
+      padding: 8px; background: #f9f9f9; border-radius: 6px;
+    }
+  </style>
 </head>
 <body>
   <div class="header"><h1>🏪 Dukan App</h1></div>
@@ -14,7 +42,7 @@
   <div class="container">
     <div class="card center">
       <h2 style="color:#2e7d32;">Welcome!</h2>
-      <p style="color:#666;font-size:14px;">Login karo</p>
+      <p style="color:#666;font-size:14px;">Login ya Signup karo</p>
     </div>
 
     <div class="card" style="display:flex;padding:0;">
@@ -22,22 +50,69 @@
       <button id="tabOwner" class="primary" style="border-radius:0;background:#ccc;color:#333;">Owner</button>
     </div>
 
-    <div id="userForm" class="card">
-      <h3>Customer Login</h3>
-      <input id="uPhone" placeholder="Phone number (10 digit)" inputmode="numeric" maxlength="10">
-      <button class="primary" onclick="userLogin()">Login</button>
-      <p class="center" style="font-size:12px;color:#888;margin-top:8px;">
-        Sirf phone number se login
-      </p>
+    <!-- ========== CUSTOMER SECTION ========== -->
+    <div id="userForm">
+      <!-- Customer Login/Signup Tabs -->
+      <div class="card" style="display:flex;padding:0;margin-bottom:10px;">
+        <button id="custLoginTab" class="primary" style="border-radius:0;background:#2e7d32;font-size:14px;">Login</button>
+        <button id="custSignupTab" class="primary" style="border-radius:0;background:#ccc;color:#333;font-size:14px;">Signup</button>
+      </div>
+
+      <!-- Customer Login Form -->
+      <div id="custLoginForm" class="card">
+        <h3>🔐 Customer Login</h3>
+        <input id="loginPhone" placeholder="Phone number (10 digit)" inputmode="numeric" maxlength="10" type="tel">
+        <div class="password-field">
+          <input id="loginPass" type="password" placeholder="Password">
+          <button class="toggle-pass" onclick="togglePassword('loginPass', this)">👁️</button>
+        </div>
+        <div class="forgot-link" onclick="showForgotPassword()">🔑 Password bhool gaye?</div>
+        <button class="primary" onclick="customerLogin()">Login</button>
+        <p class="center" style="font-size:12px;color:#888;margin-top:8px;">
+          Naya ho? Upar <b>Signup</b> tab dabao
+        </p>
+      </div>
+
+      <!-- Customer Signup Form -->
+      <div id="custSignupForm" class="card hidden">
+        <h3>📝 Customer Signup</h3>
+        <input id="signupName" placeholder="Aapka naam">
+        <input id="signupPhone" placeholder="Phone number (10 digit)" inputmode="numeric" maxlength="10" type="tel">
+        <div class="password-field">
+          <input id="signupPass" type="password" placeholder="Password (min 6 char)" oninput="checkPasswordStrength(this.value)">
+          <button class="toggle-pass" onclick="togglePassword('signupPass', this)">👁️</button>
+        </div>
+        <div class="strength-bar"><div id="strengthFill" class="strength-fill"></div></div>
+        <div id="strengthText" style="font-size:11px;color:#888;margin-top:2px;"></div>
+        <div class="password-field">
+          <input id="signupPass2" type="password" placeholder="Confirm password">
+          <button class="toggle-pass" onclick="togglePassword('signupPass2', this)">👁️</button>
+        </div>
+        <div class="info-text">
+          🔒 Aapka phone number aur password sirf aapke paas rahega. Koi dusra aapka account login nahi kar sakta.
+        </div>
+        <button class="primary" onclick="customerSignup()">✅ Account Banao</button>
+        <p class="center" style="font-size:12px;color:#888;margin-top:8px;">
+          Pehle se account hai? <b>Login</b> tab dabao
+        </p>
+      </div>
     </div>
 
+    <!-- ========== OWNER SECTION ========== -->
     <div id="ownerForm" class="card hidden">
-      <h3>Owner Login</h3>
+      <h3>👨‍💼 Owner Login</h3>
       <input id="oEmail" placeholder="Owner email" type="email">
-      <input id="oPass" type="password" placeholder="Password">
+      <div class="password-field">
+        <input id="oPass" type="password" placeholder="Password">
+        <button class="toggle-pass" onclick="togglePassword('oPass', this)">👁️</button>
+      </div>
+      <div class="forgot-link" onclick="showOwnerForgotPassword()">🔑 Password bhool gaye?</div>
       <button class="primary" onclick="ownerLogin()">Login</button>
     </div>
   </div>
+
+  <!-- ========== FORGOT PASSWORD MODAL ========== -->
+  <div id="modalRoot"></div>
 
   <script src="app.js"></script>
   <script>
@@ -48,7 +123,6 @@
       const uid = await waitForAuth();
       if (s && s.role === 'owner' && uid) { location.replace('owner.html'); return; }
       if (s && s.role === 'user' && uid)  { location.replace('user.html');  return; }
-      // session hai par auth nahi → session clear karo
       if (s && !uid) {
         localStorage.removeItem('role');
         localStorage.removeItem('session');
@@ -70,95 +144,226 @@
       document.getElementById('userForm').classList.add('hidden');
     };
 
+    // Customer Login/Signup tabs
+    const custLoginTab = document.getElementById('custLoginTab');
+    const custSignupTab = document.getElementById('custSignupTab');
+    custLoginTab.onclick = () => {
+      custLoginTab.style.background = '#2e7d32'; custLoginTab.style.color = '#fff';
+      custSignupTab.style.background = '#ccc'; custSignupTab.style.color = '#333';
+      document.getElementById('custLoginForm').classList.remove('hidden');
+      document.getElementById('custSignupForm').classList.add('hidden');
+    };
+    custSignupTab.onclick = () => {
+      custSignupTab.style.background = '#2e7d32'; custSignupTab.style.color = '#fff';
+      custLoginTab.style.background = '#ccc'; custLoginTab.style.color = '#333';
+      document.getElementById('custSignupForm').classList.remove('hidden');
+      document.getElementById('custLoginForm').classList.add('hidden');
+    };
+
+    /* ================= PASSWORD HELPERS ================= */
+    function togglePassword(id, btn) {
+      const inp = document.getElementById(id);
+      if (inp.type === 'password') { inp.type = 'text'; btn.textContent = '🙈'; }
+      else { inp.type = 'password'; btn.textContent = '👁️'; }
+    }
+
+    function checkPasswordStrength(pass) {
+      const fill = document.getElementById('strengthFill');
+      const txt = document.getElementById('strengthText');
+      let strength = 0;
+      if (pass.length >= 6) strength++;
+      if (pass.length >= 8) strength++;
+      if (/[A-Z]/.test(pass)) strength++;
+      if (/[0-9]/.test(pass)) strength++;
+      if (/[^A-Za-z0-9]/.test(pass)) strength++;
+
+      fill.className = 'strength-fill';
+      if (strength <= 2) { fill.classList.add('strength-weak'); txt.textContent = '🔴 Weak'; txt.style.color = '#c62828'; }
+      else if (strength <= 3) { fill.classList.add('strength-medium'); txt.textContent = '🟠 Medium'; txt.style.color = '#f57c00'; }
+      else { fill.classList.add('strength-strong'); txt.textContent = '🟢 Strong'; txt.style.color = '#2e7d32'; }
+    }
+
     /* =========================================================
-       CUSTOMER LOGIN
-       Phone number ko email/password me convert karte hain
-       taaki har baar SAME Firebase UID mile.
+       CUSTOMER SIGNUP (Phone + Password)
        ========================================================= */
-    async function userLogin() {
-      const phone = document.getElementById('uPhone').value.trim();
+    async function customerSignup() {
+      const name = document.getElementById('signupName').value.trim();
+      const phone = document.getElementById('signupPhone').value.trim();
+      const pass = document.getElementById('signupPass').value;
+      const pass2 = document.getElementById('signupPass2').value;
+
+      if (!name) return toast('Naam daalo');
       if (phone.length !== 10) return toast('10 digit phone daalo');
+      if (pass.length < 6) return toast('Password kam se kam 6 character');
+      if (pass !== pass2) return toast('Password match nahi kar raha');
+
+      toast('Account ban raha hai...');
+      const ok = await waitForFirebase();
+      if (!ok) return toast('❌ Firebase ready nahi');
+
+      try {
+        const fakeEmail = phone + '@dukan.local';
+        // Check if account already exists
+        try {
+          await AUTH.signInWithEmailAndPassword(fakeEmail, 'wrong-password-check');
+        } catch (e) {
+          if (e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential') {
+            return toast('❌ Is phone se account already hai. Login karo.');
+          }
+        }
+
+        // Create new account
+        const cred = await AUTH.createUserWithEmailAndPassword(fakeEmail, pass);
+        const fbUser = cred.user;
+        await waitForAuth();
+
+        // Save user doc
+        const user = {
+          id: fbUser.uid,
+          name: name,
+          phone: phone,
+          address: '',
+          price_type: 'retail',
+          special_prices: {},
+          created_at: new Date().toISOString()
+        };
+        await fbSaveUser(user);
+        saveSession('user', { id: fbUser.uid, name, phone, price_type: 'retail' });
+        toast('✅ Account ban gaya!');
+        setTimeout(() => location.replace('user.html'), 600);
+      } catch (e) {
+        console.error('Signup error:', e);
+        if (e.code === 'auth/email-already-in-use') toast('❌ Ye phone already registered');
+        else if (e.code === 'auth/weak-password') toast('❌ Password kamzor hai');
+        else toast('❌ ' + (e.message || 'Signup fail'));
+      }
+    }
+
+    /* =========================================================
+       CUSTOMER LOGIN (Phone + Password)
+       ========================================================= */
+    async function customerLogin() {
+      const phone = document.getElementById('loginPhone').value.trim();
+      const pass = document.getElementById('loginPass').value;
+
+      if (phone.length !== 10) return toast('10 digit phone daalo');
+      if (!pass) return toast('Password daalo');
 
       toast('Login ho raha hai...');
       const ok = await waitForFirebase();
       if (!ok) return toast('❌ Firebase ready nahi');
 
       try {
-        // Phone se fake email/password banao — fixed (same phone = same UID)
         const fakeEmail = phone + '@dukan.local';
-        const fakePass = 'Dukan@' + phone + 'Secure!';
-
-        let fbUser = null;
-        try {
-          // Pehle login try karo
-          fbUser = await AUTH.signInWithEmailAndPassword(fakeEmail, fakePass);
-          fbUser = fbUser.user;
-          console.log('✅ Existing customer login:', fbUser.uid);
-        } catch (e) {
-          // Account nahi hai → naya banao
-          if (e.code === 'auth/user-not-found' ||
-              e.code === 'auth/invalid-credential' ||
-              e.code === 'auth/wrong-password') {
-            try {
-              const cred = await AUTH.createUserWithEmailAndPassword(fakeEmail, fakePass);
-              fbUser = cred.user;
-              console.log('✅ Naya customer account:', fbUser.uid);
-            } catch (e2) {
-              // agar email already in use hai (rare case)
-              if (e2.code === 'auth/email-already-in-use') {
-                throw new Error('Is phone se account already hai — password mismatch. Owner se contact karo.');
-              }
-              throw e2;
-            }
-          } else {
-            throw e;
-          }
-        }
-
-        const uid = fbUser.uid;
+        const cred = await AUTH.signInWithEmailAndPassword(fakeEmail, pass);
+        const fbUser = cred.user;
         await waitForAuth();
 
-        // User document dhundo uid se
-        let user = await fbLoadMyUser(uid);
-
+        let user = await fbLoadMyUser(fbUser.uid);
         if (!user) {
           user = {
-            id: uid,
-            name: 'Customer',
-            phone: phone,
-            address: '',
-            price_type: 'retail',
-            special_prices: {},
+            id: fbUser.uid, name: 'Customer', phone: phone,
+            address: '', price_type: 'retail', special_prices: {},
             created_at: new Date().toISOString()
           };
           await fbSaveUser(user);
-          toast('✅ Register ho gaya');
-        } else {
-          // Phone update karo agar alag hai
-          if (user.phone !== phone) {
-            user.phone = phone;
-            await fbSaveUser(user);
-          }
-          toast('Wapas swagat, ' + (user.name || 'Customer') + '!');
         }
-
-        saveSession('user', {
-          id: uid,
-          name: user.name || 'Customer',
-          phone: user.phone,
-          price_type: user.price_type || 'retail'
-        });
-
+        saveSession('user', { id: fbUser.uid, name: user.name || 'Customer', phone, price_type: user.price_type || 'retail' });
+        toast('✅ Welcome ' + (user.name || 'Customer') + '!');
         setTimeout(() => location.replace('user.html'), 500);
       } catch (e) {
-        console.error('Customer login error:', e);
-        toast('❌ ' + (e.message || 'Login fail'));
+        console.error('Login error:', e);
+        if (e.code === 'auth/user-not-found') toast('❌ Account nahi hai. Pehle signup karo.');
+        else if (e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential') toast('❌ Password galat');
+        else toast('❌ ' + (e.message || 'Login fail'));
       }
     }
 
     /* =========================================================
+       FORGOT PASSWORD (Customer)
+       ========================================================= */
+    function showForgotPassword() {
+      document.getElementById('modalRoot').innerHTML = `
+        <div class="modal-bg" onclick="if(event.target===this) closeModal()">
+          <div class="modal" style="background:#fff;border-radius:12px;padding:20px;width:90%;max-width:400px;">
+            <h3>🔑 Password Reset</h3>
+            <p style="font-size:13px;color:#666;margin:8px 0;">Apna phone number daalo aur naya password set karo.</p>
+            <input id="fpPhone" placeholder="Phone number" inputmode="numeric" maxlength="10" style="width:100%;padding:10px;margin:6px 0;border:1px solid #ccc;border-radius:6px;">
+            <div class="password-field" style="position:relative;">
+              <input id="fpNewPass" type="password" placeholder="Naya password (min 6)" style="width:100%;padding:10px;margin:6px 0;border:1px solid #ccc;border-radius:6px;">
+              <button class="toggle-pass" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;font-size:18px;cursor:pointer;" onclick="togglePassword('fpNewPass', this)">👁️</button>
+            </div>
+            <input id="fpOldPass" type="password" placeholder="Purana password" style="width:100%;padding:10px;margin:6px 0;border:1px solid #ccc;border-radius:6px;">
+            <div style="background:#fff3e0;padding:8px;border-radius:6px;font-size:12px;color:#e65100;margin:8px 0;">
+              ⚠️ Purana password daalna zaroori hai security ke liye.
+            </div>
+            <div style="display:flex;gap:8px;margin-top:10px;">
+              <button class="primary" style="background:#777;width:100%;padding:12px;border:none;border-radius:8px;color:#fff;font-weight:bold;cursor:pointer;" onclick="closeModal()">Cancel</button>
+              <button class="primary" style="width:100%;padding:12px;border:none;border-radius:8px;color:#fff;font-weight:bold;cursor:pointer;background:#2e7d32;" onclick="resetCustomerPassword()">Reset</button>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    async function resetCustomerPassword() {
+      const phone = document.getElementById('fpPhone').value.trim();
+      const oldPass = document.getElementById('fpOldPass').value;
+      const newPass = document.getElementById('fpNewPass').value;
+
+      if (phone.length !== 10) return toast('10 digit phone daalo');
+      if (newPass.length < 6) return toast('Naya password min 6 char');
+      if (!oldPass) return toast('Purana password daalo');
+
+      try {
+        const fakeEmail = phone + '@dukan.local';
+        // Verify old password by signing in
+        const cred = await AUTH.signInWithEmailAndPassword(fakeEmail, oldPass);
+        // Update to new password
+        await cred.user.updatePassword(newPass);
+        toast('✅ Password change ho gaya! Ab login karo.');
+        closeModal();
+      } catch (e) {
+        console.error('Reset error:', e);
+        if (e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential') toast('❌ Purana password galat');
+        else if (e.code === 'auth/user-not-found') toast('❌ Account nahi hai');
+        else toast('❌ ' + (e.message || 'Reset fail'));
+      }
+    }
+
+    /* =========================================================
+       OWNER FORGOT PASSWORD
+       ========================================================= */
+    function showOwnerForgotPassword() {
+      document.getElementById('modalRoot').innerHTML = `
+        <div class="modal-bg" onclick="if(event.target===this) closeModal()">
+          <div class="modal" style="background:#fff;border-radius:12px;padding:20px;width:90%;max-width:400px;">
+            <h3>🔑 Owner Password Reset</h3>
+            <p style="font-size:13px;color:#666;margin:8px 0;">Owner email daalo. Reset link email par aayega.</p>
+            <input id="fpOwnerEmail" placeholder="Owner email" type="email" style="width:100%;padding:10px;margin:6px 0;border:1px solid #ccc;border-radius:6px;">
+            <div style="display:flex;gap:8px;margin-top:10px;">
+              <button class="primary" style="background:#777;width:100%;padding:12px;border:none;border-radius:8px;color:#fff;font-weight:bold;cursor:pointer;" onclick="closeModal()">Cancel</button>
+              <button class="primary" style="width:100%;padding:12px;border:none;border-radius:8px;color:#fff;font-weight:bold;cursor:pointer;background:#2e7d32;" onclick="sendOwnerReset()">Send Link</button>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    async function sendOwnerReset() {
+      const email = document.getElementById('fpOwnerEmail').value.trim();
+      if (!email) return toast('Email daalo');
+      try {
+        await AUTH.sendPasswordResetEmail(email);
+        toast('✅ Reset link email par bhej diya!');
+        closeModal();
+      } catch (e) {
+        toast('❌ ' + (e.message || 'Email fail'));
+      }
+    }
+
+    function closeModal() { document.getElementById('modalRoot').innerHTML = ''; }
+
+    /* =========================================================
        OWNER LOGIN
-       Email + Password (Firebase Authentication)
        ========================================================= */
     async function ownerLogin() {
       const email = document.getElementById('oEmail').value.trim();
@@ -177,15 +382,10 @@
         setTimeout(() => location.replace('owner.html'), 500);
       } catch (e) {
         console.error('Owner login error:', e);
-        if (e.code === 'auth/invalid-credential' || e.code === 'auth/wrong-password') {
-          toast('❌ Email ya password galat');
-        } else if (e.code === 'auth/user-not-found') {
-          toast('❌ Owner account nahi hai');
-        } else if (e.code === 'auth/invalid-email') {
-          toast('❌ Email format galat');
-        } else {
-          toast('❌ ' + e.message);
-        }
+        if (e.code === 'auth/invalid-credential' || e.code === 'auth/wrong-password') toast('❌ Email ya password galat');
+        else if (e.code === 'auth/user-not-found') toast('❌ Owner account nahi hai');
+        else if (e.code === 'auth/invalid-email') toast('❌ Email format galat');
+        else toast('❌ ' + e.message);
       }
     }
   </script>
