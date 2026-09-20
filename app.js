@@ -1,20 +1,10 @@
 /* ================== SECRET ================== */
 const SECRET_URL = './secret.json';
 
-let SECRET = {
-  imgbb_key: '',
-  upi_id: '',
-  upi_name: 'Dukan',
-  firebase: {}
-};
-
-let FB = null;
-let AUTH = null;
-let FB_READY = false;
-let FB_READY_RESOLVE = null;
+let SECRET = { imgbb_key: '', upi_id: '', upi_name: 'Dukan', firebase: {} };
+let FB = null, AUTH = null, FB_READY = false, FB_READY_RESOLVE = null;
 const FB_READY_PROMISE = new Promise(r => { FB_READY_RESOLVE = r; });
 
-/* ================== SECRET LOAD ================== */
 async function loadSecret() {
   try {
     const res = await fetch(SECRET_URL + '?_=' + Date.now());
@@ -23,13 +13,9 @@ async function loadSecret() {
     SECRET = { ...SECRET, ...j };
     console.log('✅ secret.json loaded');
     return SECRET;
-  } catch (e) {
-    console.warn('❌ secret.json fail:', e);
-    return SECRET;
-  }
+  } catch (e) { console.warn('❌ secret.json fail:', e); return SECRET; }
 }
 
-/* ================== FIREBASE ================== */
 async function initFirebase() {
   if (!SECRET.firebase || !SECRET.firebase.apiKey) {
     console.warn('⚠️ Firebase config nahi');
@@ -44,9 +30,7 @@ async function initFirebase() {
   if (firebase.apps.length === 0) firebase.initializeApp(SECRET.firebase);
   FB = firebase.firestore();
   AUTH = firebase.auth();
-  try {
-    await AUTH.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
-  } catch (e) { console.warn('Persistence fail:', e); }
+  try { await AUTH.setPersistence(firebase.auth.Auth.Persistence.LOCAL); } catch (e) {}
   FB_READY = true;
   FB_READY_RESOLVE(true);
   console.log('✅ Firebase ready');
@@ -60,18 +44,13 @@ function loadScript(src) {
 }
 async function waitForFirebase() { return await FB_READY_PROMISE; }
 
-/* ================== AUTH HELPERS ================== */
+/* ================== AUTH ================== */
 async function ownerSignIn(email, password) {
   if (!AUTH) throw new Error('Firebase ready nahi');
   const cred = await AUTH.signInWithEmailAndPassword(email, password);
-  console.log('✅ Owner signed in:', cred.user.uid);
   return cred.user;
 }
-
-function getAuthUid() {
-  if (!AUTH || !AUTH.currentUser) return null;
-  return AUTH.currentUser.uid;
-}
+function getAuthUid() { return (AUTH && AUTH.currentUser) ? AUTH.currentUser.uid : null; }
 
 function waitForAuth() {
   return new Promise(resolve => {
@@ -81,22 +60,15 @@ function waitForAuth() {
     const unsub = AUTH.onAuthStateChanged(user => {
       if (done) return;
       done = true;
-      try { unsub(); } catch (e) {}
+      try { unsub(); } catch(e){}
       resolve(user ? user.uid : null);
     });
     setTimeout(() => {
-      if (!done) {
-        done = true;
-        try { unsub(); } catch (e) {}
-        resolve(AUTH.currentUser ? AUTH.currentUser.uid : null);
-      }
+      if (!done) { done = true; try { unsub(); } catch(e){} resolve(AUTH.currentUser ? AUTH.currentUser.uid : null); }
     }, 5000);
   });
 }
-
-async function authSignOut() {
-  if (AUTH) await AUTH.signOut();
-}
+async function authSignOut() { if (AUTH) await AUTH.signOut(); }
 
 /* ================== TOAST ================== */
 function toast(msg) {
@@ -153,16 +125,13 @@ async function fbLoadMyUdhar(uid) {
   arr.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
   return arr;
 }
-
 async function fbSaveProduct(p) {
   if (!FB_READY) throw new Error('Firebase ready nahi');
   if (!p.id) p.id = uid();
   await FB.collection('products').doc(p.id).set(p, { merge: true });
   return p;
 }
-async function fbDeleteProduct(id) {
-  await FB.collection('products').doc(id).delete();
-}
+async function fbDeleteProduct(id) { await FB.collection('products').doc(id).delete(); }
 async function fbSaveUser(u) {
   if (!FB_READY) throw new Error('Firebase ready nahi');
   if (!u.id) u.id = uid();
@@ -175,9 +144,7 @@ async function fbSaveOrder(o) {
   await FB.collection('orders').doc(o.id).set(o, { merge: true });
   return o;
 }
-async function fbUpdateOrder(id, patch) {
-  await FB.collection('orders').doc(id).set(patch, { merge: true });
-}
+async function fbUpdateOrder(id, patch) { await FB.collection('orders').doc(id).set(patch, { merge: true }); }
 async function fbSaveUdhar(u) {
   if (!FB_READY) throw new Error('Firebase ready nahi');
   if (!u.id) u.id = uid();
@@ -185,7 +152,6 @@ async function fbSaveUdhar(u) {
   return u;
 }
 
-/* ================== LOAD ================== */
 async function loadData() {
   if (!FB_READY) return { products: [], users: [], orders: [], udhar: [] };
   const [products, users, orders, udhar] = await Promise.all([
@@ -193,14 +159,10 @@ async function loadData() {
   ]);
   return { products, users, orders, udhar };
 }
-
 async function loadMyData(uid) {
   if (!FB_READY) return { products: [], me: null, myOrders: [], myUdhar: [] };
   const [products, me, myOrders, myUdhar] = await Promise.all([
-    fbLoadAllProducts(),
-    fbLoadMyUser(uid),
-    fbLoadMyOrders(uid),
-    fbLoadMyUdhar(uid)
+    fbLoadAllProducts(), fbLoadMyUser(uid), fbLoadMyOrders(uid), fbLoadMyUdhar(uid)
   ]);
   return { products, me, myOrders, myUdhar };
 }
@@ -209,27 +171,17 @@ async function loadMyData(uid) {
 async function uploadImage(file) {
   const key = getImgbbKey();
   if (!key) throw new Error('ImgBB key nahi');
-  
   console.log('📤 Uploading to ImgBB...', file.size, 'bytes');
-  
   const form = new FormData();
   form.append('image', file);
-  
-  const res = await fetch(`https://api.imgbb.com/1/upload?key=${key}`, {
-    method: 'POST',
-    body: form
-  });
-  
+  const res = await fetch(`https://api.imgbb.com/1/upload?key=${key}`, { method: 'POST', body: form });
   const json = await res.json();
-  console.log('📥 ImgBB response:', json);
-  
-  if (!json.success) {
-    throw new Error('Image upload fail: ' + (json.error?.message || 'Unknown'));
-  }
+  console.log('📥 ImgBB response:', json.success);
+  if (!json.success) throw new Error('Image upload fail: ' + (json.error?.message || 'Unknown'));
   return json.data.url;
 }
 
-/* ================== AUTH SESSION ================== */
+/* ================== SESSION ================== */
 function saveSession(role, payload) {
   localStorage.setItem('role', role);
   localStorage.setItem('session', JSON.stringify(payload));
@@ -269,7 +221,7 @@ function calculateUserStats(userId, orders, udhar) {
   };
 }
 
-/* ================== PHONE ACTIONS ================== */
+/* ================== PHONE ================== */
 function callPhone(phone) { window.location.href = 'tel:' + phone; }
 function whatsappPhone(phone, msg) {
   const text = encodeURIComponent(msg || 'Namaste, Dukan se');
@@ -278,10 +230,6 @@ function whatsappPhone(phone, msg) {
 function smsPhone(phone) { window.location.href = 'sms:' + phone; }
 
 /* ================== UNITS ================== */
-const UNIT_LABEL = {
-  kg:'kg', gram:'g', liter:'L', ml:'ml', piece:'pc',
-  packet:'pkt', box:'box', dozen:'doz', strip:'strip', bottle:'bottle'
-};
 const UNIT_STEP = {
   kg: 0.25, gram: 50, liter: 0.25, ml: 50,
   piece: 1, packet: 1, box: 1, dozen: 1, strip: 1, bottle: 1
@@ -332,18 +280,14 @@ function getAppLinks(amount, note) {
   };
 }
 
-/* ================== NOTIFICATIONS (Universal) ================== */
-let MESSAGING = null;
-let FCM_TOKEN = null;
+/* ================== NOTIFICATIONS ================== */
+let MESSAGING = null, FCM_TOKEN = null;
 
-// Detect PWA mode
 function isPWA() {
   return window.matchMedia('(display-mode: standalone)').matches ||
          window.navigator.standalone === true ||
          document.referrer.includes('android-app://');
 }
-
-// Detect WebView
 function isWebView() {
   const ua = navigator.userAgent || '';
   return /wv|WebView|Android.*Version\/[\d.]+/.test(ua) && /Android/.test(ua);
@@ -351,84 +295,58 @@ function isWebView() {
 
 async function initMessaging() {
   console.log('🔔 initMessaging start');
-  console.log('Mode:', { PWA: isPWA(), WebView: isWebView(), HTTPS: location.protocol === 'https:' });
-  
   if (!FB_READY || !AUTH) throw new Error('Firebase ready nahi');
   if (!('Notification' in window)) throw new Error('Browser notifications support nahi karta');
-  if (!('serviceWorker' in navigator)) throw new Error('Service Worker support nahi (HTTPS zaroori)');
+  if (!('serviceWorker' in navigator)) throw new Error('Service Worker support nahi');
   if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
-    throw new Error('HTTPS zaroori hai. HTTP par notifications kaam nahi karti.');
+    throw new Error('HTTPS zaroori hai');
   }
-
-  // Request permission
-  console.log('🔔 Requesting permission...');
+  
   let permission = Notification.permission;
   if (permission === 'default') {
     permission = await Notification.requestPermission();
   }
   console.log('🔔 Permission:', permission);
+  if (permission !== 'granted') throw new Error('Permission denied');
   
-  if (permission !== 'granted') {
-    throw new Error('Permission denied. Settings me allow karo.');
-  }
-
-  // Load FCM SDK
   if (typeof firebase.messaging === 'undefined') {
-    console.log('📦 Loading FCM SDK...');
     await loadScript('https://www.gstatic.com/firebasejs/10.7.0/firebase-messaging-compat.js');
   }
-  
   MESSAGING = firebase.messaging();
-  console.log('✅ MESSAGING init');
-
+  
   const vapidKey = SECRET.firebase?.vapidKey || '';
-  if (!vapidKey) throw new Error('VAPID key missing in secret.json');
-  console.log('🔑 VAPID length:', vapidKey.length);
-
-  // Register SW and wait
-  console.log('📝 Registering SW...');
+  if (!vapidKey) throw new Error('VAPID key missing');
+  
   const reg = await navigator.serviceWorker.register('./service-worker.js', { scope: './' });
-  console.log('✅ SW registered');
   await navigator.serviceWorker.ready;
   console.log('✅ SW ready');
-
-  // Get token
-  console.log('🎫 Getting FCM token...');
-  try {
-    FCM_TOKEN = await MESSAGING.getToken({
-      vapidKey: vapidKey,
-      serviceWorkerRegistration: reg
-    });
-  } catch (tokenErr) {
-    console.warn('Token with SW failed, trying without:', tokenErr);
-    FCM_TOKEN = await MESSAGING.getToken({ vapidKey: vapidKey });
-  }
   
-  if (!FCM_TOKEN) throw new Error('FCM token nahi mila. VAPID key / Firebase config check karo.');
+  try {
+    FCM_TOKEN = await MESSAGING.getToken({ vapidKey, serviceWorkerRegistration: reg });
+  } catch (e) {
+    console.warn('Token with SW failed, retry:', e);
+    FCM_TOKEN = await MESSAGING.getToken({ vapidKey });
+  }
+  if (!FCM_TOKEN) throw new Error('FCM token nahi mila');
   console.log('✅ FCM Token:', FCM_TOKEN.substring(0, 30) + '...');
-
-  // Foreground
+  
   MESSAGING.onMessage(payload => {
     console.log('📨 Foreground:', payload);
     const title = payload.notification?.title || 'Dukan Order';
     const body = payload.notification?.body || 'Naya order aaya hai!';
     showLocalNotification(title, body, payload.data);
   });
-
+  
   return FCM_TOKEN;
 }
 
 function showLocalNotification(title, body, data) {
   if (Notification.permission !== 'granted') return;
   const options = {
-    body: body,
-    icon: './icon-192.png',
-    badge: './icon-192.png',
+    body: body, icon: './icon-192.png', badge: './icon-192.png',
     vibrate: [200, 100, 200, 100, 200],
     tag: (data && data.order_id) || 'order-' + Date.now(),
-    renotify: true,
-    requireInteraction: true,
-    data: data || {}
+    renotify: true, requireInteraction: true, data: data || {}
   };
   if (navigator.serviceWorker && navigator.serviceWorker.controller) {
     navigator.serviceWorker.ready.then(reg => reg.showNotification(title, options));
@@ -441,12 +359,10 @@ async function saveFCMToken(uid, token) {
   if (!uid || !token || !FB_READY) return;
   try {
     await FB.collection('users').doc(uid).set(
-      { fcm_token: token, fcm_updated: new Date().toISOString(), is_pwa: isPWA() },
-      { merge: true }
+      { fcm_token: token, fcm_updated: new Date().toISOString() }, { merge: true }
     );
     await FB.collection('settings').doc('owner').set(
-      { fcm_token: token, fcm_updated: new Date().toISOString(), owner_uid: uid, is_pwa: isPWA() },
-      { merge: true }
+      { fcm_token: token, fcm_updated: new Date().toISOString(), owner_uid: uid }, { merge: true }
     );
     console.log('✅ FCM token saved');
   } catch (e) { console.warn('Save FCM fail:', e); }
@@ -454,7 +370,7 @@ async function saveFCMToken(uid, token) {
 
 async function setupOwnerNotifications() {
   const uid = getAuthUid();
-  if (!uid) throw new Error('Login nahi hai');
+  if (!uid) throw new Error('Login nahi');
   const token = await initMessaging();
   if (token) await saveFCMToken(uid, token);
   return token;
@@ -464,17 +380,12 @@ async function sendOrderNotificationToOwner(order) {
   if (!FB_READY || !FB) return;
   try {
     await FB.collection('notifications').add({
-      type: 'new_order',
-      order_id: order.id,
-      user_name: order.user_name,
-      user_phone: order.user_phone,
-      total: order.total,
-      items_count: order.items.length,
+      type: 'new_order', order_id: order.id,
+      user_name: order.user_name, user_phone: order.user_phone,
+      total: order.total, items_count: order.items.length,
       payment_mode: order.payment_mode,
-      created_at: new Date().toISOString(),
-      sent: false
+      created_at: new Date().toISOString(), sent: false
     });
-    console.log('📨 Notification request saved');
   } catch (e) { console.warn('Order notif error:', e); }
 }
 
