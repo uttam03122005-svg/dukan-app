@@ -3,29 +3,29 @@
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
+* { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Arial, sans-serif; }
+
 body {
+  background: #f5f5f5;
+  color: #222;
   padding-top: calc(60px + var(--safe-top)) !important;
   padding-bottom: calc(80px + var(--safe-bottom)) !important;
 }
 
 .header {
-  padding-top: calc(14px + var(--safe-top)) !important;
-  min-height: calc(56px + var(--safe-top)) !important;
-}
-
-.bottom-nav {
-  padding-bottom: calc(10px + var(--safe-bottom)) !important;
-}
-* { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Arial, sans-serif; }
-body { background: #f5f5f5; color: #222; padding-bottom: 80px; }
-
-.header {
-  background: #2e7d32; color: #fff; padding: 14px 16px;
+  background: #2e7d32; color: #fff;
+  padding: 14px 16px;
+  padding-top: calc(14px + var(--safe-top));
+  min-height: calc(56px + var(--safe-top));
   display: flex; justify-content: space-between; align-items: center;
-  position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 6px rgba(0,0,0,.2);
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  box-shadow: 0 2px 6px rgba(0,0,0,.2);
 }
 .header h1 { font-size: 18px; }
-.header button { background: #fff; color: #2e7d32; border: none; padding: 6px 12px; border-radius: 6px; font-weight: bold; cursor: pointer; }
+.header button {
+  background: #fff; color: #2e7d32; border: none;
+  padding: 6px 12px; border-radius: 6px; font-weight: bold; cursor: pointer;
+}
 
 .container { padding: 12px; max-width: 600px; margin: auto; }
 
@@ -82,8 +82,11 @@ button.small { padding: 8px 10px; font-size: 13px; width: auto; margin: 2px; fle
 
 .bottom-nav {
   position: fixed; bottom: 0; left: 0; right: 0; background: #fff;
-  display: flex; justify-content: space-around; padding: 10px 0;
+  display: flex; justify-content: space-around;
+  padding: 10px 0;
+  padding-bottom: calc(10px + var(--safe-bottom));
   box-shadow: 0 -2px 6px rgba(0,0,0,.1);
+  z-index: 100;
 }
 .bottom-nav a {
   color: #555; text-decoration: none; font-size: 12px; text-align: center;
