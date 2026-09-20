@@ -44,6 +44,10 @@ async function initFirebase() {
   if (firebase.apps.length === 0) firebase.initializeApp(SECRET.firebase);
   FB = firebase.firestore();
   AUTH = firebase.auth();
+  // Persist login
+  try {
+    await AUTH.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+  } catch (e) { console.warn('Persistence fail:', e); }
   FB_READY = true;
   FB_READY_RESOLVE(true);
   console.log('✅ Firebase ready');
@@ -65,21 +69,11 @@ async function ownerSignIn(email, password) {
   return cred.user;
 }
 
-async function customerSignIn() {
-  if (!AUTH) throw new Error('Firebase ready nahi');
-  const cur = AUTH.currentUser;
-  if (cur) return cur;
-  const cred = await AUTH.signInAnonymously();
-  console.log('✅ Customer anonymous:', cred.user.uid);
-  return cred.user;
-}
-
 function getAuthUid() {
   if (!AUTH || !AUTH.currentUser) return null;
   return AUTH.currentUser.uid;
 }
 
-// ⭐ Auth state ready hone ka wait — max 5 sec
 function waitForAuth() {
   return new Promise(resolve => {
     if (!AUTH) { resolve(null); return; }
@@ -330,6 +324,121 @@ function getAppLinks(amount, note) {
   };
 }
 
+/* ================== NOTIFICATIONS (FCM) ================== */
+let MESSAGING = null;
+let FCM_TOKEN = null;
+
+async function initMessaging() {
+  if (!FB_READY || !AUTH) return null;
+  if (!('Notification' in window)) {
+    console.warn('Notifications not supported');
+    return null;
+  }
+
+  try {
+    const permission = await Notification.requestPermission();
+    if (permission !== 'granted') {
+      console.warn('Notification permission denied');
+      return null;
+    }
+
+    if (typeof firebase.messaging === 'undefined') {
+      await loadScript('https://www.gstatic.com/firebasejs/10.7.0/firebase-messaging-compat.js');
+    }
+
+    MESSAGING = firebase.messaging();
+
+    const vapidKey = SECRET.firebase?.vapidKey || '';
+    if (vapidKey) {
+      FCM_TOKEN = await MESSAGING.getToken({ vapidKey });
+    } else {
+      FCM_TOKEN = await MESSAGING.getToken();
+    }
+    console.log('✅ FCM Token obtained');
+
+    // Foreground message
+    MESSAGING.onMessage(payload => {
+      console.log('📨 Foreground message:', payload);
+      const title = payload.notification?.title || 'Dukan Order';
+      const body = payload.notification?.body || 'Naya order aaya hai!';
+      showLocalNotification(title, body, payload.data);
+    });
+
+    return FCM_TOKEN;
+  } catch (e) {
+    console.warn('FCM init error:', e);
+    return null;
+  }
+}
+
+function showLocalNotification(title, body, data) {
+  if (Notification.permission !== 'granted') return;
+
+  const options = {
+    body: body,
+    icon: './icon-192.png',
+    badge: './icon-192.png',
+    vibrate: [200, 100, 200, 100, 200],
+    tag: (data && data.order_id) || 'order-' + Date.now(),
+    renotify: true,
+    requireInteraction: true,
+    data: data || {}
+  };
+
+  if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+    navigator.serviceWorker.ready.then(reg => {
+      reg.showNotification(title, options);
+    });
+  } else {
+    try { new Notification(title, options); } catch (e) {}
+  }
+}
+
+async function saveFCMToken(uid, token) {
+  if (!uid || !token || !FB_READY) return;
+  try {
+    await FB.collection('users').doc(uid).set(
+      { fcm_token: token, fcm_updated: new Date().toISOString() },
+      { merge: true }
+    );
+    // Also save in settings/owner for quick access
+    await FB.collection('settings').doc('owner').set(
+      { fcm_token: token, fcm_updated: new Date().toISOString(), owner_uid: uid },
+      { merge: true }
+    );
+    console.log('✅ FCM token saved');
+  } catch (e) { console.warn('Save FCM token fail:', e); }
+}
+
+async function setupOwnerNotifications() {
+  const uid = getAuthUid();
+  if (!uid) return;
+  const token = await initMessaging();
+  if (token) {
+    await saveFCMToken(uid, token);
+  }
+}
+
+async function sendOrderNotificationToOwner(order) {
+  if (!FB_READY || !FB) return;
+  try {
+    await FB.collection('notifications').add({
+      type: 'new_order',
+      order_id: order.id,
+      user_name: order.user_name,
+      user_phone: order.user_phone,
+      total: order.total,
+      items_count: order.items.length,
+      payment_mode: order.payment_mode,
+      created_at: new Date().toISOString(),
+      sent: false
+    });
+    console.log('📨 Notification request saved');
+  } catch (e) {
+    console.warn('Order notification error:', e);
+  }
+}
+
 /* ================== BOOT ================== */
 loadSecret().then(async () => {
   await initFirebase();
@@ -337,5 +446,7 @@ loadSecret().then(async () => {
 });
 
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => navigator.serviceWorker.register('./service-worker.js').catch(() => {}));
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./service-worker.js').catch(() => {});
+  });
 }
