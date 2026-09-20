@@ -9,15 +9,16 @@
   <meta name="theme-color" content="#2e7d32">
   <link rel="stylesheet" href="style.css">
   <style>
-    .modal-bg { position:fixed; inset:0; background:rgba(0,0,0,.55); display:flex; align-items:center; justify-content:center; z-index:500; }
-    .modal { background:#fff; border-radius:12px; padding:16px; width:92%; max-width:430px; max-height:92vh; overflow-y:auto; }
+    .modal-bg { position:fixed; inset:0; background:rgba(0,0,0,.55); display:flex; align-items:center; justify-content:center; z-index:500; padding:16px; }
+    .modal { background:#fff; border-radius:12px; padding:16px; width:100%; max-width:430px; max-height:92vh; overflow-y:auto; }
     .unit-row { display:flex; align-items:center; gap:8px; padding:10px; border:2px solid #eee; border-radius:8px; margin-bottom:8px; cursor:pointer; }
     .unit-row.selected { border-color:#2e7d32; background:#f1f8e9; }
     .qty-btn { width:40px; height:40px; border-radius:50%; font-size:20px; font-weight:bold; }
-    .pay-opt { padding:14px; border:2px solid #eee; border-radius:10px; text-align:center; cursor:pointer; flex:1; }
+    .pay-opt { padding:12px 6px; border:2px solid #eee; border-radius:10px; text-align:center; cursor:pointer; flex:1; font-size:13px; }
     .pay-opt.selected { border-color:#2e7d32; background:#f1f8e9; }
-    .upi-apps { display:flex; gap:6px; margin-top:8px; }
-    .upi-apps button { flex:1; padding:8px 2px; font-size:11px; border:none; border-radius:6px; color:#fff; font-weight:bold; }
+    .upi-apps { display:flex; gap:6px; margin-top:8px; flex-wrap:wrap; }
+    .upi-apps button { flex:1; min-width:60px; padding:8px 4px; font-size:11px; border:none; border-radius:6px; color:#fff; font-weight:bold; }
+    .fee-badge { font-size:10px; color:#e65100; display:block; margin-top:2px; }
   </style>
 </head>
 <body>
@@ -68,6 +69,7 @@
     let MY_ORDERS = [];
     let MY_UDHAR = [];
     let CART = JSON.parse(localStorage.getItem('cart') || '{}');
+    const EXTRA_PERCENT = 2; // 2% online fee
 
     document.getElementById('welcome').textContent = 'Namaste, ' + (s.data.name || 'Customer');
 
@@ -75,7 +77,6 @@
       const ok = await waitForFirebase();
       if (!ok) { alert('Firebase ready nahi'); return; }
 
-      // ⭐ Auth state ready hone ka wait
       const uid = await waitForAuth();
       if (!uid) {
         alert('Session expire. Dobara login karo.');
@@ -270,45 +271,88 @@
       saveCart(); renderCart();
     }
 
+    /* ================= PAYMENT (with 2% online fee) ================= */
     let payState = { mode: 'cash', cashPaid: 0 };
+
+    function calcCharges() {
+      const subtotal = cartTotal();
+      let extraCharge = 0;
+      let total = subtotal;
+
+      if (payState.mode === 'online') {
+        extraCharge = Math.round(subtotal * EXTRA_PERCENT) / 100;
+        total = subtotal + extraCharge;
+      } else if (payState.mode === 'split') {
+        const cash = Math.min(payState.cashPaid || 0, subtotal);
+        const onlineBase = subtotal - cash;
+        extraCharge = Math.round(onlineBase * EXTRA_PERCENT) / 100;
+        total = subtotal + extraCharge;
+      }
+      return { subtotal, extraCharge, total };
+    }
+
     function openPaymentModal() {
       if (!Object.keys(CART).length) return toast('Cart khali');
-      payState = { mode: 'cash', cashPaid: 0 };
+      payState = { mode: 'cash', cashPaid: cartTotal() };
       renderPaymentModal();
     }
+
     function renderPaymentModal() {
-      const total = cartTotal();
+      const { subtotal, extraCharge, total } = calcCharges();
       const cash = payState.cashPaid || 0;
-      const online = Math.max(0, total - cash);
-      const showOnline = payState.mode === 'online' || (payState.mode === 'split' && online > 0);
+      const onlineBase = payState.mode === 'split' ? Math.max(0, subtotal - cash) : (payState.mode === 'online' ? subtotal : 0);
+      const onlineWithFee = onlineBase + extraCharge;
+      const showOnline = payState.mode === 'online' || (payState.mode === 'split' && onlineBase > 0);
       const { id: upiId } = getUpi();
       let qrImg = '', appLinks = {};
       if (showOnline && upiId) {
-        qrImg = getUpiQrImage(online, 'Dukan Order');
-        appLinks = getAppLinks(online, 'Dukan Order');
+        qrImg = getUpiQrImage(onlineWithFee, 'Dukan Order');
+        appLinks = getAppLinks(onlineWithFee, 'Dukan Order');
       }
 
       document.getElementById('modalRoot').innerHTML = `
         <div class="modal-bg" onclick="if(event.target===this) closePayment()">
           <div class="modal">
             <h3>💰 Payment</h3>
-            <div style="font-size:18px;font-weight:bold;color:#2e7d32;margin-bottom:10px;">Total: ${inr(total)}</div>
+
+            <div style="background:#f9f9f9;padding:10px;border-radius:8px;margin-bottom:10px;">
+              <div style="display:flex;justify-content:space-between;font-size:14px;">
+                <span>Subtotal:</span><b>${inr(subtotal)}</b>
+              </div>
+              ${extraCharge > 0 ? `
+              <div style="display:flex;justify-content:space-between;font-size:14px;color:#e65100;">
+                <span>Online Fee (${EXTRA_PERCENT}%):</span><b>+${inr(extraCharge)}</b>
+              </div>` : ''}
+              <div style="display:flex;justify-content:space-between;font-size:18px;font-weight:bold;color:#2e7d32;margin-top:6px;padding-top:6px;border-top:1px solid #ddd;">
+                <span>Total:</span><b>${inr(total)}</b>
+              </div>
+            </div>
+
             <p style="font-size:13px;color:#666;margin:8px 0;">Kaise pay karoge?</p>
             <div style="display:flex;gap:8px;">
-              <div class="pay-opt ${payState.mode==='cash'?'selected':''}" onclick="setPayMode('cash')">💵<br><b>Cash</b></div>
-              <div class="pay-opt ${payState.mode==='online'?'selected':''}" onclick="setPayMode('online')">📱<br><b>Online</b></div>
-              <div class="pay-opt ${payState.mode==='split'?'selected':''}" onclick="setPayMode('split')">🔀<br><b>Split</b></div>
+              <div class="pay-opt ${payState.mode==='cash'?'selected':''}" onclick="setPayMode('cash')">
+                💵<br><b>Cash</b><span class="fee-badge">No extra</span>
+              </div>
+              <div class="pay-opt ${payState.mode==='online'?'selected':''}" onclick="setPayMode('online')">
+                📱<br><b>Online</b><span class="fee-badge">+${EXTRA_PERCENT}% fee</span>
+              </div>
+              <div class="pay-opt ${payState.mode==='split'?'selected':''}" onclick="setPayMode('split')">
+                🔀<br><b>Split</b><span class="fee-badge">${EXTRA_PERCENT}% on online</span>
+              </div>
             </div>
+
             ${payState.mode === 'split' ? `
               <div style="margin-top:12px;background:#f9f9f9;padding:10px;border-radius:8px;">
                 <label style="font-size:13px;">💵 Cash diya:</label>
                 <input type="number" inputmode="numeric" value="${cash}" onchange="setCash(this.value)" placeholder="0">
-                <div style="font-size:13px;margin-top:6px;">📱 Online: <b style="color:#2e7d32;">${inr(online)}</b></div>
+                <div style="font-size:13px;margin-top:6px;">📱 Online: <b style="color:#e65100;">${inr(onlineBase)} + ${inr(extraCharge)} fee = ${inr(onlineWithFee)}</b></div>
               </div>
             ` : ''}
+
             ${showOnline ? `
               <div style="margin-top:12px;text-align:center;">
-                <div style="font-size:14px;margin-bottom:8px;">📱 <b>${inr(online)}</b> pay karo</div>
+                <div style="font-size:14px;margin-bottom:8px;">📱 <b>${inr(onlineWithFee)}</b> pay karo</div>
+                ${extraCharge > 0 ? `<div style="font-size:11px;color:#e65100;margin-bottom:6px;">(₹${extraCharge} online convenience fee included)</div>` : ''}
                 ${qrImg ? `<img src="${qrImg}" style="width:220px;height:220px;border:1px solid #eee;border-radius:8px;margin-bottom:6px;">` : ''}
                 ${upiId ? `
                   <div class="upi-apps">
@@ -321,11 +365,13 @@
                 ` : ''}
               </div>
             ` : ''}
+
             ${payState.mode === 'cash' ? `
               <div style="margin-top:12px;text-align:center;font-size:14px;color:#666;padding:12px;background:#f1f8e9;border-radius:8px;">
                 Saman lene aake <b style="color:#2e7d32;">${inr(total)}</b> cash doge
               </div>
             ` : ''}
+
             <div class="row mt" style="margin-top:16px;">
               <button class="primary" style="background:#777;" onclick="closePayment()">Cancel</button>
               <button class="primary" onclick="confirmOrder()">✅ Confirm Order</button>
@@ -337,6 +383,7 @@
       payState.mode = m;
       if (m === 'cash') payState.cashPaid = cartTotal();
       else if (m === 'online') payState.cashPaid = 0;
+      else if (m === 'split') payState.cashPaid = Math.round(cartTotal() / 2 * 100) / 100;
       renderPaymentModal();
     }
     function setCash(val) {
@@ -349,22 +396,27 @@
     async function confirmOrder() {
       const keys = Object.keys(CART);
       if (!keys.length) return toast('Cart khali');
-      const total = cartTotal();
+
+      const { subtotal, extraCharge, total } = calcCharges();
       let cashPaid = 0, onlinePaid = 0;
-      if (payState.mode === 'cash') cashPaid = total;
+      if (payState.mode === 'cash') cashPaid = subtotal;
       else if (payState.mode === 'online') onlinePaid = total;
       else if (payState.mode === 'split') {
-        cashPaid = Math.min(payState.cashPaid || 0, total);
-        onlinePaid = total - cashPaid;
+        cashPaid = Math.min(payState.cashPaid || 0, subtotal);
+        const onlineBase = subtotal - cashPaid;
+        onlinePaid = onlineBase + (Math.round(onlineBase * EXTRA_PERCENT) / 100);
       }
+
       const items = keys.map(key => {
         const [pid, ul] = key.split('::');
         const p = PRODUCTS.find(x => x.id === pid);
         return { product_id: pid, product_name: p.name, unit: ul, qty: CART[key], price: getUnitPrice(p, ul, ME) };
       });
+
       const order = {
         id: uid(), user_id: ME.id, user_name: ME.name, user_phone: ME.phone,
-        items, total, payment_mode: payState.mode,
+        items, subtotal, extra_charge: extraCharge, total,
+        payment_mode: payState.mode,
         cash_paid: cashPaid, online_paid: onlinePaid,
         payment_status: 'pending', order_status: 'pending',
         owner_approved: false,
@@ -373,14 +425,16 @@
         history: [{ at: new Date().toISOString(), by: 'user', action: 'order_placed' }],
         created_at: new Date().toISOString()
       };
+
       try {
         toast('Order place ho raha hai...');
         await fbSaveOrder(order);
+        // Send notification request to owner
+        try { await sendOrderNotificationToOwner(order); } catch (e) { console.warn(e); }
         CART = {}; saveCart(); renderCart();
         closePayment();
         toast('✅ Order place — owner approval pending');
         document.querySelector('.bottom-nav a[data-tab="orders"]').click();
-        // refresh orders
         const uid2 = getAuthUid();
         const d = await loadMyData(uid2);
         MY_ORDERS = d.myOrders || [];
@@ -405,6 +459,7 @@
               <b>${new Date(o.created_at).toLocaleString('hi-IN')}</b>
             </div>
             <div class="mt">${items}</div>
+            ${o.extra_charge > 0 ? `<div style="font-size:12px;color:#e65100;margin-top:4px;">Subtotal: ${inr(o.subtotal)} + Online Fee: ${inr(o.extra_charge)}</div>` : ''}
             <div style="font-weight:bold;color:#2e7d32;margin-top:4px;">Total: ${inr(o.total)}</div>
             <div style="font-size:12px;color:${isDelivered?'#2e7d32':isApproved?'#1976d2':'#e65100'};margin-top:4px;">
               📦 ${isDelivered?'DELIVERED':isApproved?'APPROVED':'PENDING'}
