@@ -11,49 +11,13 @@
 .btn-call{background:#2e7d32;color:#fff;}
 .btn-wa{background:#25d366;color:#fff;}
 .btn-sms{background:#1976d2;color:#fff;}
-
-.pick-btn{
-  width:100%;
-  padding:16px;
-  border:2px dashed #1976d2;
-  border-radius:10px;
-  font-size:16px;
-  font-weight:bold;
-  color:#1976d2;
-  background:#e3f2fd;
-  cursor:pointer;
-  margin-top:8px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  gap:8px;
-}
+.pick-btn{width:100%;padding:16px;border:2px dashed #1976d2;border-radius:10px;font-size:16px;font-weight:bold;color:#1976d2;background:#e3f2fd;cursor:pointer;margin-top:8px;display:flex;align-items:center;justify-content:center;gap:8px;box-sizing:border-box;-webkit-tap-highlight-color:rgba(25,118,210,0.2);}
 .pick-btn:active{background:#bbdefb;}
-
-.img-status{
-  font-size:13px;
-  color:#666;
-  margin-top:8px;
-  text-align:center;
-  min-height:18px;
-  padding:6px;
-  border-radius:6px;
-}
+.img-status{font-size:13px;color:#666;margin-top:8px;text-align:center;min-height:18px;padding:6px;border-radius:6px;}
 .img-status.success{background:#e8f5e9;color:#2e7d32;font-weight:bold;}
 .img-status.error{background:#ffebee;color:#c62828;}
 .img-status.loading{background:#fff3e0;color:#e65100;}
-
-#pPreview{
-  max-width:100%;
-  margin-top:10px;
-  border-radius:10px;
-  display:none;
-  box-shadow:0 2px 10px rgba(0,0,0,.2);
-  max-height:320px;
-  object-fit:contain;
-  background:#f5f5f5;
-  width:100%;
-}
+#pPreview{max-width:100%;margin-top:10px;border-radius:10px;display:none;box-shadow:0 2px 10px rgba(0,0,0,.2);max-height:320px;object-fit:contain;background:#f5f5f5;width:100%;}
 </style>
 </head>
 <body>
@@ -71,26 +35,19 @@
 <button class="primary tabBtn" data-tab="info" style="border-radius:0;background:#ccc;color:#333;font-size:12px;">ℹ️</button>
 </div>
 
-<!-- ==================== PRODUCTS TAB ==================== -->
 <div id="tab-products">
 <div class="card">
 <h3 id="pFormTitle">➕ Naya Product</h3>
 <input type="hidden" id="pId">
 <input id="pName" placeholder="Product name">
 
-<!-- ============ IMAGE PICKER (SINGLE INPUT) ============ -->
-<input id="pImgInput" type="file" accept="image/*" style="display:none;" onchange="handleImageSelect(event)">
-<button type="button" class="pick-btn" onclick="pickImage()">
-📷 Photo Chuno
-</button>
-<div style="font-size:11px;color:#888;text-align:center;margin-top:4px;">
-Phone me: Camera ya Gallery ka option aayega<br>
-Laptop me: Gallery se choose karo
-</div>
+<!-- IMAGE PICKER - LABEL BASED (100% working) -->
+<label for="pImgInput" class="pick-btn">📷 Photo Chuno</label>
+<input id="pImgInput" type="file" accept="image/*" onchange="handleImageSelect(event)" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;">
+<div style="font-size:11px;color:#888;text-align:center;margin-top:4px;">Phone: Camera ya Gallery choose karo • Laptop: File browse karo</div>
 
 <div id="imgStatus" class="img-status"></div>
 <img id="pPreview" alt="Preview">
-<!-- ============ END IMAGE PICKER ============ -->
 
 <input id="pCat" placeholder="Category">
 <label style="font-size:13px;font-weight:bold;color:#2e7d32;margin-top:8px;display:block;">Units & Price</label>
@@ -128,6 +85,12 @@ Laptop me: Gallery se choose karo
 <div class="card">
 <h3>ℹ️ Info</h3>
 <div id="secretInfo" style="font-size:13px;color:#555;"></div>
+<div style="margin-top:12px;padding:10px;background:#f9f9f9;border-radius:8px;">
+<div style="font-size:12px;color:#666;margin-bottom:6px;"><b>Mode:</b> <span id="modeInfo">Checking...</span></div>
+<div style="font-size:12px;color:#666;margin-bottom:6px;"><b>Notification:</b> <span id="notifPermission">Checking...</span></div>
+<button class="primary" style="background:#1976d2;" onclick="enableNotifications()">🔔 Enable Order Notifications</button>
+<div id="notifStatus" style="font-size:12px;color:#666;margin-top:8px;text-align:center;min-height:16px;"></div>
+</div>
 </div>
 </div>
 </div>
@@ -148,6 +111,18 @@ async function init() {
   DATA = await loadData();
   renderProducts(); renderUsers(); renderOrders(); renderUdhar(); renderInfo();
   resetProductForm(); fillUserSelect();
+
+  const modeInfo = document.getElementById('modeInfo');
+  const modes = [];
+  if (isPWA()) modes.push('📱 PWA');
+  if (isWebView()) modes.push('🔍 WebView');
+  if (!isPWA() && !isWebView()) modes.push('🌐 Browser');
+  if (location.protocol === 'https:') modes.push('🔒 HTTPS');
+  modeInfo.textContent = modes.join(' • ') || 'Unknown';
+
+  const notifPerm = document.getElementById('notifPermission');
+  if (typeof Notification !== 'undefined') notifPerm.textContent = Notification.permission;
+  else notifPerm.textContent = 'Not supported';
 }
 
 function switchTab(t) {
@@ -172,166 +147,114 @@ function renderInfo() {
   `;
 }
 
-/* ============================================================
-   IMAGE PICKER - SIMPLE & WORKING
-   ============================================================ */
-
-// Ye function button click pe chalta hai
-function pickImage() {
-  console.log('📷 Button clicked - opening file picker');
-  const input = document.getElementById('pImgInput');
-  
-  // Reset value so same file can be picked again
-  try { input.value = ''; } catch(e) {}
-  
-  // Trigger file picker
-  input.click();
-  console.log('✅ File picker triggered');
+async function enableNotifications() {
+  const status = document.getElementById('notifStatus');
+  status.style.color = '#666';
+  status.textContent = '⏳ Setting up...';
+  try {
+    const token = await setupOwnerNotifications();
+    if (token) {
+      status.style.color = '#2e7d32';
+      status.textContent = '✅ Notifications ON';
+      document.getElementById('notifPermission').textContent = Notification.permission;
+      toast('✅ Notifications enable!');
+    } else {
+      status.style.color = '#c62828';
+      status.textContent = '❌ Token nahi mila';
+    }
+  } catch (e) {
+    console.error('Notif error:', e);
+    status.style.color = '#c62828';
+    status.textContent = '❌ ' + (e.message || 'Error');
+    toast('❌ ' + (e.message || 'Error'));
+  }
 }
 
-// Ye function jab file select ho jaye tab chalta hai
+/* ================= IMAGE HANDLER ================= */
 function handleImageSelect(event) {
   console.log('✅ onchange fired!');
-  
   const input = event.target;
   const file = input.files && input.files[0];
   const status = document.getElementById('imgStatus');
   const prev = document.getElementById('pPreview');
-  
-  if (!file) {
-    console.log('❌ No file selected');
-    return;
-  }
-  
-  console.log('📷 File selected:', {
-    name: file.name,
-    type: file.type,
-    size: file.size + ' bytes'
-  });
-  
-  // Reset status
+
+  if (!file) { console.log('❌ No file'); return; }
+
+  console.log('📷 File:', file.name, file.type, file.size);
   status.className = 'img-status';
-  
-  // Check size
+
   if (file.size > 10 * 1024 * 1024) {
     toast('❌ Image 10MB se choti honi chahiye');
-    status.textContent = '❌ File bahut badi hai';
+    status.textContent = '❌ File bahut badi';
     status.className = 'img-status error';
     return;
   }
-  
-  // Check type
   if (!file.type || !file.type.startsWith('image/')) {
     toast('❌ Sirf image file chuno');
-    status.textContent = '❌ Ye image file nahi hai';
+    status.textContent = '❌ Ye image nahi hai';
     status.className = 'img-status error';
     return;
   }
-  
-  // STEP 1: Show preview IMMEDIATELY (from original file)
-  status.textContent = '⏳ Loading preview...';
+
+  status.textContent = '⏳ Loading...';
   status.className = 'img-status loading';
-  
+
   try {
     const quickUrl = URL.createObjectURL(file);
     prev.src = quickUrl;
     prev.style.display = 'block';
-    prev.onload = () => {
-      console.log('✅ Original preview loaded');
-      status.textContent = `📷 ${(file.size/1024).toFixed(0)} KB — compressing...`;
-    };
-    prev.onerror = (e) => {
-      console.warn('Preview load error:', e);
-    };
-  } catch(e) {
-    console.warn('Quick preview fail:', e);
-  }
-  
-  // STEP 2: Compress in background
-  compressImage(file, 1000, 1000, 0.75)
-    .then(compressed => {
-      console.log('✅ Compressed:', compressed.size + ' bytes');
-      compressedImageFile = compressed;
-      
-      const newUrl = URL.createObjectURL(compressed);
-      prev.src = newUrl;
-      prev.style.display = 'block';
-      
-      status.textContent = `✅ Ready (${(compressed.size/1024).toFixed(0)} KB)`;
-      status.className = 'img-status success';
-    })
-    .catch(err => {
-      console.warn('⚠️ Compress fail, using original:', err);
-      compressedImageFile = file;
-      status.textContent = `📷 ${(file.size/1024).toFixed(0)} KB (original)`;
-      status.className = 'img-status';
-    });
-  
-  // Reset input after short delay (so user can pick same file next time)
-  setTimeout(() => {
-    try { input.value = ''; } catch(e) {}
-  }, 1000);
+    status.textContent = `📷 ${(file.size/1024).toFixed(0)} KB — compressing...`;
+  } catch(e) { console.warn('Preview fail:', e); }
+
+  compressImage(file, 1000, 1000, 0.75).then(compressed => {
+    console.log('✅ Compressed:', compressed.size);
+    compressedImageFile = compressed;
+    const newUrl = URL.createObjectURL(compressed);
+    prev.src = newUrl;
+    prev.style.display = 'block';
+    status.textContent = `✅ Ready (${(compressed.size/1024).toFixed(0)} KB)`;
+    status.className = 'img-status success';
+  }).catch(err => {
+    console.warn('Compress fail:', err);
+    compressedImageFile = file;
+    status.textContent = `📷 ${(file.size/1024).toFixed(0)} KB (original)`;
+    status.className = 'img-status';
+  });
 }
 
-// Compress image using canvas
 function compressImage(file, maxW, maxH, quality) {
   return new Promise((resolve) => {
-    const fallback = () => {
-      console.warn('Using original file');
-      resolve(file);
-    };
-    
+    const fallback = () => resolve(file);
     try {
       const reader = new FileReader();
-      
       reader.onload = (e) => {
         try {
           const img = new Image();
-          
           img.onload = () => {
             try {
               let w = img.width, h = img.height;
               if (w > maxW) { h = Math.round(h * maxW / w); w = maxW; }
               if (h > maxH) { w = Math.round(w * maxH / h); h = maxH; }
-              
               const canvas = document.createElement('canvas');
-              canvas.width = w;
-              canvas.height = h;
+              canvas.width = w; canvas.height = h;
               const ctx = canvas.getContext('2d');
-              
-              // White background for transparent images
               ctx.fillStyle = '#ffffff';
               ctx.fillRect(0, 0, w, h);
               ctx.drawImage(img, 0, 0, w, h);
-              
               canvas.toBlob((blob) => {
                 if (!blob) return fallback();
                 const outName = (file.name || 'photo').replace(/\.[^.]+$/, '') + '.jpg';
                 resolve(new File([blob], outName, { type: 'image/jpeg' }));
               }, 'image/jpeg', quality);
-              
-            } catch(err) {
-              console.warn('Canvas fail:', err);
-              fallback();
-            }
+            } catch(err) { fallback(); }
           };
-          
           img.onerror = () => fallback();
           img.src = e.target.result;
-          
-        } catch(err) {
-          console.warn('Image create fail:', err);
-          fallback();
-        }
+        } catch(err) { fallback(); }
       };
-      
       reader.onerror = () => fallback();
       reader.readAsDataURL(file);
-      
-    } catch(err) {
-      console.warn('FileReader fail:', err);
-      fallback();
-    }
+    } catch(err) { fallback(); }
   });
 }
 
@@ -383,17 +306,17 @@ async function saveProduct() {
   const editId = document.getElementById('pId').value;
   if (!name) return toast('Naam zaroori');
   for (const u of currentUnits) if (!u.retail) return toast(`${u.label} retail daalo`);
-  
+
   const units = currentUnits.map(u => ({
     label: u.label, retail: +u.retail || 0,
     wholesale: +u.wholesale || +u.retail, stock: +u.stock || 0
   }));
-  
+
   try {
     toast('Save ho raha hai...');
     let imageUrl = editingImageUrl;
     if (compressedImageFile) {
-      toast('📤 Image upload ho raha hai...');
+      toast('📤 Image upload...');
       imageUrl = await uploadImage(compressedImageFile);
     }
     let product;
