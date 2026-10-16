@@ -3,156 +3,83 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Owner Panel</title>
+<title>Dukan</title>
 <link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#2e7d32">
 <link rel="stylesheet" href="style.css">
 <style>
-.icon-btn{display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:50%;border:none;cursor:pointer;font-size:18px;margin-right:4px;}
-.btn-call{background:#2e7d32;color:#fff;}
-.btn-wa{background:#25d366;color:#fff;}
-.btn-sms{background:#1976d2;color:#fff;}
-.pick-btn{width:100%;padding:14px;border:2px dashed #1976d2;border-radius:10px;font-size:15px;font-weight:bold;color:#1976d2;background:#e3f2fd;cursor:pointer;margin-top:8px;display:flex;align-items:center;justify-content:center;gap:8px;box-sizing:border-box;}
-.img-status{font-size:13px;color:#666;margin-top:8px;text-align:center;min-height:18px;padding:6px;border-radius:6px;}
-.img-status.success{background:#e8f5e9;color:#2e7d32;font-weight:bold;}
-.img-status.error{background:#ffebee;color:#c62828;}
-#pPreview{max-width:100%;margin-top:10px;border-radius:10px;display:none;max-height:280px;object-fit:contain;width:100%;}
-#cameraModal{display:none;position:fixed;inset:0;background:#000;z-index:1000;flex-direction:column;}
-#cameraVideo{flex:1;width:100%;object-fit:cover;}
-.camera-controls{padding:16px;background:#000;display:flex;gap:10px;justify-content:center;}
-.cam-btn{padding:14px 20px;border:none;border-radius:50px;font-size:15px;font-weight:bold;color:#fff;cursor:pointer;}
-.cam-cancel{background:#666;}.cam-capture{background:#2e7d32;padding:14px 36px;font-size:17px;}.cam-switch{background:#1976d2;}
-#cameraCanvas{display:none;}
-.type-option{display:flex;gap:10px;margin-top:8px;}
-.type-option button{flex:1;padding:14px 8px;border:2px solid #ddd;border-radius:10px;background:#fff;font-weight:bold;color:#333;cursor:pointer;font-size:14px;}
-.type-option button.active{border-color:#2e7d32;background:#e8f5e9;color:#2e7d32;}
-.udhar-item{display:flex;gap:8px;align-items:center;padding:10px;background:#f9f9f9;border-radius:8px;margin-bottom:6px;}
-.udhar-item .info{flex:1;}
-.udhar-item .amount{font-weight:bold;color:#2e7d32;font-size:15px;min-width:70px;text-align:right;}
-.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:500;padding:12px;}
-.modal-box{background:#fff;border-radius:12px;padding:16px;width:100%;max-width:500px;max-height:94vh;overflow-y:auto;}
-.tab-btn-active{background:#2e7d32 !important;color:#fff !important;}
-.tab-btn-inactive{background:#ccc !important;color:#333 !important;}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;z-index:500;padding:16px;}
+.modal{background:#fff;border-radius:12px;padding:16px;width:100%;max-width:430px;max-height:92vh;overflow-y:auto;}
+.qty-btn{width:40px;height:40px;border-radius:50%;font-size:20px;font-weight:bold;}
+.pay-opt{padding:12px 6px;border:2px solid #eee;border-radius:10px;text-align:center;cursor:pointer;flex:1;font-size:13px;}
+.pay-opt.selected{border-color:#2e7d32;background:#f1f8e9;}
+.upi-apps{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;}
+.upi-apps button{flex:1;min-width:60px;padding:8px 4px;font-size:11px;border:none;border-radius:6px;color:#fff;font-weight:bold;}
+.fee-badge{font-size:10px;color:#e65100;display:block;margin-top:2px;}
+.quick-qty{flex:1;min-width:70px;padding:12px 8px;border:2px solid #ddd;border-radius:10px;background:#fff;font-weight:bold;color:#333;cursor:pointer;font-size:15px;}
+.quick-qty.selected{border-color:#2e7d32;background:#e8f5e9;color:#2e7d32;}
 </style>
 </head>
 <body>
 <div class="header">
-<h1>👨‍💼 Owner</h1>
-<button onclick="logout()">Logout</button>
+<h1>🛒 <span id="welcome">Dukan</span></h1>
+<button onclick="logoutUser()">Logout</button>
 </div>
 
 <div class="container">
-<div class="card" style="display:flex;padding:0;overflow:auto;">
-<button class="primary tabBtn" data-tab="products">Products</button>
-<button class="primary tabBtn" data-tab="users">Customers</button>
-<button class="primary tabBtn" data-tab="orders">Orders</button>
-<button class="primary tabBtn" data-tab="udhar">Udhar</button>
-<button class="primary tabBtn" data-tab="info">ℹ️</button>
+<div id="tab-home">
+<input class="search-bar" id="search" placeholder="🔍 Product dhundo...">
+<div class="product-grid" id="grid"></div>
 </div>
 
-<!-- PRODUCTS -->
-<div id="tab-products">
-<div class="card">
-<h3 id="pFormTitle">➕ Naya Product</h3>
-<input type="hidden" id="pId">
-<input id="pName" placeholder="Product name (jaise: Aata)">
-<input id="pCat" placeholder="Category (optional)">
-
-<label style="font-size:13px;font-weight:bold;color:#2e7d32;margin-top:10px;display:block;">Is product ka type:</label>
-<div class="type-option">
-  <button type="button" id="typeLooseBtn" onclick="setProductType('loose')">⚖️ Khula<br><span style="font-size:11px;">(naap ke becho)</span></button>
-  <button type="button" id="typePacketBtn" onclick="setProductType('packet')">📦 Packet<br><span style="font-size:11px;">(fixed packet)</span></button>
-</div>
-<input type="hidden" id="pType" value="loose">
-
-<label style="font-size:13px;font-weight:bold;color:#2e7d32;margin-top:10px;display:block;">Unit:</label>
-<select id="pUnit">
-  <option value="kg">kg</option>
-  <option value="gram">gram</option>
-  <option value="liter">liter</option>
-  <option value="ml">ml</option>
-</select>
-
-<div class="row">
-  <input id="pRetail" type="number" placeholder="Retail ₹" inputmode="decimal">
-  <input id="pWholesale" type="number" placeholder="Wholesale ₹" inputmode="decimal">
-</div>
-<input id="pStock" type="number" placeholder="Stock" inputmode="decimal">
-
-<div style="display:flex;gap:8px;margin-top:10px;">
-  <button type="button" class="pick-btn" style="flex:1;background:#e8f5e9;border-color:#2e7d32;color:#2e7d32;margin:0;" onclick="openLiveCamera()">📷 Camera</button>
-  <label for="pImgGallery" class="pick-btn" style="flex:1;margin:0;">🖼️ Gallery</label>
-</div>
-<input id="pImgGallery" type="file" accept="image/*" onchange="handleImageSelect(event)" style="display:none;">
-<div id="imgStatus" class="img-status"></div>
-<img id="pPreview">
-
-<button class="primary" onclick="saveProduct()">💾 Save Product</button>
-<button class="primary" style="background:#777;" onclick="resetProductForm()">Reset</button>
-</div>
-<input class="search-bar" id="pSearch" placeholder="🔍 Search">
-<div id="productList"></div>
+<div id="tab-cart" class="hidden">
+<h3>🛒 Cart</h3>
+<div id="cartList"></div>
+<button class="primary" onclick="openPaymentModal()">📤 Order Karo</button>
 </div>
 
-<!-- USERS -->
-<div id="tab-users" class="hidden">
-<input class="search-bar" id="uSearch" placeholder="🔍 Customer">
-<div id="userList"></div>
-</div>
-
-<!-- ORDERS -->
 <div id="tab-orders" class="hidden">
-<div id="orderList"></div>
+<h3>📦 Orders</h3>
+<div id="myOrders"></div>
 </div>
 
-<!-- UDHAR -->
-<div id="tab-udhar" class="hidden">
-<div class="card" style="background:linear-gradient(135deg,#2e7d32,#1b5e20);color:#fff;">
-  <h3 style="color:#fff;">💰 Udhar Khata</h3>
-  <div style="display:flex;justify-content:space-around;text-align:center;margin-top:8px;">
-    <div><div style="font-size:22px;font-weight:bold;" id="udTotalPending">₹0</div><div style="font-size:11px;">📕 Baaki</div></div>
-    <div><div style="font-size:22px;font-weight:bold;" id="udTotalAdvance">₹0</div><div style="font-size:11px;">💚 Advance</div></div>
-    <div><div style="font-size:22px;font-weight:bold;" id="udTotalCustomers">0</div><div style="font-size:11px;">👥 Customers</div></div>
-  </div>
-</div>
-
-<div class="card">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-    <h3 style="margin:0;">👥 Customers</h3>
-    <button class="primary small" style="width:auto;padding:8px 14px;background:#1976d2;" onclick="openNewUdhar()">➕ Naya Udhar</button>
-  </div>
-  <input class="search-bar" id="udCustomerSearch" placeholder="🔍 Customer dhundo" style="margin-bottom:10px;">
-  <div id="udharCustomerList"></div>
+<div id="tab-profile" class="hidden">
+<h3>👤 Meri Profile</h3>
+<div id="profileBox"></div>
 </div>
 </div>
 
-<!-- INFO -->
-<div id="tab-info" class="hidden">
-<div class="card">
-<h3>ℹ️ Info</h3>
-<div id="secretInfo" style="font-size:13px;color:#555;"></div>
-</div>
-</div>
+<div class="bottom-nav">
+<a href="#" class="active" data-tab="home">🏠<br>Home</a>
+<a href="#" data-tab="cart">🛒<br>Cart <span class="cart-badge" id="cartCount">0</span></a>
+<a href="#" data-tab="orders">📦<br>Orders</a>
+<a href="#" data-tab="profile">👤<br>Profile</a>
 </div>
 
-<div id="udharModalRoot"></div>
-
-<div id="cameraModal">
-  <video id="cameraVideo" autoplay playsinline muted></video>
-  <div class="camera-controls">
-    <button type="button" class="cam-btn cam-cancel" onclick="closeCamera()">✕ Cancel</button>
-    <button type="button" class="cam-btn cam-capture" onclick="capturePhoto()">📸 Capture</button>
-    <button type="button" class="cam-btn cam-switch" onclick="switchCamera()">🔄</button>
-  </div>
-</div>
-<canvas id="cameraCanvas"></canvas>
+<div id="modalRoot"></div>
 
 <script src="app.js"></script>
 <script>
 const s = getSession();
-if (!s || s.role !== 'owner') location.replace('index.html');
+if (!s || s.role !== 'user') location.replace('index.html');
 
-let DATA = null, editingImageUrl = '', compressedImageFile = null;
-let udharBuilder = { user_id: '', type: 'udhar', items: [], note: '' };
+let PRODUCTS = [], ME = null, MY_ORDERS = [], MY_UDHAR = [];
+let CART = JSON.parse(localStorage.getItem('cart') || '{}');
+const EXTRA_PERCENT = 2;
+
+document.getElementById('welcome').textContent = 'Namaste, ' + (s.data.name || 'Customer');
+
+async function refreshAll() {
+  const uid = getAuthUid();
+  if (!uid) return;
+  const [products, me, myOrders, myUdhar] = await Promise.all([
+    getFreshProducts(), getFreshUser(uid), getFreshMyOrders(uid), getFreshMyUdhar(uid)
+  ]);
+  PRODUCTS = products;
+  ME = me || ME;
+  MY_ORDERS = myOrders;
+  MY_UDHAR = myUdhar;
+}
 
 async function init() {
   const ok = await waitForFirebase();
@@ -160,821 +87,453 @@ async function init() {
   const uid = await waitForAuth();
   if (!uid) { alert('Session expire'); location.replace('index.html'); return; }
   
-  // FRESH DATA
-  const [products, users, orders, udhar] = await Promise.all([
-    getFreshProducts(), getFreshUsers(), getFreshOrders(), getFreshUdhar()
-  ]);
-  DATA = { products, users, orders, udhar };
+  await refreshAll();
+  saveSession('user', { id: ME.id, name: ME.name, phone: ME.phone, price_type: ME.price_type });
+  document.getElementById('welcome').textContent = 'Namaste, ' + ME.name;
   
-  renderProducts(); renderUsers(); renderOrders(); renderUdhar(); renderInfo();
-  resetProductForm();
-  setProductType('loose');
+  cleanCart();
+  renderGrid(); renderCart(); renderOrders(); renderProfile(); updateCartBadge();
 }
 
-function switchTab(t) {
-  document.querySelectorAll('.tabBtn').forEach(b => {
-    b.classList.toggle('tab-btn-active', b.dataset.tab === t);
-    b.classList.toggle('tab-btn-inactive', b.dataset.tab !== t);
+function cleanCart() {
+  let changed = false;
+  Object.keys(CART).forEach(key => {
+    const [pid] = key.split('::');
+    const p = PRODUCTS.find(x => x.id === pid);
+    if (!p) { delete CART[key]; changed = true; }
   });
-  ['products','users','orders','udhar','info'].forEach(x => {
-    document.getElementById('tab-'+x).classList.toggle('hidden', x !== t);
-  });
+  if (changed) saveCart();
 }
 
-document.querySelectorAll('.tabBtn').forEach(btn => {
-  btn.onclick = async () => {
-    switchTab(btn.dataset.tab);
-    // FRESH DATA on every tab
+document.querySelectorAll('.bottom-nav a').forEach(a => {
+  a.onclick = async e => {
+    e.preventDefault();
+    document.querySelectorAll('.bottom-nav a').forEach(x => x.classList.remove('active'));
+    a.classList.add('active');
+    ['home','cart','orders','profile'].forEach(t => {
+      document.getElementById('tab-'+t).classList.toggle('hidden', t !== a.dataset.tab);
+    });
+    
+    // FRESH DATA
     try {
-      const [products, users, orders, udhar] = await Promise.all([
-        getFreshProducts(), getFreshUsers(), getFreshOrders(), getFreshUdhar()
-      ]);
-      DATA = { products, users, orders, udhar };
-      const tab = btn.dataset.tab;
-      if (tab === 'products') renderProducts();
-      if (tab === 'users') renderUsers();
-      if (tab === 'orders') renderOrders();
-      if (tab === 'udhar') renderUdhar();
+      await refreshAll();
+      cleanCart();
+      if (a.dataset.tab === 'home') renderGrid();
+      if (a.dataset.tab === 'cart') renderCart();
+      if (a.dataset.tab === 'orders') renderOrders();
+      if (a.dataset.tab === 'profile') renderProfile();
+      updateCartBadge();
     } catch (err) { console.warn('Refresh fail:', err); }
   };
 });
 
-function renderInfo() {
-  document.getElementById('secretInfo').innerHTML = `
-    <div style="padding:4px 0;">ImgBB: ${SECRET.imgbb_key ? '✅' : '❌'}</div>
-    <div style="padding:4px 0;">UPI: ${SECRET.upi_id || '❌'}</div>
-    <div style="padding:4px 0;">Firebase: ${FB_READY ? '✅ ready' : '❌'}</div>
-  `;
-}
-
-/* ========== PRODUCT TYPE ========== */
-function setProductType(type) {
-  document.getElementById('pType').value = type;
-  if (type === 'loose') {
-    document.getElementById('typeLooseBtn').classList.add('active');
-    document.getElementById('typePacketBtn').classList.remove('active');
-    document.getElementById('pUnit').innerHTML = `
-      <option value="kg">kg</option>
-      <option value="gram">gram</option>
-      <option value="liter">liter</option>
-      <option value="ml">ml</option>
-    `;
-  } else {
-    document.getElementById('typePacketBtn').classList.add('active');
-    document.getElementById('typeLooseBtn').classList.remove('active');
-    document.getElementById('pUnit').innerHTML = `
-      <option value="piece">piece (nag)</option>
-      <option value="packet">packet</option>
-      <option value="bottle">bottle</option>
-      <option value="dozen">dozen</option>
-      <option value="box">box</option>
-      <option value="strip">strip</option>
-    `;
-  }
-}
-
-/* ========== SAVE PRODUCT ========== */
-async function saveProduct() {
-  const name = document.getElementById('pName').value.trim();
-  const cat = document.getElementById('pCat').value.trim();
-  const type = document.getElementById('pType').value;
-  const unit = document.getElementById('pUnit').value;
-  const retail = parseFloat(document.getElementById('pRetail').value) || 0;
-  const wholesale = parseFloat(document.getElementById('pWholesale').value) || retail;
-  const stock = parseFloat(document.getElementById('pStock').value) || 0;
-  const editId = document.getElementById('pId').value;
-
-  if (!name) return toast('Naam daalo');
-  if (!retail || retail <= 0) return toast('Retail price daalo');
-
-  try {
-    toast('Save ho raha hai...');
-    let imageUrl = editingImageUrl;
-    if (compressedImageFile) imageUrl = await uploadImage(compressedImageFile);
-
-    let product;
-    if (editId) {
-      product = DATA.products.find(x => x.id === editId);
-      Object.assign(product, { name, category: cat, type, unit, retail, wholesale, stock, image: imageUrl });
-    } else {
-      product = {
-        id: uid(), name, category: cat, type, unit,
-        retail, wholesale, stock, image: imageUrl,
-        hidden: false, created_at: new Date().toISOString()
-      };
-    }
-    await fbSaveProduct(product);
-    // Refresh
-    DATA.products = await getFreshProducts();
-    toast('✅ Save ho gaya');
-    resetProductForm();
-    renderProducts();
-  } catch (e) { toast('❌ ' + e.message); }
-}
-
-function resetProductForm() {
-  ['pId','pName','pCat','pRetail','pWholesale','pStock'].forEach(id => document.getElementById(id).value = '');
-  document.getElementById('pImgGallery').value = '';
-  compressedImageFile = null; editingImageUrl = '';
-  const prev = document.getElementById('pPreview');
-  prev.style.display = 'none'; prev.src = '';
-  document.getElementById('imgStatus').textContent = '';
-  document.getElementById('pFormTitle').textContent = '➕ Naya Product';
-  setProductType('loose');
-}
-
-function editProduct(id) {
-  const p = DATA.products.find(x => x.id === id);
-  if (!p) return;
-  document.getElementById('pId').value = p.id;
-  document.getElementById('pName').value = p.name || '';
-  document.getElementById('pCat').value = p.category || '';
-  setProductType(p.type || 'loose');
-  document.getElementById('pUnit').value = p.unit || 'kg';
-  document.getElementById('pRetail').value = p.retail || '';
-  document.getElementById('pWholesale').value = p.wholesale || '';
-  document.getElementById('pStock').value = p.stock || 0;
-  editingImageUrl = p.image || '';
-  compressedImageFile = null;
-  if (p.image) {
-    const prev = document.getElementById('pPreview');
-    prev.src = p.image; prev.style.display = 'block';
-  }
-  document.getElementById('pFormTitle').textContent = '✏️ Edit Product';
-  switchTab('products');
-}
-
-async function deleteProduct(id) {
-  if (!confirm('Delete?')) return;
-  try { 
-    await fbDeleteProduct(id); 
-    DATA.products = await getFreshProducts(); 
-    toast('🗑️'); renderProducts(); 
-  } catch (e) { toast('❌ ' + e.message); }
-}
-
-async function toggleHide(id) {
-  const p = DATA.products.find(x => x.id === id);
-  p.hidden = !p.hidden;
-  try { 
-    await fbSaveProduct(p); 
-    DATA.products = await getFreshProducts(); 
-    renderProducts(); 
-  } catch (e) { toast('❌ ' + e.message); }
-}
-
-function renderProducts() {
-  const q = (document.getElementById('pSearch').value||'').toLowerCase();
-  const list = document.getElementById('productList');
-  const items = DATA.products.filter(p => p.name.toLowerCase().includes(q));
-  if (!items.length) { list.innerHTML = '<div class="card center">Koi product nahi</div>'; return; }
-  list.innerHTML = items.map(p => {
-    const typeLabel = p.type === 'packet' ? '📦 Packet' : '⚖️ Khula';
+function renderGrid() {
+  const q = (document.getElementById('search').value||'').toLowerCase();
+  const items = PRODUCTS.filter(p => !p.hidden && p.name.toLowerCase().includes(q));
+  const grid = document.getElementById('grid');
+  if (!items.length) { grid.innerHTML = '<div class="card center">Koi product nahi</div>'; return; }
+  grid.innerHTML = items.map(p => {
+    const typeLabel = p.type === 'packet' ? '📦' : '⚖️';
+    const totalStock = p.stock || 0;
+    const out = totalStock <= 0;
     return `
-    <div class="card">
-      <div class="row">
-        <img src="${p.image || 'https://via.placeholder.com/80'}" style="width:70px;height:70px;object-fit:cover;border-radius:8px;flex:0 0 70px;">
-        <div style="flex:1;">
-          <div style="font-weight:600;">${p.name} ${p.hidden?'<span style="color:#c62828;font-size:12px;">(Hidden)</span>':''}</div>
-          <div style="font-size:12px;color:#777;">${typeLabel} • ${p.unit} • Stock: ${p.stock||0}</div>
-          <div style="font-size:14px;color:#2e7d32;font-weight:bold;margin-top:2px;">₹${p.retail}/${p.unit} <span style="color:#777;font-weight:normal;font-size:12px;">(W ₹${p.wholesale})</span></div>
-        </div>
-      </div>
-      <div class="row mt">
-        <button class="primary small" onclick="editProduct('${p.id}')">✏️</button>
-        <button class="primary small" style="background:#f57c00;" onclick="toggleHide('${p.id}')">${p.hidden?'👁️':'🙈'}</button>
-        <button class="primary small danger" onclick="deleteProduct('${p.id}')">🗑️</button>
-      </div>
-    </div>`;
-  }).join('');
-}
-document.getElementById('pSearch').oninput = renderProducts;
-
-/* ========== USERS ========== */
-function renderUsers() {
-  const q = (document.getElementById('uSearch').value||'').toLowerCase();
-  const list = document.getElementById('userList');
-  const items = DATA.users.filter(u =>
-    (u.name||'').toLowerCase().includes(q) || (u.phone||'').includes(q)
-  );
-  if (!items.length) { list.innerHTML = '<div class="card center">Koi customer nahi</div>'; return; }
-  list.innerHTML = items.map(u => {
-    const w = u.price_type === 'wholesale';
-    const stats = calculateUserStats(u.id, DATA.orders, DATA.udhar);
-    return `
-      <div class="card">
-        <div style="display:flex;justify-content:space-between;">
-          <b>${u.name}</b>
-          <span style="font-size:12px;padding:2px 8px;border-radius:10px;background:${w?'#fff3e0':'#e8f5e9'};color:${w?'#e65100':'#2e7d32'};">
-            ${w ? '💼 Wholesale' : '🛒 Retail'}
-          </span>
-        </div>
-        <div style="font-size:13px;color:#666;">📞 ${u.phone}</div>
-        ${u.address ? `<div style="font-size:12px;color:#888;">📍 ${u.address}</div>` : ''}
-        <div style="display:flex;gap:6px;margin-top:8px;">
-          <button class="icon-btn btn-call" onclick="callPhone('${u.phone}')">📞</button>
-          <button class="icon-btn btn-wa" onclick="whatsappPhone('${u.phone}', 'Namaste ${u.name}')">💬</button>
-          <button class="icon-btn btn-sms" onclick="smsPhone('${u.phone}')">✉️</button>
-        </div>
-        <div style="display:flex;gap:8px;font-size:13px;margin-top:8px;padding:8px;background:#f9f9f9;border-radius:6px;">
-          <div style="flex:1;text-align:center;"><div style="font-weight:bold;color:#2e7d32;">₹${stats.total_orders.toFixed(0)}</div><div style="font-size:11px;color:#666;">Total</div></div>
-          <div style="flex:1;text-align:center;"><div style="font-weight:bold;color:#2e7d32;">₹${stats.total_paid.toFixed(0)}</div><div style="font-size:11px;color:#666;">Paid</div></div>
-          <div style="flex:1;text-align:center;"><div style="font-weight:bold;color:${stats.total_pending>0?'#e65100':'#2e7d32'};">₹${stats.total_pending.toFixed(0)}</div><div style="font-size:11px;color:#666;">Bakaya</div></div>
-        </div>
-        <div class="row mt">
-          <button class="primary small" style="background:#1976d2;" onclick="editCustomerName('${u.id}')">✏️ Naam</button>
-          <button class="primary small" style="background:${w?'#2e7d32':'#f57c00'};" onclick="toggleWholesale('${u.id}')">
-            ${w ? '🛒 Retail' : '💼 Wholesale'}
+      <div class="product-card">
+        <img src="${p.image || 'https://via.placeholder.com/150'}" alt="${p.name}">
+        <div class="info">
+          <div class="name">${p.name}</div>
+          <div class="price">₹${p.retail}/${p.unit}</div>
+          <div class="stock">${typeLabel} ${p.type === 'packet' ? 'Packet' : 'Khula'} • ${out ? '❌ Khatam' : '✔ ' + totalStock}</div>
+          <button class="primary small" style="margin-top:auto;" ${out?'disabled style="background:#ccc;"':''} onclick="openPicker('${p.id}')">
+            ${out ? 'Khatam' : '🛒 Add'}
           </button>
         </div>
       </div>`;
   }).join('');
 }
-document.getElementById('uSearch').oninput = renderUsers;
+document.getElementById('search').oninput = renderGrid;
 
-async function editCustomerName(id) {
-  const u = DATA.users.find(x => x.id === id);
-  const newName = prompt('Customer ka naam:', u.name);
-  if (!newName || !newName.trim()) return;
-  u.name = newName.trim();
-  try { 
-    await fbSaveUser(u); 
-    DATA.users = await getFreshUsers();
-    toast('✅ Save'); 
-    renderUsers(); renderUdhar(); 
-  } catch (e) { toast('❌ ' + e.message); }
+let pickerState = null;
+function openPicker(pid) {
+  const p = PRODUCTS.find(x => x.id === pid);
+  if (!p) return;
+  pickerState = { productId: pid, qty: 1 };
+  renderPicker();
 }
 
-async function toggleWholesale(id) {
-  const u = DATA.users.find(x => x.id === id);
-  const newType = u.price_type === 'wholesale' ? 'retail' : 'wholesale';
-  if (!confirm(`${u.name} → ${newType.toUpperCase()}?`)) return;
-  u.price_type = newType;
-  try { 
-    await fbSaveUser(u); 
-    DATA.users = await getFreshUsers();
-    toast(newType==='wholesale'?'💼':'🛒'); 
-    renderUsers(); 
-  } catch (e) { toast('❌ ' + e.message); }
-}
-
-/* ========== ORDERS ========== */
-async function approvePayment(orderId) {
-  if (!confirm('Payment confirm?')) return;
-  try {
-    await fbUpdateOrder(orderId, { payment_status: 'paid', owner_confirmed_at: new Date().toISOString() });
-    DATA.orders = await getFreshOrders();
-    toast('✅ Payment'); renderOrders();
-  } catch (e) { toast('❌ ' + e.message); }
-}
-async function approveOrder(orderId) {
-  if (!confirm('Approve?')) return;
-  try {
-    await fbUpdateOrder(orderId, { order_status: 'approved', owner_approved: true });
-    DATA.orders = await getFreshOrders();
-    toast('✅ Approve'); renderOrders();
-  } catch (e) { toast('❌ ' + e.message); }
-}
-async function markDelivered(orderId) {
-  if (!confirm('Delivered?')) return;
-  try {
-    await fbUpdateOrder(orderId, { order_status: 'delivered' });
-    DATA.orders = await getFreshOrders();
-    toast('✅ Delivered'); renderOrders();
-  } catch (e) { toast('❌ ' + e.message); }
-}
-
-function renderOrders() {
-  const list = document.getElementById('orderList');
-  if (!DATA.orders.length) { list.innerHTML = '<div class="card center">Koi order nahi</div>'; return; }
-  list.innerHTML = DATA.orders.map(o => {
-    const items = (o.items || []).map(it => `<div style="font-size:13px;">• ${it.product_name} — ${it.qty} ${it.unit} × ₹${it.price} = ₹${(it.qty*it.price).toFixed(2)}</div>`).join('');
-    const isPaid = o.payment_status === 'paid';
-    const isApproved = o.order_status === 'approved' || o.order_status === 'delivered';
-    const isDelivered = o.order_status === 'delivered';
-    return `
-      <div class="card" style="border-left:4px solid ${isDelivered?'#2e7d32':isPaid?'#1976d2':'#f57c00'};">
-        <div style="display:flex;justify-content:space-between;">
-          <b>${o.user_name||'?'}</b>
-          <div style="display:flex;gap:4px;">
-            <button class="icon-btn btn-call" onclick="callPhone('${o.user_phone}')">📞</button>
-            <button class="icon-btn btn-wa" onclick="whatsappPhone('${o.user_phone}', 'Namaste ${o.user_name}')">💬</button>
-          </div>
-        </div>
-        <div style="font-size:11px;color:#888;text-align:right;">${new Date(o.created_at).toLocaleString('hi-IN')}</div>
-        <div class="mt">${items}</div>
-        <div style="font-weight:bold;color:#2e7d32;margin-top:6px;font-size:16px;">Total: ₹${(o.total||0).toFixed(2)}</div>
-        <div style="font-size:13px;margin-top:6px;background:#f9f9f9;padding:8px;border-radius:6px;">
-          <div>📦 ${isDelivered?'✅ DELIVERED':isApproved?'📦 APPROVED':'⏳ PENDING'}</div>
-          <div>💰 ${isPaid?'✅ PAID':'⏳ PENDING'}</div>
-        </div>
-        <div class="row mt">
-          ${!isPaid ? `<button class="primary small" style="background:#2e7d32;" onclick="approvePayment('${o.id}')">💰 Payment</button>` : ''}
-          ${isPaid && !isApproved ? `<button class="primary small" style="background:#1976d2;" onclick="approveOrder('${o.id}')">📦 Approve</button>` : ''}
-          ${isApproved && !isDelivered ? `<button class="primary small" onclick="markDelivered('${o.id}')">✅ Delivered</button>` : ''}
-        </div>
-      </div>`;
-  }).join('');
-}
-
-/* ========== UDHAR ========== */
-function openNewUdhar(customerId) {
-  udharBuilder = { user_id: customerId || '', type: 'udhar', items: [], note: '' };
-  renderUdharBuilder();
-}
-
-function renderUdharBuilder() {
-  const total = udharBuilder.items.reduce((s, it) => s + (+it.amount || 0), 0);
-  const isUdhar = udharBuilder.type === 'udhar';
-
-  // Product options from home
-  const productOptions = DATA.products.filter(p => !p.hidden).map(p => 
-    `<option value="${p.id}">${p.name} (₹${p.retail}/${p.unit})</option>`
-  ).join('');
-
-  document.getElementById('udharModalRoot').innerHTML = `
-    <div class="modal-bg" onclick="if(event.target===this) closeUdharModal()">
-      <div class="modal-box">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-          <h3 style="margin:0;">📝 ${isUdhar ? 'Naya Udhar' : 'Payment Jama'}</h3>
-          <button class="primary small" style="width:auto;background:#777;" onclick="closeUdharModal()">✕</button>
-        </div>
-
-        <label style="font-size:13px;font-weight:bold;">👤 Customer</label>
-        <select id="udUserSel" onchange="udharBuilder.user_id = this.value;" style="width:100%;padding:10px;border:1px solid #ccc;border-radius:6px;margin:6px 0 12px;">
-          <option value="">-- Select --</option>
-          ${DATA.users.map(u => `<option value="${u.id}" ${udharBuilder.user_id === u.id ? 'selected' : ''}>${u.name} (${u.phone})</option>`).join('')}
-        </select>
-
-        <div style="display:flex;gap:8px;margin-bottom:12px;">
-          <button type="button" class="primary" style="flex:1;background:${isUdhar?'#e65100':'#ccc'};color:${isUdhar?'#fff':'#333'};font-size:14px;" onclick="setUdharType('udhar')">📕 Udhar</button>
-          <button type="button" class="primary" style="flex:1;background:${!isUdhar?'#2e7d32':'#ccc'};color:${!isUdhar?'#fff':'#333'};font-size:14px;" onclick="setUdharType('jama')">💚 Jama</button>
-        </div>
-
-        ${isUdhar ? `
-          <label style="font-size:13px;font-weight:bold;">📋 Saman List</label>
-          <div style="background:#f9f9f9;padding:8px;border-radius:8px;margin:6px 0 12px;min-height:40px;">
-            ${udharBuilder.items.length === 0 
-              ? '<div style="text-align:center;color:#888;font-size:13px;padding:12px;">Neeche se saman add karo 👇</div>'
-              : udharBuilder.items.map((it, idx) => `
-                <div class="udhar-item">
-                  <div class="info">
-                    <div style="font-weight:600;">${it.name}</div>
-                    <div style="font-size:11px;color:#666;">${it.qty} ${it.unit} × ₹${it.price}</div>
-                  </div>
-                  <div class="amount">₹${it.amount.toFixed(2)}</div>
-                  <button class="primary small danger" style="width:auto;padding:6px 8px;font-size:12px;" onclick="removeUdharItem(${idx})">✕</button>
-                </div>
-              `).join('')}
-          </div>
-
-          <div style="background:#e3f2fd;padding:10px;border-radius:8px;margin-bottom:12px;">
-            <label style="font-size:12px;color:#1976d2;font-weight:bold;">➕ Saman Add Karo</label>
-            <select id="itemProductSel" onchange="onItemProductChange()" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:6px;margin:6px 0;font-size:14px;">
-              <option value="">-- Saman select --</option>
-              ${productOptions}
-            </select>
-
-            <div id="itemQtySection" style="display:none;">
-              <div style="font-size:12px;color:#666;margin-bottom:4px;">Quantity:</div>
-              <div id="itemQtyButtons" style="display:grid;grid-template-columns:repeat(3, 1fr);gap:6px;margin-bottom:8px;"></div>
-              <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;">
-                <input type="number" id="itemCustomQty" placeholder="Ya khud daalo" step="0.25" min="0.25" onchange="updateItemPreview()" style="flex:1;padding:8px;border:1px solid #ccc;border-radius:6px;">
-                <span id="itemUnitLabel" style="font-weight:bold;"></span>
-              </div>
-              <div style="text-align:right;font-size:13px;margin-bottom:6px;">
-                Subtotal: <b id="itemSubtotalPreview" style="color:#2e7d32;font-size:16px;">₹0</b>
-              </div>
-              <button type="button" class="primary" style="background:#1976d2;font-size:14px;" onclick="addItemToUdhar()">➕ Add to List</button>
-            </div>
-          </div>
-        ` : `
-          <label style="font-size:13px;font-weight:bold;">💵 Amount ₹</label>
-          <input type="number" id="jamaAmountInput" placeholder="Paisa kitna diya" style="width:100%;padding:10px;border:1px solid #ccc;border-radius:6px;margin:6px 0 12px;font-size:15px;" onchange="updateJamaPreview()">
-        `}
-
-        <label style="font-size:13px;font-weight:bold;">📝 Note</label>
-        <input id="udNoteInput" placeholder="Jaise: Ghar le gaya" value="${udharBuilder.note}" onchange="udharBuilder.note = this.value;" style="width:100%;padding:10px;border:1px solid #ccc;border-radius:6px;margin:6px 0 12px;">
-
-        <div style="background:${isUdhar?'#fff3e0':'#e8f5e9'};padding:12px;border-radius:8px;margin-bottom:12px;text-align:center;">
-          <div style="font-size:13px;color:#666;">Total ${isUdhar?'Udhar':'Jama'}</div>
-          <div id="udTotalPreview" style="font-size:26px;font-weight:bold;color:${isUdhar?'#e65100':'#2e7d32'};">₹${total.toFixed(2)}</div>
-        </div>
-
-        <div style="display:flex;gap:8px;">
-          <button class="primary" style="background:#777;" onclick="closeUdharModal()">Cancel</button>
-          <button class="primary" style="background:#2e7d32;" onclick="saveUdharEntry()">💾 Save</button>
-        </div>
-      </div>
-    </div>`;
-}
-
-function setUdharType(t) {
-  udharBuilder.type = t;
-  renderUdharBuilder();
-}
-
-function onItemProductChange() {
-  const pid = document.getElementById('itemProductSel').value;
-  const p = DATA.products.find(x => x.id === pid);
-  const section = document.getElementById('itemQtySection');
-  const btns = document.getElementById('itemQtyButtons');
-  const unitLabel = document.getElementById('itemUnitLabel');
+function renderPicker() {
+  const p = PRODUCTS.find(x => x.id === pickerState.productId);
+  if (!p) { closePicker(); return; }
   
-  if (!p) { section.style.display = 'none'; return; }
+  const price = p.retail || 0;
+  const subtotal = price * pickerState.qty;
+  const isLoose = p.type === 'loose';
   
-  section.style.display = 'block';
-  unitLabel.textContent = p.unit;
-  document.getElementById('itemCustomQty').value = '';
-  document.getElementById('itemSubtotalPreview').textContent = '₹0';
-
-  if (p.type === 'loose') {
+  let qtySelector = '';
+  
+  if (isLoose) {
     let opts = [];
-    if (p.unit === 'kg') opts = [0.25, 0.5, 1, 2, 5, 10];
+    if (p.unit === 'kg') opts = [0.25, 0.5, 1, 2, 5, 10, 25];
     else if (p.unit === 'gram') opts = [50, 100, 250, 500, 1000];
     else if (p.unit === 'liter') opts = [0.25, 0.5, 1, 2, 5];
     else if (p.unit === 'ml') opts = [100, 250, 500, 1000];
     
-    btns.innerHTML = opts.map(q => {
-      const disp = q >= 1 ? q : Math.round(q * 1000);
-      const dispU = q >= 1 ? p.unit : (p.unit === 'kg' ? 'gm' : p.unit === 'liter' ? 'ml' : p.unit);
-      return `<button type="button" onclick="setItemQty(${q})" style="padding:10px 4px;border:2px solid #ddd;border-radius:8px;background:#fff;font-weight:bold;font-size:13px;cursor:pointer;">${disp}${dispU}</button>`;
-    }).join('');
-  } else {
-    btns.innerHTML = [1, 2, 3, 4, 5, 10].map(n => 
-      `<button type="button" onclick="setItemQty(${n})" style="padding:10px 4px;border:2px solid #ddd;border-radius:8px;background:#fff;font-weight:bold;font-size:13px;cursor:pointer;">${n} ${p.unit}</button>`
-    ).join('');
-  }
-}
-
-function setItemQty(q) {
-  document.getElementById('itemCustomQty').value = q;
-  updateItemPreview();
-}
-
-function updateItemPreview() {
-  const pid = document.getElementById('itemProductSel').value;
-  const p = DATA.products.find(x => x.id === pid);
-  if (!p) return;
-  const q = parseFloat(document.getElementById('itemCustomQty').value) || 0;
-  const sub = (p.retail || 0) * q;
-  document.getElementById('itemSubtotalPreview').textContent = '₹' + sub.toFixed(2);
-}
-
-function addItemToUdhar() {
-  const pid = document.getElementById('itemProductSel').value;
-  const p = DATA.products.find(x => x.id === pid);
-  if (!p) return toast('Product select karo');
-
-  const q = parseFloat(document.getElementById('itemCustomQty').value) || 0;
-  if (q <= 0) return toast('Quantity daalo');
-
-  const amount = (p.retail || 0) * q;
-  udharBuilder.items.push({
-    product_id: pid, name: p.name, unit: p.unit,
-    qty: q, price: p.retail, amount: amount
-  });
-
-  document.getElementById('itemProductSel').value = '';
-  document.getElementById('itemQtySection').style.display = 'none';
-  document.getElementById('itemCustomQty').value = '';
-  document.getElementById('itemSubtotalPreview').textContent = '₹0';
-  renderUdharBuilder();
-}
-
-function removeUdharItem(idx) {
-  udharBuilder.items.splice(idx, 1);
-  renderUdharBuilder();
-}
-
-function updateJamaPreview() {
-  const amt = parseFloat(document.getElementById('jamaAmountInput').value) || 0;
-  document.getElementById('udTotalPreview').textContent = '₹' + amt.toFixed(2);
-}
-
-function closeUdharModal() {
-  document.getElementById('udharModalRoot').innerHTML = '';
-  udharBuilder = { user_id: '', type: 'udhar', items: [], note: '' };
-}
-
-async function saveUdharEntry() {
-  const user_id = document.getElementById('udUserSel').value;
-  if (!user_id) return toast('Customer select karo');
-
-  const note = document.getElementById('udNoteInput').value.trim();
-  let total = 0, items = [];
-
-  if (udharBuilder.type === 'udhar') {
-    items = udharBuilder.items;
-    total = items.reduce((s, it) => s + (+it.amount || 0), 0);
-    if (total <= 0) return toast('Saman add karo');
-  } else {
-    total = parseFloat(document.getElementById('jamaAmountInput').value) || 0;
-    if (total <= 0) return toast('Amount daalo');
-  }
-
-  const u = DATA.users.find(x => x.id === user_id);
-  const now = new Date();
-
-  const rec = {
-    id: uid(), user_id, user_name: u.name, user_phone: u.phone,
-    type: udharBuilder.type, items: items, amount: total,
-    note: note || (udharBuilder.type === 'jama' ? 'Payment jama' : 'Udhar'),
-    status: udharBuilder.type === 'jama' ? 'paid' : 'pending',
-    created_at: now.toISOString(),
-    date_str: now.toISOString().split('T')[0],
-    time_str: now.toTimeString().slice(0,5)
-  };
-
-  try {
-    await fbSaveUdhar(rec);
-    DATA.udhar = await getFreshUdhar();
-    toast(udharBuilder.type === 'jama' ? '✅ Jama' : '✅ Udhar');
-    closeUdharModal();
-    renderUdhar();
-  } catch (e) { toast('❌ ' + e.message); }
-}
-
-function renderUdhar() {
-  const list = document.getElementById('udharCustomerList');
-  const q = (document.getElementById('udCustomerSearch').value || '').toLowerCase();
-
-  const byCustomer = {};
-  DATA.udhar.forEach(u => {
-    if (!byCustomer[u.user_id]) {
-      byCustomer[u.user_id] = {
-        user_id: u.user_id, user_name: u.user_name, user_phone: u.user_phone,
-        entries: [], total_udhar: 0, total_jama: 0
-      };
-    }
-    byCustomer[u.user_id].entries.push(u);
-    const isJama = u.type === 'jama' || u.status === 'paid';
-    if (isJama) byCustomer[u.user_id].total_jama += +u.amount || 0;
-    else byCustomer[u.user_id].total_udhar += +u.amount || 0;
-  });
-
-  const customerList = Object.values(byCustomer).map(c => {
-    c.balance = c.total_udhar - c.total_jama;
-    return c;
-  }).filter(c => !q || (c.user_name||'').toLowerCase().includes(q) || (c.user_phone||'').includes(q));
-
-  customerList.sort((a, b) => b.balance - a.balance);
-
-  if (!customerList.length) {
-    list.innerHTML = '<div class="center" style="padding:20px;color:#888;">Koi udhar nahi. ➕ Naya Udhar dabao.</div>';
-  } else {
-    list.innerHTML = customerList.map(c => {
-      const isAdvance = c.balance < 0;
-      const isClear = c.balance === 0;
-      const color = isAdvance ? '#2e7d32' : (isClear ? '#666' : '#c62828');
-      const text = isAdvance ? `💚 ₹${Math.abs(c.balance).toFixed(2)} Advance` : (isClear ? '✅ Clear' : `📕 ₹${c.balance.toFixed(2)} Baaki`);
-
-      return `
-        <div style="padding:12px;border-bottom:1px solid #f0f0f0;cursor:pointer;" onclick="openCustomerLedger('${c.user_id}')">
-          <div style="display:flex;justify-content:space-between;">
-            <div style="flex:1;">
-              <div style="font-weight:bold;">${c.user_name}</div>
-              <div style="font-size:12px;color:#666;">📞 ${c.user_phone}</div>
-              <div style="font-size:11px;color:#999;">📕 ₹${c.total_udhar.toFixed(0)} • 💚 ₹${c.total_jama.toFixed(0)}</div>
-            </div>
-            <div style="text-align:right;">
-              <div style="font-weight:bold;color:${color};font-size:15px;">${text}</div>
-              <div style="font-size:11px;color:#888;">${c.entries.length} entries ›</div>
-            </div>
-          </div>
-        </div>`;
-    }).join('');
-  }
-
-  const totals = Object.values(byCustomer).reduce((acc, c) => {
-    const bal = c.total_udhar - c.total_jama;
-    if (bal > 0) acc.pending += bal;
-    else acc.advance += Math.abs(bal);
-    return acc;
-  }, { pending: 0, advance: 0 });
-
-  document.getElementById('udTotalPending').textContent = '₹' + totals.pending.toFixed(0);
-  document.getElementById('udTotalAdvance').textContent = '₹' + totals.advance.toFixed(0);
-  document.getElementById('udTotalCustomers').textContent = Object.keys(byCustomer).length;
-}
-document.getElementById('udCustomerSearch').oninput = renderUdhar;
-
-function openCustomerLedger(userId) {
-  const u = DATA.users.find(x => x.id === userId);
-  if (!u) return;
-
-  const entries = DATA.udhar.filter(x => x.user_id === userId)
-    .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-
-  let running = 0;
-  const ledger = entries.map(e => {
-    const isJama = e.type === 'jama' || e.status === 'paid';
-    if (isJama) running -= +e.amount;
-    else running += +e.amount;
-    return { ...e, running, isJama };
-  });
-  ledger.reverse();
-
-  const totalUdhar = entries.filter(e => !(e.type === 'jama' || e.status === 'paid')).reduce((a, e) => a + +e.amount, 0);
-  const totalJama = entries.filter(e => e.type === 'jama' || e.status === 'paid').reduce((a, e) => a + +e.amount, 0);
-  const finalBalance = totalUdhar - totalJama;
-
-  document.getElementById('udharModalRoot').innerHTML = `
-    <div class="modal-bg" onclick="if(event.target===this) closeUdharModal()">
-      <div class="modal-box" style="max-width:600px;">
-        <div style="background:linear-gradient(135deg,#2e7d32,#1b5e20);color:#fff;padding:16px;border-radius:8px;margin-bottom:12px;">
-          <div style="display:flex;justify-content:space-between;">
-            <div>
-              <h2 style="margin:0;font-size:20px;">📔 ${u.name}</h2>
-              <div style="font-size:13px;margin-top:4px;opacity:0.95;">📞 ${u.phone}</div>
-              ${u.address ? `<div style="font-size:12px;opacity:0.9;">📍 ${u.address}</div>` : ''}
-            </div>
-            <button class="primary small" style="width:auto;background:rgba(255,255,255,0.2);padding:6px 10px;color:#fff;" onclick="closeUdharModal()">✕</button>
-          </div>
+    qtySelector = `
+      <div style="margin-top:14px;padding-top:12px;border-top:1px solid #eee;">
+        <div style="font-size:13px;color:#666;text-align:center;margin-bottom:10px;">
+          Kitna ${p.unit}? (fixed quantity)
         </div>
-
-        <div style="display:flex;gap:8px;margin-bottom:14px;">
-          <div style="flex:1;background:#fff3e0;padding:12px;border-radius:8px;text-align:center;">
-            <div style="font-size:11px;color:#666;">📕 Total Udhar</div>
-            <div style="font-size:18px;font-weight:bold;color:#e65100;">₹${totalUdhar.toFixed(2)}</div>
-          </div>
-          <div style="flex:1;background:#e8f5e9;padding:12px;border-radius:8px;text-align:center;">
-            <div style="font-size:11px;color:#666;">💚 Total Jama</div>
-            <div style="font-size:18px;font-weight:bold;color:#2e7d32;">₹${totalJama.toFixed(2)}</div>
-          </div>
-          <div style="flex:1;background:${finalBalance>0?'#ffebee':'#e8f5e9'};padding:12px;border-radius:8px;text-align:center;">
-            <div style="font-size:11px;color:#666;">${finalBalance>0?'📕 Baaki':finalBalance<0?'💚 Advance':'✅ Clear'}</div>
-            <div style="font-size:18px;font-weight:bold;color:${finalBalance>0?'#c62828':finalBalance<0?'#2e7d32':'#333'};">₹${Math.abs(finalBalance).toFixed(2)}</div>
-          </div>
-        </div>
-
-        <div style="display:flex;gap:8px;margin-bottom:14px;">
-          <button class="primary" style="background:#e65100;font-size:14px;" onclick="openNewUdhar('${userId}')">📕 Naya Udhar</button>
-          <button class="primary" style="background:#2e7d32;font-size:14px;" onclick="openNewJama('${userId}')">💚 Jama Karo</button>
-        </div>
-
-        <div style="font-size:14px;font-weight:bold;margin-bottom:8px;">📋 Poora Hisaab (Latest upar)</div>
-        <div style="background:#f9f9f9;border-radius:8px;padding:6px;max-height:55vh;overflow-y:auto;">
-          ${ledger.length === 0 ? '<div style="padding:30px;text-align:center;color:#888;">Koi entry nahi</div>' : ledger.map(e => {
-            const d = new Date(e.created_at);
-            const dateStr = d.toLocaleDateString('hi-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-            const timeStr = d.toLocaleTimeString('hi-IN', { hour: '2-digit', minute: '2-digit' });
-            const itemsList = (e.items && e.items.length)
-              ? e.items.map(it => {
-                  const name = it.name || it.product_name || '?';
-                  return `<div style="display:flex;justify-content:space-between;font-size:12px;padding:2px 0;color:#444;">
-                    <span>• ${name} <span style="color:#888;">(${it.qty} ${it.unit} × ₹${it.price})</span></span>
-                    <span>₹${(+it.amount).toFixed(2)}</span>
-                  </div>`;
-                }).join('')
-              : '';
-            
-            return `
-              <div style="background:#fff;border-radius:8px;padding:12px;margin-bottom:8px;border-left:4px solid ${e.isJama?'#2e7d32':'#e65100'};">
-                <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-                  <div style="flex:1;">
-                    <div style="font-size:11px;color:#888;font-weight:600;">📅 ${dateStr} • ⏰ ${timeStr}</div>
-                    <div style="font-size:14px;font-weight:600;margin-top:4px;color:${e.isJama?'#2e7d32':'#e65100'};">
-                      ${e.isJama?'💚':'📕'} ${e.note || 'Udhar'}
-                    </div>
-                    ${itemsList ? '<div style="margin-top:6px;padding-top:6px;border-top:1px dashed #eee;">' + itemsList + '</div>' : ''}
-                  </div>
-                  <div style="text-align:right;margin-left:10px;">
-                    <div style="font-size:17px;font-weight:bold;color:${e.isJama?'#2e7d32':'#c62828'};">
-                      ${e.isJama?'−':'+'} ₹${(+e.amount).toFixed(2)}
-                    </div>
-                    <div style="font-size:11px;color:#666;margin-top:2px;background:#f5f5f5;padding:2px 6px;border-radius:4px;">
-                      बाकी: ₹${(+e.running).toFixed(2)}
-                    </div>
-                  </div>
-                </div>
-                <div style="margin-top:8px;display:flex;gap:6px;">
-                  <button class="primary small" style="background:#1976d2;font-size:11px;width:auto;padding:4px 10px;" onclick="editUdharEntry('${e.id}', '${userId}')">✏️ Edit</button>
-                  <button class="primary small danger" style="font-size:11px;width:auto;padding:4px 10px;" onclick="deleteUdharEntry('${e.id}', '${userId}')">🗑️</button>
-                  <button class="primary small" style="background:#25d366;font-size:11px;width:auto;padding:4px 10px;" onclick="whatsappPhone('${u.phone}', 'Namaste ${u.name}, aapka udhar ₹${finalBalance.toFixed(2)} hai')">💬 WhatsApp</button>
-                </div>
-              </div>`;
+        <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:8px;">
+          ${opts.map(q => {
+            const disp = q >= 1 ? q : Math.round(q * 1000);
+            const dispU = q >= 1 ? p.unit : (p.unit === 'kg' ? 'gm' : p.unit === 'liter' ? 'ml' : p.unit);
+            const sel = Math.abs(pickerState.qty - q) < 0.001;
+            return `<button type="button" class="quick-qty ${sel?'selected':''}" onclick="setQty(${q})">${disp}${dispU}</button>`;
           }).join('')}
         </div>
-
-        <button class="primary" style="background:#777;margin-top:12px;" onclick="closeUdharModal()">Close</button>
+        <div style="text-align:center;font-size:18px;margin-top:12px;">Total: <b style="color:#2e7d32;">${inr(subtotal)}</b></div>
+      </div>`;
+  } else {
+    qtySelector = `
+      <div style="margin-top:14px;padding-top:12px;border-top:1px solid #eee;">
+        <div style="font-size:13px;color:#666;text-align:center;margin-bottom:8px;">Kitne ${p.unit}?</div>
+        <div class="row" style="align-items:center;">
+          <button class="primary small qty-btn" onclick="changeQty(-1)">−</button>
+          <input type="number" value="${pickerState.qty}" min="1" step="1" style="text-align:center;margin:0;font-size:20px;font-weight:bold;" onchange="setQty(this.value)">
+          <span style="flex:0;font-weight:bold;">${p.unit}</span>
+          <button class="primary small qty-btn" onclick="changeQty(1)">+</button>
+        </div>
+        <div style="text-align:center;font-size:18px;margin-top:12px;">Total: <b style="color:#2e7d32;">${inr(subtotal)}</b></div>
+      </div>`;
+  }
+  
+  document.getElementById('modalRoot').innerHTML = `
+    <div class="modal-bg" onclick="if(event.target===this) closePicker()">
+      <div class="modal">
+        <h3>${p.name}</h3>
+        <div style="font-size:14px;color:#2e7d32;font-weight:bold;">₹${p.retail}/${p.unit} ${p.type === 'packet' ? '(Packet)' : '(Khula)'}</div>
+        ${qtySelector}
+        <div class="row mt" style="margin-top:16px;">
+          <button class="primary" style="background:#777;" onclick="closePicker()">Cancel</button>
+          <button class="primary" onclick="confirmAdd()">🛒 Add</button>
+        </div>
       </div>
     </div>`;
 }
 
-function openNewJama(customerId) {
-  openNewUdhar(customerId);
-  setTimeout(() => setUdharType('jama'), 100);
-}
-
-async function editUdharEntry(id, userId) {
-  const e = DATA.udhar.find(x => x.id === id);
-  if (!e) return;
-  const newAmt = prompt('Amount:', e.amount);
-  if (newAmt === null) return;
-  const newNote = prompt('Note:', e.note);
-  if (newNote === null) return;
-  const amt = parseFloat(newAmt);
-  if (!amt || amt <= 0) return toast('Invalid');
-  try {
-    await FB.collection('udhar').doc(id).set({ amount: amt, note: newNote, updated_at: new Date().toISOString() }, { merge: true });
-    DATA.udhar = await getFreshUdhar();
-    toast('✅ Update');
-    closeUdharModal();
-    setTimeout(() => openCustomerLedger(userId), 200);
-    renderUdhar();
-  } catch (err) { toast('❌ ' + err.message); }
-}
-
-async function deleteUdharEntry(id, userId) {
-  if (!confirm('Delete?')) return;
-  try {
-    await FB.collection('udhar').doc(id).delete();
-    DATA.udhar = await getFreshUdhar();
-    toast('🗑️');
-    closeUdharModal();
-    renderUdhar();
-  } catch (err) { toast('❌ ' + err.message); }
-}
-
-/* ========== CAMERA ========== */
-let cameraStream = null, currentFacingMode = 'environment';
-async function openLiveCamera() {
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    document.getElementById('pImgGallery').click(); return;
+function setQty(val) {
+  const p = PRODUCTS.find(x => x.id === pickerState.productId);
+  if (!p) return;
+  let v = parseFloat(val);
+  if (!v || v <= 0) return;
+  if (p.type === 'packet') {
+    v = Math.round(v);
+    if (v < 1) v = 1;
   }
-  try {
-    if (cameraStream) cameraStream.getTracks().forEach(t => t.stop());
-    cameraStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: currentFacingMode }, audio: false
-    });
-    document.getElementById('cameraModal').style.display = 'flex';
-    document.getElementById('cameraVideo').srcObject = cameraStream;
-    await document.getElementById('cameraVideo').play();
-  } catch (err) { toast('❌ ' + err.name); }
+  pickerState.qty = v;
+  renderPicker();
 }
-function closeCamera() {
-  if (cameraStream) { cameraStream.getTracks().forEach(t => t.stop()); cameraStream = null; }
-  document.getElementById('cameraModal').style.display = 'none';
-  document.getElementById('cameraVideo').srcObject = null;
+
+function changeQty(dir) {
+  let v = pickerState.qty + dir;
+  if (v < 1) v = 1;
+  pickerState.qty = v;
+  renderPicker();
 }
-function capturePhoto() {
-  const v = document.getElementById('cameraVideo');
-  const c = document.getElementById('cameraCanvas');
-  if (!v.videoWidth) return;
-  c.width = v.videoWidth; c.height = v.videoHeight;
-  c.getContext('2d').drawImage(v, 0, 0);
-  c.toBlob(b => {
-    closeCamera();
-    processImage(new File([b], 'cam-' + Date.now() + '.jpg', { type: 'image/jpeg' }));
-  }, 'image/jpeg', 0.9);
+
+function confirmAdd() {
+  const p = PRODUCTS.find(x => x.id === pickerState.productId);
+  if (!p) return closePicker();
+  const key = p.id + '::' + p.unit;
+  CART[key] = Math.round(((CART[key]||0) + pickerState.qty) * 100) / 100;
+  saveCart(); renderCart(); updateCartBadge();
+  closePicker(); toast('✅ Cart me add');
 }
-async function switchCamera() {
-  currentFacingMode = currentFacingMode === 'environment' ? 'user' : 'environment';
-  closeCamera(); openLiveCamera();
-}
-function handleImageSelect(e) {
-  const f = e.target.files && e.target.files[0];
-  if (!f) return;
-  processImage(f);
-  setTimeout(() => { try { e.target.value = ''; } catch(x){} }, 500);
-}
-async function processImage(file) {
-  const status = document.getElementById('imgStatus');
-  const prev = document.getElementById('pPreview');
-  if (file.size > 10*1024*1024) return toast('❌ 10MB');
-  status.textContent = '⏳ Compress...';
-  const compressed = await compressImage(file, 1000, 1000, 0.75);
-  compressedImageFile = compressed;
-  prev.src = URL.createObjectURL(compressed);
-  prev.style.display = 'block';
-  status.textContent = '✅ Ready';
-}
-function compressImage(file, maxW, maxH, quality) {
-  return new Promise(resolve => {
-    const reader = new FileReader();
-    reader.onload = e => {
-      const img = new Image();
-      img.onload = () => {
-        let w = img.width, h = img.height;
-        if (w > maxW) { h = Math.round(h * maxW / w); w = maxW; }
-        if (h > maxH) { w = Math.round(w * maxH / h); h = maxH; }
-        const c = document.createElement('canvas');
-        c.width = w; c.height = h;
-        const ctx = c.getContext('2d');
-        ctx.fillStyle = '#fff'; ctx.fillRect(0,0,w,h);
-        ctx.drawImage(img, 0, 0, w, h);
-        c.toBlob(b => {
-          if (!b) return resolve(file);
-          resolve(new File([b], (file.name||'photo').replace(/\.[^.]+$/, '')+'.jpg', { type: 'image/jpeg' }));
-        }, 'image/jpeg', quality);
-      };
-      img.onerror = () => resolve(file);
-      img.src = e.target.result;
-    };
-    reader.onerror = () => resolve(file);
-    reader.readAsDataURL(file);
+
+function closePicker() { document.getElementById('modalRoot').innerHTML = ''; pickerState = null; }
+
+function saveCart() { localStorage.setItem('cart', JSON.stringify(CART)); }
+function updateCartBadge() { document.getElementById('cartCount').textContent = Object.keys(CART).length; }
+
+function cartTotal() {
+  let t = 0;
+  Object.keys(CART).forEach(key => {
+    const [pid, ul] = key.split('::');
+    const p = PRODUCTS.find(x => x.id === pid);
+    if (p) t += (p.retail || 0) * CART[key];
   });
+  return t;
+}
+
+function renderCart() {
+  const list = document.getElementById('cartList');
+  const keys = Object.keys(CART);
+  if (!keys.length) { list.innerHTML = '<div class="card center">Cart khali</div>'; return; }
+  
+  let total = 0;
+  const html = keys.map(key => {
+    const [pid, ul] = key.split('::');
+    const p = PRODUCTS.find(x => x.id === pid);
+    if (!p) { delete CART[key]; return ''; }
+    const qty = CART[key];
+    const price = p.retail || 0;
+    total += price * qty;
+    const isPacket = p.type === 'packet';
+    return `
+      <div class="card">
+        <div class="row">
+          <img src="${p.image||'https://via.placeholder.com/60'}" style="width:60px;height:60px;object-fit:cover;border-radius:6px;flex:0 0 60px;">
+          <div style="flex:1;">
+            <div style="font-weight:600;">${p.name}</div>
+            <div style="color:#2e7d32;font-weight:bold;">₹${price}/${p.unit}</div>
+          </div>
+        </div>
+        <div class="row mt">
+          ${isPacket 
+            ? `<button class="primary small" onclick="changeCartQty('${key}',-1)">−</button>
+               <input type="number" value="${qty}" min="1" step="1" style="text-align:center;margin:0;" onchange="setCartQty('${key}', this.value)">
+               <span style="flex:0;font-weight:bold;">${p.unit}</span>
+               <button class="primary small" onclick="changeCartQty('${key}',1)">+</button>`
+            : `<div style="flex:1;text-align:center;font-weight:bold;">${qty} ${p.unit}</div>
+               <button class="primary small danger" style="width:auto;padding:8px 12px;" onclick="removeCartItem('${key}')">🗑️</button>`}
+        </div>
+        <div class="center" style="font-size:13px;color:#555;margin-top:4px;">Sub: <b>₹${(price*qty).toFixed(2)}</b></div>
+      </div>`;
+  }).join('');
+  
+  if (!html) { list.innerHTML = '<div class="card center">Cart khali</div>'; return; }
+  list.innerHTML = html + `<div class="card center" style="font-weight:bold;font-size:18px;">Total: ₹${total.toFixed(2)}</div>`;
+  updateCartBadge();
+}
+
+function removeCartItem(key) {
+  delete CART[key];
+  saveCart(); renderCart(); updateCartBadge();
+}
+
+function changeCartQty(key, dir) {
+  let v = (CART[key]||0) + dir;
+  if (v <= 0) delete CART[key]; else CART[key] = v;
+  saveCart(); renderCart(); updateCartBadge();
+}
+
+function setCartQty(key, val) {
+  let v = parseFloat(val);
+  if (!v || v <= 0) { delete CART[key]; saveCart(); renderCart(); updateCartBadge(); return; }
+  v = Math.round(v);
+  if (v < 1) v = 1;
+  CART[key] = v;
+  saveCart(); renderCart(); updateCartBadge();
+}
+
+let payState = { mode: 'cash', cashPaid: 0 };
+function calcCharges() {
+  const subtotal = cartTotal();
+  let extraCharge = 0, total = subtotal;
+  if (payState.mode === 'online') {
+    extraCharge = Math.round(subtotal * EXTRA_PERCENT) / 100;
+    total = subtotal + extraCharge;
+  } else if (payState.mode === 'split') {
+    const cash = Math.min(payState.cashPaid || 0, subtotal);
+    const onlineBase = subtotal - cash;
+    extraCharge = Math.round(onlineBase * EXTRA_PERCENT) / 100;
+    total = subtotal + extraCharge;
+  }
+  return { subtotal, extraCharge, total };
+}
+
+function openPaymentModal() {
+  if (!Object.keys(CART).length) return toast('Cart khali');
+  cleanCart();
+  if (!Object.keys(CART).length) return toast('Cart khali');
+  payState = { mode: 'cash', cashPaid: cartTotal() };
+  renderPaymentModal();
+}
+
+function renderPaymentModal() {
+  const { subtotal, extraCharge, total } = calcCharges();
+  const cash = payState.cashPaid || 0;
+  const onlineBase = payState.mode === 'split' ? Math.max(0, subtotal - cash) : (payState.mode === 'online' ? subtotal : 0);
+  const onlineWithFee = onlineBase + extraCharge;
+  const showOnline = payState.mode === 'online' || (payState.mode === 'split' && onlineBase > 0);
+  const { id: upiId } = getUpi();
+  let qrImg = '', appLinks = {};
+  if (showOnline && upiId) {
+    qrImg = getUpiQrImage(onlineWithFee, 'Dukan Order');
+    appLinks = getAppLinks(onlineWithFee, 'Dukan Order');
+  }
+  document.getElementById('modalRoot').innerHTML = `
+    <div class="modal-bg" onclick="if(event.target===this) closePayment()">
+      <div class="modal">
+        <h3>💰 Payment</h3>
+        <div style="background:#f9f9f9;padding:10px;border-radius:8px;margin-bottom:10px;">
+          <div style="display:flex;justify-content:space-between;font-size:14px;"><span>Subtotal:</span><b>₹${subtotal.toFixed(2)}</b></div>
+          ${extraCharge > 0 ? `<div style="display:flex;justify-content:space-between;font-size:14px;color:#e65100;"><span>Online Fee (${EXTRA_PERCENT}%):</span><b>+₹${extraCharge.toFixed(2)}</b></div>` : ''}
+          <div style="display:flex;justify-content:space-between;font-size:18px;font-weight:bold;color:#2e7d32;margin-top:6px;padding-top:6px;border-top:1px solid #ddd;"><span>Total:</span><b>₹${total.toFixed(2)}</b></div>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <div class="pay-opt ${payState.mode==='cash'?'selected':''}" onclick="setPayMode('cash')">💵<br><b>Cash</b></div>
+          <div class="pay-opt ${payState.mode==='online'?'selected':''}" onclick="setPayMode('online')">📱<br><b>Online</b><span class="fee-badge">+${EXTRA_PERCENT}%</span></div>
+          <div class="pay-opt ${payState.mode==='split'?'selected':''}" onclick="setPayMode('split')">🔀<br><b>Split</b></div>
+        </div>
+        ${payState.mode === 'split' ? `
+          <div style="margin-top:12px;background:#f9f9f9;padding:10px;border-radius:8px;">
+            <label style="font-size:13px;">💵 Cash:</label>
+            <input type="number" inputmode="numeric" value="${cash}" onchange="setCash(this.value)">
+            <div style="font-size:13px;margin-top:6px;">📱 Online: <b style="color:#e65100;">₹${onlineWithFee.toFixed(2)}</b></div>
+          </div>` : ''}
+        ${showOnline ? `
+          <div style="margin-top:12px;text-align:center;">
+            <div style="font-size:14px;margin-bottom:8px;">📱 <b>₹${onlineWithFee.toFixed(2)}</b></div>
+            ${qrImg ? `<img src="${qrImg}" style="width:200px;height:200px;border:1px solid #eee;border-radius:8px;">` : ''}
+            ${upiId ? `
+              <div class="upi-apps">
+                ${appLinks.gpay ? `<button style="background:#1976d2;" onclick="openApp('${appLinks.gpay}')">GPay</button>` : ''}
+                ${appLinks.phonepe ? `<button style="background:#5f259f;" onclick="openApp('${appLinks.phonepe}')">PhonePe</button>` : ''}
+                ${appLinks.paytm ? `<button style="background:#00baf2;color:#000;" onclick="openApp('${appLinks.paytm}')">Paytm</button>` : ''}
+                ${appLinks.bhim ? `<button style="background:#f57c00;" onclick="openApp('${appLinks.bhim}')">BHIM</button>` : ''}
+              </div>
+              <button class="primary" style="margin-top:10px;background:#2e7d32;" onclick="openApp('${appLinks.any}')">📲 UPI App</button>
+            ` : ''}
+          </div>` : ''}
+        <div class="row mt" style="margin-top:16px;">
+          <button class="primary" style="background:#777;" onclick="closePayment()">Cancel</button>
+          <button class="primary" onclick="confirmOrder()">✅ Confirm</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function setPayMode(m) {
+  payState.mode = m;
+  if (m === 'cash') payState.cashPaid = cartTotal();
+  else if (m === 'online') payState.cashPaid = 0;
+  else if (m === 'split') payState.cashPaid = Math.round(cartTotal() / 2 * 100) / 100;
+  renderPaymentModal();
+}
+function setCash(val) { payState.cashPaid = Math.max(0, parseFloat(val) || 0); renderPaymentModal(); }
+function closePayment() { document.getElementById('modalRoot').innerHTML = ''; }
+function openApp(link) { window.location.href = link; }
+
+async function confirmOrder() {
+  const keys = Object.keys(CART);
+  if (!keys.length) return toast('Cart khali');
+  const { subtotal, extraCharge, total } = calcCharges();
+  let cashPaid = 0, onlinePaid = 0;
+  if (payState.mode === 'cash') cashPaid = subtotal;
+  else if (payState.mode === 'online') onlinePaid = total;
+  else if (payState.mode === 'split') {
+    cashPaid = Math.min(payState.cashPaid || 0, subtotal);
+    const onlineBase = subtotal - cashPaid;
+    onlinePaid = onlineBase + (Math.round(onlineBase * EXTRA_PERCENT) / 100);
+  }
+  const items = [];
+  keys.forEach(key => {
+    const [pid, ul] = key.split('::');
+    const p = PRODUCTS.find(x => x.id === pid);
+    if (!p) { delete CART[key]; return; }
+    items.push({ product_id: pid, product_name: p.name, unit: p.unit, size: '', qty: CART[key], price: p.retail });
+  });
+  if (!items.length) return toast('Cart khali');
+  
+  const order = {
+    id: uid(), user_id: ME.id, user_name: ME.name, user_phone: ME.phone,
+    items, subtotal, extra_charge: extraCharge, total,
+    payment_mode: payState.mode, cash_paid: cashPaid, online_paid: onlinePaid,
+    payment_status: 'pending', order_status: 'pending', owner_approved: false,
+    user_confirmed_at: new Date().toISOString(),
+    created_at: new Date().toISOString()
+  };
+  try {
+    toast('Order place...');
+    await fbSaveOrder(order);
+    try { await sendOrderNotificationToOwner(order); } catch (e) {}
+    CART = {}; saveCart(); renderCart(); updateCartBadge();
+    closePayment();
+    toast('✅ Order place');
+    await refreshAll();
+    renderOrders();
+    document.querySelector('.bottom-nav a[data-tab="orders"]').click();
+  } catch (e) { toast('❌ ' + e.message); }
+}
+
+function renderOrders() {
+  const list = document.getElementById('myOrders');
+  if (!MY_ORDERS.length) { list.innerHTML = '<div class="card center">Koi order nahi</div>'; return; }
+  list.innerHTML = MY_ORDERS.map(o => {
+    const items = (o.items || []).map(it => {
+      const p = PRODUCTS.find(x => x.id === it.product_id) || { name: it.product_name || '?' };
+      return `<div style="font-size:13px;">• ${p.name} — ${it.qty} ${it.unit} × ₹${it.price}</div>`;
+    }).join('');
+    const isPaid = o.payment_status === 'paid';
+    const isApproved = o.order_status === 'approved';
+    const isDelivered = o.order_status === 'delivered';
+    return `
+      <div class="card">
+        <div><b>${new Date(o.created_at).toLocaleString('hi-IN')}</b></div>
+        <div class="mt">${items}</div>
+        <div style="font-weight:bold;color:#2e7d32;margin-top:4px;">Total: ₹${(o.total||0).toFixed(2)}</div>
+        <div style="font-size:12px;color:${isDelivered?'#2e7d32':isApproved?'#1976d2':'#e65100'};">📦 ${isDelivered?'DELIVERED':isApproved?'APPROVED':'PENDING'}</div>
+        <div style="font-size:12px;color:${isPaid?'#2e7d32':'#e65100'};">💰 ${isPaid?'PAID':'PAYMENT PENDING'}</div>
+      </div>`;
+  }).join('');
+}
+
+function renderProfile() {
+  const stats = calculateUserStats(ME.id, MY_ORDERS, MY_UDHAR);
+  const udharRows = MY_UDHAR.map(u => {
+    const isJama = u.type === 'jama' || u.status === 'paid';
+    const itemsList = (u.items && u.items.length) 
+      ? u.items.map(it => `<div style="font-size:11px;color:#666;padding-left:10px;">• ${it.name || it.product_name} — ${it.qty} ${it.unit} = ₹${(+it.amount).toFixed(2)}</div>`).join('')
+      : '';
+    return `
+    <div style="padding:8px 0;border-bottom:1px solid #f0f0f0;font-size:13px;">
+      <div style="display:flex;justify-content:space-between;">
+        <b>${new Date(u.created_at).toLocaleString('hi-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</b>
+        <span style="color:${isJama?'#2e7d32':'#e65100'};">${isJama ? '💚 Jama' : '📕 Udhar'}</span>
+      </div>
+      <div>${u.note || 'Udhar'}</div>
+      ${itemsList}
+      <div style="font-weight:bold;color:${isJama?'#2e7d32':'#c62828'};">${isJama?'−':'+'} ₹${(+u.amount).toFixed(2)}</div>
+    </div>`;
+  }).join('') || '<div style="font-size:13px;color:#888;">Koi udhar nahi</div>';
+
+  document.getElementById('profileBox').innerHTML = `
+    <div class="card">
+      <h3>Meri Info</h3>
+      <label style="font-size:13px;color:#666;">Naam</label>
+      <input id="meName" value="${ME.name || ''}">
+      <label style="font-size:13px;color:#666;margin-top:6px;display:block;">Phone</label>
+      <input id="mePhone" value="${ME.phone || ''}" readonly style="background:#f5f5f5;">
+      <label style="font-size:13px;color:#666;margin-top:6px;display:block;">Address</label>
+      <input id="meAddr" value="${ME.address || ''}">
+      <button class="primary" onclick="saveMyProfile()">💾 Save</button>
+    </div>
+    <div class="card">
+      <h3>💰 Hisaab</h3>
+      <div style="display:flex;justify-content:space-around;text-align:center;">
+        <div><div style="font-size:20px;font-weight:bold;color:#2e7d32;">₹${stats.total_orders.toFixed(0)}</div><div style="font-size:12px;color:#666;">Total</div></div>
+        <div><div style="font-size:20px;font-weight:bold;color:#2e7d32;">₹${stats.total_paid.toFixed(0)}</div><div style="font-size:12px;color:#666;">Paid</div></div>
+        <div><div style="font-size:20px;font-weight:bold;color:${stats.total_pending>0?'#e65100':'#2e7d32'};">₹${stats.total_pending.toFixed(0)}</div><div style="font-size:12px;color:#666;">Bakaya</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <b style="font-size:14px;">📋 Udhar List</b>
+      <div class="mt">${udharRows}</div>
+    </div>`;
+}
+
+async function saveMyProfile() {
+  const name = document.getElementById('meName').value.trim();
+  const addr = document.getElementById('meAddr').value.trim();
+  if (!name) return toast('Naam daalo');
+  ME.name = name; ME.address = addr;
+  try {
+    await fbSaveUser(ME);
+    saveSession('user', ME);
+    toast('✅ Save');
+    await refreshAll();
+    renderProfile();
+  } catch (e) { toast('❌ ' + e.message); }
 }
 
 init();
