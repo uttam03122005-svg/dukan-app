@@ -59,34 +59,24 @@
 
 <label style="font-size:13px;font-weight:bold;color:#2e7d32;margin-top:10px;display:block;">Is product ka type:</label>
 <div class="type-option">
-  <button type="button" id="typeLooseBtn" onclick="setProductType('loose')">
-    ⚖️ Khula<br><span style="font-size:11px;font-weight:normal;">(kg/gm — naap ke becho)</span>
-  </button>
-  <button type="button" id="typePacketBtn" onclick="setProductType('packet')">
-    📦 Packet<br><span style="font-size:11px;font-weight:normal;">(fixed — pura packet)</span>
-  </button>
+  <button type="button" id="typeLooseBtn" onclick="setProductType('loose')">⚖️ Khula<br><span style="font-size:11px;">(naap ke becho)</span></button>
+  <button type="button" id="typePacketBtn" onclick="setProductType('packet')">📦 Packet<br><span style="font-size:11px;">(fixed packet)</span></button>
 </div>
 <input type="hidden" id="pType" value="loose">
 
 <label style="font-size:13px;font-weight:bold;color:#2e7d32;margin-top:10px;display:block;">Unit:</label>
-<select id="pUnit" onchange="onUnitChange()">
-  <option value="kg">kg (kilogram)</option>
+<select id="pUnit">
+  <option value="kg">kg</option>
   <option value="gram">gram</option>
   <option value="liter">liter</option>
   <option value="ml">ml</option>
-  <option value="piece">piece (nag)</option>
-  <option value="packet">packet</option>
-  <option value="bottle">bottle</option>
-  <option value="dozen">dozen</option>
-  <option value="box">box</option>
-  <option value="strip">strip</option>
 </select>
 
 <div class="row">
   <input id="pRetail" type="number" placeholder="Retail ₹" inputmode="decimal">
   <input id="pWholesale" type="number" placeholder="Wholesale ₹" inputmode="decimal">
 </div>
-<input id="pStock" type="number" placeholder="Stock (kitna hai)" inputmode="decimal">
+<input id="pStock" type="number" placeholder="Stock" inputmode="decimal">
 
 <div style="display:flex;gap:8px;margin-top:10px;">
   <button type="button" class="pick-btn" style="flex:1;background:#e8f5e9;border-color:#2e7d32;color:#2e7d32;margin:0;" onclick="openLiveCamera()">📷 Camera</button>
@@ -99,7 +89,6 @@
 <button class="primary" onclick="saveProduct()">💾 Save Product</button>
 <button class="primary" style="background:#777;" onclick="resetProductForm()">Reset</button>
 </div>
-
 <input class="search-bar" id="pSearch" placeholder="🔍 Search">
 <div id="productList"></div>
 </div>
@@ -145,9 +134,8 @@
 </div>
 </div>
 
-<!-- Udhar Modal -->
 <div id="udharModalRoot"></div>
-<!-- Camera Modal -->
+
 <div id="cameraModal">
   <video id="cameraVideo" autoplay playsinline muted></video>
   <div class="camera-controls">
@@ -171,7 +159,13 @@ async function init() {
   if (!ok) { alert('Firebase ready nahi'); return; }
   const uid = await waitForAuth();
   if (!uid) { alert('Session expire'); location.replace('index.html'); return; }
-  DATA = await loadData();
+  
+  // FRESH DATA
+  const [products, users, orders, udhar] = await Promise.all([
+    getFreshProducts(), getFreshUsers(), getFreshOrders(), getFreshUdhar()
+  ]);
+  DATA = { products, users, orders, udhar };
+  
   renderProducts(); renderUsers(); renderOrders(); renderUdhar(); renderInfo();
   resetProductForm();
   setProductType('loose');
@@ -186,8 +180,23 @@ function switchTab(t) {
     document.getElementById('tab-'+x).classList.toggle('hidden', x !== t);
   });
 }
+
 document.querySelectorAll('.tabBtn').forEach(btn => {
-  btn.onclick = () => switchTab(btn.dataset.tab);
+  btn.onclick = async () => {
+    switchTab(btn.dataset.tab);
+    // FRESH DATA on every tab
+    try {
+      const [products, users, orders, udhar] = await Promise.all([
+        getFreshProducts(), getFreshUsers(), getFreshOrders(), getFreshUdhar()
+      ]);
+      DATA = { products, users, orders, udhar };
+      const tab = btn.dataset.tab;
+      if (tab === 'products') renderProducts();
+      if (tab === 'users') renderUsers();
+      if (tab === 'orders') renderOrders();
+      if (tab === 'udhar') renderUdhar();
+    } catch (err) { console.warn('Refresh fail:', err); }
+  };
 });
 
 function renderInfo() {
@@ -204,10 +213,8 @@ function setProductType(type) {
   if (type === 'loose') {
     document.getElementById('typeLooseBtn').classList.add('active');
     document.getElementById('typePacketBtn').classList.remove('active');
-    // Unit options for loose
-    const u = document.getElementById('pUnit');
-    u.innerHTML = `
-      <option value="kg">kg (kilogram)</option>
+    document.getElementById('pUnit').innerHTML = `
+      <option value="kg">kg</option>
       <option value="gram">gram</option>
       <option value="liter">liter</option>
       <option value="ml">ml</option>
@@ -215,8 +222,7 @@ function setProductType(type) {
   } else {
     document.getElementById('typePacketBtn').classList.add('active');
     document.getElementById('typeLooseBtn').classList.remove('active');
-    const u = document.getElementById('pUnit');
-    u.innerHTML = `
+    document.getElementById('pUnit').innerHTML = `
       <option value="piece">piece (nag)</option>
       <option value="packet">packet</option>
       <option value="bottle">bottle</option>
@@ -226,8 +232,6 @@ function setProductType(type) {
     `;
   }
 }
-
-function onUnitChange() {}
 
 /* ========== SAVE PRODUCT ========== */
 async function saveProduct() {
@@ -246,9 +250,7 @@ async function saveProduct() {
   try {
     toast('Save ho raha hai...');
     let imageUrl = editingImageUrl;
-    if (compressedImageFile) {
-      imageUrl = await uploadImage(compressedImageFile);
-    }
+    if (compressedImageFile) imageUrl = await uploadImage(compressedImageFile);
 
     let product;
     if (editId) {
@@ -256,22 +258,18 @@ async function saveProduct() {
       Object.assign(product, { name, category: cat, type, unit, retail, wholesale, stock, image: imageUrl });
     } else {
       product = {
-        id: uid(),
-        name, category: cat, type, unit,
-        retail, wholesale, stock,
-        image: imageUrl,
-        hidden: false,
-        created_at: new Date().toISOString()
+        id: uid(), name, category: cat, type, unit,
+        retail, wholesale, stock, image: imageUrl,
+        hidden: false, created_at: new Date().toISOString()
       };
     }
     await fbSaveProduct(product);
-    DATA = await loadData();
+    // Refresh
+    DATA.products = await getFreshProducts();
     toast('✅ Save ho gaya');
     resetProductForm();
     renderProducts();
-  } catch (e) {
-    toast('❌ ' + e.message);
-  }
+  } catch (e) { toast('❌ ' + e.message); }
 }
 
 function resetProductForm() {
@@ -300,8 +298,7 @@ function editProduct(id) {
   compressedImageFile = null;
   if (p.image) {
     const prev = document.getElementById('pPreview');
-    prev.src = p.image;
-    prev.style.display = 'block';
+    prev.src = p.image; prev.style.display = 'block';
   }
   document.getElementById('pFormTitle').textContent = '✏️ Edit Product';
   switchTab('products');
@@ -309,15 +306,21 @@ function editProduct(id) {
 
 async function deleteProduct(id) {
   if (!confirm('Delete?')) return;
-  try { await fbDeleteProduct(id); DATA = await loadData(); toast('🗑️'); renderProducts(); }
-  catch (e) { toast('❌ ' + e.message); }
+  try { 
+    await fbDeleteProduct(id); 
+    DATA.products = await getFreshProducts(); 
+    toast('🗑️'); renderProducts(); 
+  } catch (e) { toast('❌ ' + e.message); }
 }
 
 async function toggleHide(id) {
   const p = DATA.products.find(x => x.id === id);
   p.hidden = !p.hidden;
-  try { await fbSaveProduct(p); DATA = await loadData(); renderProducts(); }
-  catch (e) { toast('❌ ' + e.message); }
+  try { 
+    await fbSaveProduct(p); 
+    DATA.products = await getFreshProducts(); 
+    renderProducts(); 
+  } catch (e) { toast('❌ ' + e.message); }
 }
 
 function renderProducts() {
@@ -326,7 +329,7 @@ function renderProducts() {
   const items = DATA.products.filter(p => p.name.toLowerCase().includes(q));
   if (!items.length) { list.innerHTML = '<div class="card center">Koi product nahi</div>'; return; }
   list.innerHTML = items.map(p => {
-    const typeLabel = p.type === 'loose' ? '⚖️ Khula' : '📦 Packet';
+    const typeLabel = p.type === 'packet' ? '📦 Packet' : '⚖️ Khula';
     return `
     <div class="card">
       <div class="row">
@@ -394,8 +397,12 @@ async function editCustomerName(id) {
   const newName = prompt('Customer ka naam:', u.name);
   if (!newName || !newName.trim()) return;
   u.name = newName.trim();
-  try { await fbSaveUser(u); DATA = await loadData(); toast('✅ Save'); renderUsers(); renderUdhar(); }
-  catch (e) { toast('❌ ' + e.message); }
+  try { 
+    await fbSaveUser(u); 
+    DATA.users = await getFreshUsers();
+    toast('✅ Save'); 
+    renderUsers(); renderUdhar(); 
+  } catch (e) { toast('❌ ' + e.message); }
 }
 
 async function toggleWholesale(id) {
@@ -403,8 +410,12 @@ async function toggleWholesale(id) {
   const newType = u.price_type === 'wholesale' ? 'retail' : 'wholesale';
   if (!confirm(`${u.name} → ${newType.toUpperCase()}?`)) return;
   u.price_type = newType;
-  try { await fbSaveUser(u); DATA = await loadData(); toast(newType==='wholesale'?'💼':'🛒'); renderUsers(); }
-  catch (e) { toast('❌ ' + e.message); }
+  try { 
+    await fbSaveUser(u); 
+    DATA.users = await getFreshUsers();
+    toast(newType==='wholesale'?'💼':'🛒'); 
+    renderUsers(); 
+  } catch (e) { toast('❌ ' + e.message); }
 }
 
 /* ========== ORDERS ========== */
@@ -412,21 +423,24 @@ async function approvePayment(orderId) {
   if (!confirm('Payment confirm?')) return;
   try {
     await fbUpdateOrder(orderId, { payment_status: 'paid', owner_confirmed_at: new Date().toISOString() });
-    DATA = await loadData(); toast('✅ Payment confirm'); renderOrders();
+    DATA.orders = await getFreshOrders();
+    toast('✅ Payment'); renderOrders();
   } catch (e) { toast('❌ ' + e.message); }
 }
 async function approveOrder(orderId) {
-  if (!confirm('Order approve?')) return;
+  if (!confirm('Approve?')) return;
   try {
     await fbUpdateOrder(orderId, { order_status: 'approved', owner_approved: true });
-    DATA = await loadData(); toast('✅ Approve'); renderOrders();
+    DATA.orders = await getFreshOrders();
+    toast('✅ Approve'); renderOrders();
   } catch (e) { toast('❌ ' + e.message); }
 }
 async function markDelivered(orderId) {
   if (!confirm('Delivered?')) return;
   try {
     await fbUpdateOrder(orderId, { order_status: 'delivered' });
-    DATA = await loadData(); toast('✅ Delivered'); renderOrders();
+    DATA.orders = await getFreshOrders();
+    toast('✅ Delivered'); renderOrders();
   } catch (e) { toast('❌ ' + e.message); }
 }
 
@@ -463,7 +477,7 @@ function renderOrders() {
   }).join('');
 }
 
-/* ================= UDHAR NOTEBOOK ================= */
+/* ========== UDHAR ========== */
 function openNewUdhar(customerId) {
   udharBuilder = { user_id: customerId || '', type: 'udhar', items: [], note: '' };
   renderUdharBuilder();
@@ -472,6 +486,11 @@ function openNewUdhar(customerId) {
 function renderUdharBuilder() {
   const total = udharBuilder.items.reduce((s, it) => s + (+it.amount || 0), 0);
   const isUdhar = udharBuilder.type === 'udhar';
+
+  // Product options from home
+  const productOptions = DATA.products.filter(p => !p.hidden).map(p => 
+    `<option value="${p.id}">${p.name} (₹${p.retail}/${p.unit})</option>`
+  ).join('');
 
   document.getElementById('udharModalRoot').innerHTML = `
     <div class="modal-bg" onclick="if(event.target===this) closeUdharModal()">
@@ -488,16 +507,11 @@ function renderUdharBuilder() {
         </select>
 
         <div style="display:flex;gap:8px;margin-bottom:12px;">
-          <button type="button" class="primary" style="flex:1;background:${isUdhar?'#e65100':'#ccc'};color:${isUdhar?'#fff':'#333'};font-size:14px;" onclick="setUdharType('udhar')">
-            📕 Udhar (Saman)
-          </button>
-          <button type="button" class="primary" style="flex:1;background:${!isUdhar?'#2e7d32':'#ccc'};color:${!isUdhar?'#fff':'#333'};font-size:14px;" onclick="setUdharType('jama')">
-            💚 Jama (Paisa)
-          </button>
+          <button type="button" class="primary" style="flex:1;background:${isUdhar?'#e65100':'#ccc'};color:${isUdhar?'#fff':'#333'};font-size:14px;" onclick="setUdharType('udhar')">📕 Udhar</button>
+          <button type="button" class="primary" style="flex:1;background:${!isUdhar?'#2e7d32':'#ccc'};color:${!isUdhar?'#fff':'#333'};font-size:14px;" onclick="setUdharType('jama')">💚 Jama</button>
         </div>
 
         ${isUdhar ? `
-          <!-- SAMAN LIST -->
           <label style="font-size:13px;font-weight:bold;">📋 Saman List</label>
           <div style="background:#f9f9f9;padding:8px;border-radius:8px;margin:6px 0 12px;min-height:40px;">
             ${udharBuilder.items.length === 0 
@@ -514,43 +528,37 @@ function renderUdharBuilder() {
               `).join('')}
           </div>
 
-          <!-- ADD ITEM -->
           <div style="background:#e3f2fd;padding:10px;border-radius:8px;margin-bottom:12px;">
             <label style="font-size:12px;color:#1976d2;font-weight:bold;">➕ Saman Add Karo</label>
             <select id="itemProductSel" onchange="onItemProductChange()" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:6px;margin:6px 0;font-size:14px;">
-              <option value="">-- Product --</option>
-              ${DATA.products.filter(p => !p.hidden).map(p => `<option value="${p.id}">${p.name}</option>`).join('')}
+              <option value="">-- Saman select --</option>
+              ${productOptions}
             </select>
 
             <div id="itemQtySection" style="display:none;">
               <div style="font-size:12px;color:#666;margin-bottom:4px;">Quantity:</div>
               <div id="itemQtyButtons" style="display:grid;grid-template-columns:repeat(3, 1fr);gap:6px;margin-bottom:8px;"></div>
               <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;">
-                <input type="number" id="itemCustomQty" placeholder="Custom qty" step="0.25" min="0.25" onchange="updateItemPreview()" style="flex:1;padding:8px;border:1px solid #ccc;border-radius:6px;">
+                <input type="number" id="itemCustomQty" placeholder="Ya khud daalo" step="0.25" min="0.25" onchange="updateItemPreview()" style="flex:1;padding:8px;border:1px solid #ccc;border-radius:6px;">
                 <span id="itemUnitLabel" style="font-weight:bold;"></span>
               </div>
               <div style="text-align:right;font-size:13px;margin-bottom:6px;">
                 Subtotal: <b id="itemSubtotalPreview" style="color:#2e7d32;font-size:16px;">₹0</b>
               </div>
-              <button type="button" class="primary" style="background:#1976d2;font-size:14px;" onclick="addItemToUdhar()">
-                ➕ Add to List
-              </button>
+              <button type="button" class="primary" style="background:#1976d2;font-size:14px;" onclick="addItemToUdhar()">➕ Add to List</button>
             </div>
           </div>
         ` : `
-          <!-- JAMA AMOUNT -->
           <label style="font-size:13px;font-weight:bold;">💵 Amount ₹</label>
           <input type="number" id="jamaAmountInput" placeholder="Paisa kitna diya" style="width:100%;padding:10px;border:1px solid #ccc;border-radius:6px;margin:6px 0 12px;font-size:15px;" onchange="updateJamaPreview()">
         `}
 
-        <label style="font-size:13px;font-weight:bold;">📝 Note (optional)</label>
+        <label style="font-size:13px;font-weight:bold;">📝 Note</label>
         <input id="udNoteInput" placeholder="Jaise: Ghar le gaya" value="${udharBuilder.note}" onchange="udharBuilder.note = this.value;" style="width:100%;padding:10px;border:1px solid #ccc;border-radius:6px;margin:6px 0 12px;">
 
         <div style="background:${isUdhar?'#fff3e0':'#e8f5e9'};padding:12px;border-radius:8px;margin-bottom:12px;text-align:center;">
           <div style="font-size:13px;color:#666;">Total ${isUdhar?'Udhar':'Jama'}</div>
-          <div id="udTotalPreview" style="font-size:26px;font-weight:bold;color:${isUdhar?'#e65100':'#2e7d32'};">
-            ₹${total.toFixed(2)}
-          </div>
+          <div id="udTotalPreview" style="font-size:26px;font-weight:bold;color:${isUdhar?'#e65100':'#2e7d32'};">₹${total.toFixed(2)}</div>
         </div>
 
         <div style="display:flex;gap:8px;">
@@ -580,9 +588,7 @@ function onItemProductChange() {
   document.getElementById('itemCustomQty').value = '';
   document.getElementById('itemSubtotalPreview').textContent = '₹0';
 
-  // Quick quantity buttons based on type
   if (p.type === 'loose') {
-    // Loose — 250gm, 500gm, 1kg, 2kg, 5kg
     let opts = [];
     if (p.unit === 'kg') opts = [0.25, 0.5, 1, 2, 5, 10];
     else if (p.unit === 'gram') opts = [50, 100, 250, 500, 1000];
@@ -592,23 +598,16 @@ function onItemProductChange() {
     btns.innerHTML = opts.map(q => {
       const disp = q >= 1 ? q : Math.round(q * 1000);
       const dispU = q >= 1 ? p.unit : (p.unit === 'kg' ? 'gm' : p.unit === 'liter' ? 'ml' : p.unit);
-      return `<button type="button" onclick="setItemQty(${q})" style="padding:10px 4px;border:2px solid #ddd;border-radius:8px;background:#fff;font-weight:bold;font-size:13px;cursor:pointer;">
-        ${disp}${dispU}
-      </button>`;
+      return `<button type="button" onclick="setItemQty(${q})" style="padding:10px 4px;border:2px solid #ddd;border-radius:8px;background:#fff;font-weight:bold;font-size:13px;cursor:pointer;">${disp}${dispU}</button>`;
     }).join('');
   } else {
-    // Packet — 1, 2, 3, 4, 5, 10
-    btns.innerHTML = [1, 2, 3, 4, 5, 10].map(n => `
-      <button type="button" onclick="setItemQty(${n})" style="padding:10px 4px;border:2px solid #ddd;border-radius:8px;background:#fff;font-weight:bold;font-size:13px;cursor:pointer;">
-        ${n} ${p.unit}
-      </button>
-    `).join('');
+    btns.innerHTML = [1, 2, 3, 4, 5, 10].map(n => 
+      `<button type="button" onclick="setItemQty(${n})" style="padding:10px 4px;border:2px solid #ddd;border-radius:8px;background:#fff;font-weight:bold;font-size:13px;cursor:pointer;">${n} ${p.unit}</button>`
+    ).join('');
   }
 }
 
-let _tempQty = 1;
 function setItemQty(q) {
-  _tempQty = q;
   document.getElementById('itemCustomQty').value = q;
   updateItemPreview();
 }
@@ -632,19 +631,14 @@ function addItemToUdhar() {
 
   const amount = (p.retail || 0) * q;
   udharBuilder.items.push({
-    product_id: pid,
-    name: p.name,
-    unit: p.unit,
-    qty: q,
-    price: p.retail,
-    amount: amount
+    product_id: pid, name: p.name, unit: p.unit,
+    qty: q, price: p.retail, amount: amount
   });
 
   document.getElementById('itemProductSel').value = '';
   document.getElementById('itemQtySection').style.display = 'none';
   document.getElementById('itemCustomQty').value = '';
   document.getElementById('itemSubtotalPreview').textContent = '₹0';
-
   renderUdharBuilder();
 }
 
@@ -668,13 +662,12 @@ async function saveUdharEntry() {
   if (!user_id) return toast('Customer select karo');
 
   const note = document.getElementById('udNoteInput').value.trim();
-  let total = 0;
-  let items = [];
+  let total = 0, items = [];
 
   if (udharBuilder.type === 'udhar') {
     items = udharBuilder.items;
     total = items.reduce((s, it) => s + (+it.amount || 0), 0);
-    if (total <= 0) return toast('Kuch saman add karo');
+    if (total <= 0) return toast('Saman add karo');
   } else {
     total = parseFloat(document.getElementById('jamaAmountInput').value) || 0;
     if (total <= 0) return toast('Amount daalo');
@@ -684,13 +677,8 @@ async function saveUdharEntry() {
   const now = new Date();
 
   const rec = {
-    id: uid(),
-    user_id,
-    user_name: u.name,
-    user_phone: u.phone,
-    type: udharBuilder.type,
-    items: items,
-    amount: total,
+    id: uid(), user_id, user_name: u.name, user_phone: u.phone,
+    type: udharBuilder.type, items: items, amount: total,
     note: note || (udharBuilder.type === 'jama' ? 'Payment jama' : 'Udhar'),
     status: udharBuilder.type === 'jama' ? 'paid' : 'pending',
     created_at: now.toISOString(),
@@ -700,7 +688,7 @@ async function saveUdharEntry() {
 
   try {
     await fbSaveUdhar(rec);
-    DATA = await loadData();
+    DATA.udhar = await getFreshUdhar();
     toast(udharBuilder.type === 'jama' ? '✅ Jama' : '✅ Udhar');
     closeUdharModal();
     renderUdhar();
@@ -739,9 +727,7 @@ function renderUdhar() {
       const isAdvance = c.balance < 0;
       const isClear = c.balance === 0;
       const color = isAdvance ? '#2e7d32' : (isClear ? '#666' : '#c62828');
-      const text = isAdvance 
-        ? `💚 ₹${Math.abs(c.balance).toFixed(2)} Advance` 
-        : (isClear ? '✅ Clear' : `📕 ₹${c.balance.toFixed(2)} Baaki`);
+      const text = isAdvance ? `💚 ₹${Math.abs(c.balance).toFixed(2)} Advance` : (isClear ? '✅ Clear' : `📕 ₹${c.balance.toFixed(2)} Baaki`);
 
       return `
         <div style="padding:12px;border-bottom:1px solid #f0f0f0;cursor:pointer;" onclick="openCustomerLedger('${c.user_id}')">
@@ -795,56 +781,77 @@ function openCustomerLedger(userId) {
 
   document.getElementById('udharModalRoot').innerHTML = `
     <div class="modal-bg" onclick="if(event.target===this) closeUdharModal()">
-      <div class="modal-box">
-        <div style="display:flex;justify-content:space-between;margin-bottom:12px;">
-          <div>
-            <h3 style="margin:0;">📔 ${u.name}</h3>
-            <div style="font-size:12px;color:#666;">📞 ${u.phone}</div>
-          </div>
-          <button class="primary small" style="width:auto;background:#777;" onclick="closeUdharModal()">✕</button>
-        </div>
-
-        <div style="background:${finalBalance>0?'#ffebee':finalBalance<0?'#e8f5e9':'#f5f5f5'};padding:12px;border-radius:8px;margin-bottom:12px;">
-          <div style="display:flex;justify-content:space-between;font-size:13px;color:#666;"><span>📕 Udhar:</span><b>₹${totalUdhar.toFixed(2)}</b></div>
-          <div style="display:flex;justify-content:space-between;font-size:13px;color:#666;margin-top:4px;"><span>💚 Jama:</span><b>₹${totalJama.toFixed(2)}</b></div>
-          <div style="display:flex;justify-content:space-between;font-size:18px;font-weight:bold;color:${finalBalance>0?'#c62828':finalBalance<0?'#2e7d32':'#333'};margin-top:8px;padding-top:8px;border-top:1px solid #ddd;">
-            <span>${finalBalance>0?'📕 Baaki:':finalBalance<0?'💚 Advance:':'✅ Clear:'}</span>
-            <b>₹${Math.abs(finalBalance).toFixed(2)}</b>
+      <div class="modal-box" style="max-width:600px;">
+        <div style="background:linear-gradient(135deg,#2e7d32,#1b5e20);color:#fff;padding:16px;border-radius:8px;margin-bottom:12px;">
+          <div style="display:flex;justify-content:space-between;">
+            <div>
+              <h2 style="margin:0;font-size:20px;">📔 ${u.name}</h2>
+              <div style="font-size:13px;margin-top:4px;opacity:0.95;">📞 ${u.phone}</div>
+              ${u.address ? `<div style="font-size:12px;opacity:0.9;">📍 ${u.address}</div>` : ''}
+            </div>
+            <button class="primary small" style="width:auto;background:rgba(255,255,255,0.2);padding:6px 10px;color:#fff;" onclick="closeUdharModal()">✕</button>
           </div>
         </div>
 
-        <div style="display:flex;gap:8px;margin-bottom:12px;">
-          <button class="primary small" style="background:#e65100;" onclick="openNewUdhar('${userId}')">📕 Udhar</button>
-          <button class="primary small" style="background:#2e7d32;" onclick="openNewJama('${userId}')">💚 Jama</button>
+        <div style="display:flex;gap:8px;margin-bottom:14px;">
+          <div style="flex:1;background:#fff3e0;padding:12px;border-radius:8px;text-align:center;">
+            <div style="font-size:11px;color:#666;">📕 Total Udhar</div>
+            <div style="font-size:18px;font-weight:bold;color:#e65100;">₹${totalUdhar.toFixed(2)}</div>
+          </div>
+          <div style="flex:1;background:#e8f5e9;padding:12px;border-radius:8px;text-align:center;">
+            <div style="font-size:11px;color:#666;">💚 Total Jama</div>
+            <div style="font-size:18px;font-weight:bold;color:#2e7d32;">₹${totalJama.toFixed(2)}</div>
+          </div>
+          <div style="flex:1;background:${finalBalance>0?'#ffebee':'#e8f5e9'};padding:12px;border-radius:8px;text-align:center;">
+            <div style="font-size:11px;color:#666;">${finalBalance>0?'📕 Baaki':finalBalance<0?'💚 Advance':'✅ Clear'}</div>
+            <div style="font-size:18px;font-weight:bold;color:${finalBalance>0?'#c62828':finalBalance<0?'#2e7d32':'#333'};">₹${Math.abs(finalBalance).toFixed(2)}</div>
+          </div>
         </div>
 
-        <div style="font-size:13px;font-weight:bold;margin-bottom:8px;">📋 Poora Hisaab</div>
-        <div style="background:#f9f9f9;border-radius:8px;padding:4px;">
-          ${ledger.length === 0 ? '<div style="padding:20px;text-align:center;color:#888;">Koi entry nahi</div>' : ledger.map(e => {
+        <div style="display:flex;gap:8px;margin-bottom:14px;">
+          <button class="primary" style="background:#e65100;font-size:14px;" onclick="openNewUdhar('${userId}')">📕 Naya Udhar</button>
+          <button class="primary" style="background:#2e7d32;font-size:14px;" onclick="openNewJama('${userId}')">💚 Jama Karo</button>
+        </div>
+
+        <div style="font-size:14px;font-weight:bold;margin-bottom:8px;">📋 Poora Hisaab (Latest upar)</div>
+        <div style="background:#f9f9f9;border-radius:8px;padding:6px;max-height:55vh;overflow-y:auto;">
+          ${ledger.length === 0 ? '<div style="padding:30px;text-align:center;color:#888;">Koi entry nahi</div>' : ledger.map(e => {
             const d = new Date(e.created_at);
             const dateStr = d.toLocaleDateString('hi-IN', { day: '2-digit', month: 'short', year: 'numeric' });
             const timeStr = d.toLocaleTimeString('hi-IN', { hour: '2-digit', minute: '2-digit' });
             const itemsList = (e.items && e.items.length)
-              ? e.items.map(it => `<div style="font-size:12px;color:#555;padding-left:12px;">• ${it.name || it.product_name} — ${it.qty} ${it.unit} × ₹${it.price} = ₹${(+it.amount).toFixed(2)}</div>`).join('')
+              ? e.items.map(it => {
+                  const name = it.name || it.product_name || '?';
+                  return `<div style="display:flex;justify-content:space-between;font-size:12px;padding:2px 0;color:#444;">
+                    <span>• ${name} <span style="color:#888;">(${it.qty} ${it.unit} × ₹${it.price})</span></span>
+                    <span>₹${(+it.amount).toFixed(2)}</span>
+                  </div>`;
+                }).join('')
               : '';
+            
             return `
-              <div style="background:#fff;border-radius:6px;padding:10px;margin-bottom:6px;border-left:4px solid ${e.isJama?'#2e7d32':'#e65100'};">
-                <div style="display:flex;justify-content:space-between;">
+              <div style="background:#fff;border-radius:8px;padding:12px;margin-bottom:8px;border-left:4px solid ${e.isJama?'#2e7d32':'#e65100'};">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;">
                   <div style="flex:1;">
-                    <div style="font-size:11px;color:#888;">📅 ${dateStr} • ⏰ ${timeStr}</div>
-                    <div style="font-size:13px;font-weight:600;">${e.isJama?'💚':'📕'} ${e.note}</div>
-                    ${itemsList}
+                    <div style="font-size:11px;color:#888;font-weight:600;">📅 ${dateStr} • ⏰ ${timeStr}</div>
+                    <div style="font-size:14px;font-weight:600;margin-top:4px;color:${e.isJama?'#2e7d32':'#e65100'};">
+                      ${e.isJama?'💚':'📕'} ${e.note || 'Udhar'}
+                    </div>
+                    ${itemsList ? '<div style="margin-top:6px;padding-top:6px;border-top:1px dashed #eee;">' + itemsList + '</div>' : ''}
                   </div>
-                  <div style="text-align:right;">
-                    <div style="font-size:15px;font-weight:bold;color:${e.isJama?'#2e7d32':'#c62828'};">
+                  <div style="text-align:right;margin-left:10px;">
+                    <div style="font-size:17px;font-weight:bold;color:${e.isJama?'#2e7d32':'#c62828'};">
                       ${e.isJama?'−':'+'} ₹${(+e.amount).toFixed(2)}
                     </div>
-                    <div style="font-size:11px;color:#666;">Bal: ₹${(+e.running).toFixed(2)}</div>
+                    <div style="font-size:11px;color:#666;margin-top:2px;background:#f5f5f5;padding:2px 6px;border-radius:4px;">
+                      बाकी: ₹${(+e.running).toFixed(2)}
+                    </div>
                   </div>
                 </div>
-                <div style="margin-top:6px;display:flex;gap:6px;">
-                  <button class="primary small" style="background:#1976d2;font-size:11px;width:auto;padding:4px 8px;" onclick="editUdharEntry('${e.id}', '${userId}')">✏️</button>
-                  <button class="primary small danger" style="font-size:11px;width:auto;padding:4px 8px;" onclick="deleteUdharEntry('${e.id}', '${userId}')">🗑️</button>
+                <div style="margin-top:8px;display:flex;gap:6px;">
+                  <button class="primary small" style="background:#1976d2;font-size:11px;width:auto;padding:4px 10px;" onclick="editUdharEntry('${e.id}', '${userId}')">✏️ Edit</button>
+                  <button class="primary small danger" style="font-size:11px;width:auto;padding:4px 10px;" onclick="deleteUdharEntry('${e.id}', '${userId}')">🗑️</button>
+                  <button class="primary small" style="background:#25d366;font-size:11px;width:auto;padding:4px 10px;" onclick="whatsappPhone('${u.phone}', 'Namaste ${u.name}, aapka udhar ₹${finalBalance.toFixed(2)} hai')">💬 WhatsApp</button>
                 </div>
               </div>`;
           }).join('')}
@@ -871,7 +878,7 @@ async function editUdharEntry(id, userId) {
   if (!amt || amt <= 0) return toast('Invalid');
   try {
     await FB.collection('udhar').doc(id).set({ amount: amt, note: newNote, updated_at: new Date().toISOString() }, { merge: true });
-    DATA = await loadData();
+    DATA.udhar = await getFreshUdhar();
     toast('✅ Update');
     closeUdharModal();
     setTimeout(() => openCustomerLedger(userId), 200);
@@ -883,7 +890,7 @@ async function deleteUdharEntry(id, userId) {
   if (!confirm('Delete?')) return;
   try {
     await FB.collection('udhar').doc(id).delete();
-    DATA = await loadData();
+    DATA.udhar = await getFreshUdhar();
     toast('🗑️');
     closeUdharModal();
     renderUdhar();
