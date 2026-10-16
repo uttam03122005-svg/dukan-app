@@ -11,91 +11,27 @@
 .btn-call{background:#2e7d32;color:#fff;}
 .btn-wa{background:#25d366;color:#fff;}
 .btn-sms{background:#1976d2;color:#fff;}
-
-.pick-btn{
-  width:100%;
-  padding:16px;
-  border:2px dashed #1976d2;
-  border-radius:10px;
-  font-size:16px;
-  font-weight:bold;
-  color:#1976d2;
-  background:#e3f2fd;
-  cursor:pointer;
-  margin-top:8px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  gap:8px;
-  box-sizing:border-box;
-}
-.pick-btn:active{opacity:0.7;}
-
-.img-status{
-  font-size:13px;color:#666;margin-top:8px;text-align:center;
-  min-height:18px;padding:6px;border-radius:6px;
-}
+.pick-btn{width:100%;padding:14px;border:2px dashed #1976d2;border-radius:10px;font-size:15px;font-weight:bold;color:#1976d2;background:#e3f2fd;cursor:pointer;margin-top:8px;display:flex;align-items:center;justify-content:center;gap:8px;box-sizing:border-box;}
+.img-status{font-size:13px;color:#666;margin-top:8px;text-align:center;min-height:18px;padding:6px;border-radius:6px;}
 .img-status.success{background:#e8f5e9;color:#2e7d32;font-weight:bold;}
 .img-status.error{background:#ffebee;color:#c62828;}
-.img-status.loading{background:#fff3e0;color:#e65100;}
-
-#pPreview{
-  max-width:100%;margin-top:10px;border-radius:10px;display:none;
-  box-shadow:0 2px 10px rgba(0,0,0,.2);max-height:320px;
-  object-fit:contain;background:#f5f5f5;width:100%;
-}
-
-#cameraModal{
-  display:none;position:fixed;inset:0;background:#000;z-index:1000;
-  flex-direction:column;
-}
-#cameraVideo{flex:1;width:100%;object-fit:cover;background:#000;}
-.camera-controls{
-  padding:20px 16px;
-  padding-bottom:calc(20px + env(safe-area-inset-bottom, 0px));
-  background:#000;display:flex;gap:12px;
-  justify-content:center;align-items:center;
-}
-.cam-btn{
-  padding:16px 24px;border:none;border-radius:50px;
-  font-size:16px;font-weight:bold;color:#fff;cursor:pointer;
-}
-.cam-cancel{background:#666;}
-.cam-capture{background:#2e7d32;padding:16px 40px;font-size:18px;}
-.cam-switch{background:#1976d2;padding:16px 20px;}
-
+#pPreview{max-width:100%;margin-top:10px;border-radius:10px;display:none;max-height:280px;object-fit:contain;width:100%;}
+#cameraModal{display:none;position:fixed;inset:0;background:#000;z-index:1000;flex-direction:column;}
+#cameraVideo{flex:1;width:100%;object-fit:cover;}
+.camera-controls{padding:16px;background:#000;display:flex;gap:10px;justify-content:center;}
+.cam-btn{padding:14px 20px;border:none;border-radius:50px;font-size:15px;font-weight:bold;color:#fff;cursor:pointer;}
+.cam-cancel{background:#666;}.cam-capture{background:#2e7d32;padding:14px 36px;font-size:17px;}.cam-switch{background:#1976d2;}
 #cameraCanvas{display:none;}
-
-.ledger-entry{
-  padding:10px;border-bottom:1px solid #eee;background:#fff;
-  margin-bottom:4px;border-radius:6px;
-}
-.ledger-entry.udhar{border-left:4px solid #e65100;}
-.ledger-entry.jama{border-left:4px solid #2e7d32;}
-
-.modal-udhar-bg{
-  position:fixed;inset:0;background:rgba(0,0,0,.55);
-  display:flex;align-items:center;justify-content:center;
-  z-index:500;padding:16px;
-}
-.modal-udhar{
-  background:#fff;border-radius:12px;padding:16px;
-  width:100%;max-width:480px;max-height:92vh;overflow-y:auto;
-}
-
-.type-btn{
-  flex:1;padding:10px;border:2px solid #ddd;border-radius:8px;
-  background:#fff;font-weight:bold;color:#333;cursor:pointer;
-  font-size:13px;
-}
-.type-btn.selected-udhar{border-color:#e65100;background:#fff3e0;color:#e65100;}
-.type-btn.selected-jama{border-color:#2e7d32;background:#e8f5e9;color:#2e7d32;}
-
-.udhar-item-row{
-  display:flex;gap:6px;align-items:center;
-  padding:8px;background:#fff;border-radius:6px;
-  margin-bottom:6px;border:1px solid #eee;
-}
+.type-option{display:flex;gap:10px;margin-top:8px;}
+.type-option button{flex:1;padding:14px 8px;border:2px solid #ddd;border-radius:10px;background:#fff;font-weight:bold;color:#333;cursor:pointer;font-size:14px;}
+.type-option button.active{border-color:#2e7d32;background:#e8f5e9;color:#2e7d32;}
+.udhar-item{display:flex;gap:8px;align-items:center;padding:10px;background:#f9f9f9;border-radius:8px;margin-bottom:6px;}
+.udhar-item .info{flex:1;}
+.udhar-item .amount{font-weight:bold;color:#2e7d32;font-size:15px;min-width:70px;text-align:right;}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:500;padding:12px;}
+.modal-box{background:#fff;border-radius:12px;padding:16px;width:100%;max-width:500px;max-height:94vh;overflow-y:auto;}
+.tab-btn-active{background:#2e7d32 !important;color:#fff !important;}
+.tab-btn-inactive{background:#ccc !important;color:#333 !important;}
 </style>
 </head>
 <body>
@@ -106,31 +42,112 @@
 
 <div class="container">
 <div class="card" style="display:flex;padding:0;overflow:auto;">
-<button class="primary tabBtn" data-tab="products" style="border-radius:0;font-size:12px;">Products</button>
-<button class="primary tabBtn" data-tab="users" style="border-radius:0;background:#ccc;color:#333;font-size:12px;">Customers</button>
-<button class="primary tabBtn" data-tab="orders" style="border-radius:0;background:#ccc;color:#333;font-size:12px;">Orders</button>
-<button class="primary tabBtn" data-tab="udhar" style="border-radius:0;background:#ccc;color:#333;font-size:12px;">Udhar</button>
-<button class="primary tabBtn" data-tab="info" style="border-radius:0;background:#ccc;color:#333;font-size:12px;">ℹ️</button>
+<button class="primary tabBtn" data-tab="products">Products</button>
+<button class="primary tabBtn" data-tab="users">Customers</button>
+<button class="primary tabBtn" data-tab="orders">Orders</button>
+<button class="primary tabBtn" data-tab="udhar">Udhar</button>
+<button class="primary tabBtn" data-tab="info">ℹ️</button>
 </div>
 
-<!-- PRODUCTS TAB -->
+<!-- PRODUCTS -->
 <div id="tab-products">
 <div class="card">
 <h3 id="pFormTitle">➕ Naya Product</h3>
 <input type="hidden" id="pId">
-<input id="pName" placeholder="Product name">
+<input id="pName" placeholder="Product name (jaise: Aata)">
+<input id="pCat" placeholder="Category (optional)">
 
-<div style="display:flex;gap:8px;margin-top:8px;">
-  <button type="button" class="pick-btn" style="flex:1;background:#e8f5e9;border-color:#2e7d32;color:#2e7d32;margin-top:0;" onclick="openLiveCamera()">
-    📷 Camera
+<label style="font-size:13px;font-weight:bold;color:#2e7d32;margin-top:10px;display:block;">Is product ka type:</label>
+<div class="type-option">
+  <button type="button" id="typeLooseBtn" onclick="setProductType('loose')">
+    ⚖️ Khula<br><span style="font-size:11px;font-weight:normal;">(kg/gm — naap ke becho)</span>
   </button>
-  <label for="pImgGallery" class="pick-btn" style="flex:1;margin-top:0;">
-    🖼️ Gallery
-  </label>
+  <button type="button" id="typePacketBtn" onclick="setProductType('packet')">
+    📦 Packet<br><span style="font-size:11px;font-weight:normal;">(fixed — pura packet)</span>
+  </button>
+</div>
+<input type="hidden" id="pType" value="loose">
+
+<label style="font-size:13px;font-weight:bold;color:#2e7d32;margin-top:10px;display:block;">Unit:</label>
+<select id="pUnit" onchange="onUnitChange()">
+  <option value="kg">kg (kilogram)</option>
+  <option value="gram">gram</option>
+  <option value="liter">liter</option>
+  <option value="ml">ml</option>
+  <option value="piece">piece (nag)</option>
+  <option value="packet">packet</option>
+  <option value="bottle">bottle</option>
+  <option value="dozen">dozen</option>
+  <option value="box">box</option>
+  <option value="strip">strip</option>
+</select>
+
+<div class="row">
+  <input id="pRetail" type="number" placeholder="Retail ₹" inputmode="decimal">
+  <input id="pWholesale" type="number" placeholder="Wholesale ₹" inputmode="decimal">
+</div>
+<input id="pStock" type="number" placeholder="Stock (kitna hai)" inputmode="decimal">
+
+<div style="display:flex;gap:8px;margin-top:10px;">
+  <button type="button" class="pick-btn" style="flex:1;background:#e8f5e9;border-color:#2e7d32;color:#2e7d32;margin:0;" onclick="openLiveCamera()">📷 Camera</button>
+  <label for="pImgGallery" class="pick-btn" style="flex:1;margin:0;">🖼️ Gallery</label>
+</div>
+<input id="pImgGallery" type="file" accept="image/*" onchange="handleImageSelect(event)" style="display:none;">
+<div id="imgStatus" class="img-status"></div>
+<img id="pPreview">
+
+<button class="primary" onclick="saveProduct()">💾 Save Product</button>
+<button class="primary" style="background:#777;" onclick="resetProductForm()">Reset</button>
 </div>
 
-<input id="pImgGallery" type="file" accept="image/*" onchange="handleImageSelect(event)" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;">
+<input class="search-bar" id="pSearch" placeholder="🔍 Search">
+<div id="productList"></div>
+</div>
 
+<!-- USERS -->
+<div id="tab-users" class="hidden">
+<input class="search-bar" id="uSearch" placeholder="🔍 Customer">
+<div id="userList"></div>
+</div>
+
+<!-- ORDERS -->
+<div id="tab-orders" class="hidden">
+<div id="orderList"></div>
+</div>
+
+<!-- UDHAR -->
+<div id="tab-udhar" class="hidden">
+<div class="card" style="background:linear-gradient(135deg,#2e7d32,#1b5e20);color:#fff;">
+  <h3 style="color:#fff;">💰 Udhar Khata</h3>
+  <div style="display:flex;justify-content:space-around;text-align:center;margin-top:8px;">
+    <div><div style="font-size:22px;font-weight:bold;" id="udTotalPending">₹0</div><div style="font-size:11px;">📕 Baaki</div></div>
+    <div><div style="font-size:22px;font-weight:bold;" id="udTotalAdvance">₹0</div><div style="font-size:11px;">💚 Advance</div></div>
+    <div><div style="font-size:22px;font-weight:bold;" id="udTotalCustomers">0</div><div style="font-size:11px;">👥 Customers</div></div>
+  </div>
+</div>
+
+<div class="card">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+    <h3 style="margin:0;">👥 Customers</h3>
+    <button class="primary small" style="width:auto;padding:8px 14px;background:#1976d2;" onclick="openNewUdhar()">➕ Naya Udhar</button>
+  </div>
+  <input class="search-bar" id="udCustomerSearch" placeholder="🔍 Customer dhundo" style="margin-bottom:10px;">
+  <div id="udharCustomerList"></div>
+</div>
+</div>
+
+<!-- INFO -->
+<div id="tab-info" class="hidden">
+<div class="card">
+<h3>ℹ️ Info</h3>
+<div id="secretInfo" style="font-size:13px;color:#555;"></div>
+</div>
+</div>
+</div>
+
+<!-- Udhar Modal -->
+<div id="udharModalRoot"></div>
+<!-- Camera Modal -->
 <div id="cameraModal">
   <video id="cameraVideo" autoplay playsinline muted></video>
   <div class="camera-controls">
@@ -139,91 +156,15 @@
     <button type="button" class="cam-btn cam-switch" onclick="switchCamera()">🔄</button>
   </div>
 </div>
-
 <canvas id="cameraCanvas"></canvas>
-
-<div id="imgStatus" class="img-status"></div>
-<img id="pPreview" alt="Preview">
-
-<input id="pCat" placeholder="Category">
-<label style="font-size:13px;font-weight:bold;color:#2e7d32;margin-top:8px;display:block;">Units & Price</label>
-<div id="unitList"></div>
-<button class="primary" style="background:#1976d2;" onclick="addUnit()">➕ Unit</button>
-<button class="primary" onclick="saveProduct()">💾 Save</button>
-<button class="primary" style="background:#777;" onclick="resetProductForm()">Reset</button>
-</div>
-<input class="search-bar" id="pSearch" placeholder="🔍 Search">
-<div id="productList"></div>
-</div>
-
-<!-- USERS TAB -->
-<div id="tab-users" class="hidden">
-<input class="search-bar" id="uSearch" placeholder="🔍 Customer (naam ya phone)">
-<div id="userList"></div>
-</div>
-
-<!-- ORDERS TAB -->
-<div id="tab-orders" class="hidden">
-<div id="orderList"></div>
-</div>
-
-<!-- UDHAR TAB -->
-<div id="tab-udhar" class="hidden">
-  <div class="card" style="background:linear-gradient(135deg,#2e7d32,#1b5e20);color:#fff;">
-    <h3 style="color:#fff;margin-bottom:10px;">💰 Udhar Khata</h3>
-    <div style="display:flex;gap:10px;justify-content:space-around;text-align:center;">
-      <div>
-        <div style="font-size:22px;font-weight:bold;" id="udTotalPending">₹0</div>
-        <div style="font-size:11px;opacity:0.9;">📕 Total Baaki</div>
-      </div>
-      <div>
-        <div style="font-size:22px;font-weight:bold;" id="udTotalAdvance">₹0</div>
-        <div style="font-size:11px;opacity:0.9;">💚 Total Advance</div>
-      </div>
-      <div>
-        <div style="font-size:22px;font-weight:bold;" id="udTotalCustomers">0</div>
-        <div style="font-size:11px;opacity:0.9;">👥 Customers</div>
-      </div>
-    </div>
-  </div>
-
-  <div class="card">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-      <h3 style="margin:0;">👥 Customers Khata</h3>
-      <button class="primary small" style="width:auto;padding:6px 12px;font-size:12px;background:#1976d2;" onclick="openAddUdharModal()">➕ Naya Udhar</button>
-    </div>
-    <input class="search-bar" id="udCustomerSearch" placeholder="🔍 Customer dhundo..." style="margin-bottom:10px;">
-    <div id="udharCustomerList"></div>
-  </div>
-</div>
-
-<!-- INFO TAB -->
-<div id="tab-info" class="hidden">
-<div class="card">
-<h3>ℹ️ Info</h3>
-<div id="secretInfo" style="font-size:13px;color:#555;"></div>
-<div style="margin-top:12px;padding:10px;background:#f9f9f9;border-radius:8px;">
-<div style="font-size:12px;color:#666;margin-bottom:6px;"><b>Mode:</b> <span id="modeInfo">Checking...</span></div>
-<div style="font-size:12px;color:#666;margin-bottom:6px;"><b>Notification:</b> <span id="notifPermission">Checking...</span></div>
-<button class="primary" style="background:#1976d2;" onclick="enableNotifications()">🔔 Enable Order Notifications</button>
-<div id="notifStatus" style="font-size:12px;color:#666;margin-top:8px;text-align:center;min-height:16px;"></div>
-</div>
-</div>
-</div>
-</div>
-
-<div id="udharModalRoot"></div>
 
 <script src="app.js"></script>
 <script>
 const s = getSession();
 if (!s || s.role !== 'owner') location.replace('index.html');
 
-let DATA = null, editingImageUrl = '', currentUnits = [];
-let compressedImageFile = null;
-
-// Udhar builder state
-let udharBuilder = { user_id: '', type: 'udhar', items: [], note: '', date: '' };
+let DATA = null, editingImageUrl = '', compressedImageFile = null;
+let udharBuilder = { user_id: '', type: 'udhar', items: [], note: '' };
 
 async function init() {
   const ok = await waitForFirebase();
@@ -233,24 +174,13 @@ async function init() {
   DATA = await loadData();
   renderProducts(); renderUsers(); renderOrders(); renderUdhar(); renderInfo();
   resetProductForm();
-
-  const modeInfo = document.getElementById('modeInfo');
-  const modes = [];
-  if (isPWA()) modes.push('📱 PWA');
-  if (isWebView()) modes.push('🔍 WebView');
-  if (!isPWA() && !isWebView()) modes.push('🌐 Browser');
-  if (location.protocol === 'https:') modes.push('🔒 HTTPS');
-  modeInfo.textContent = modes.join(' • ') || 'Unknown';
-
-  const notifPerm = document.getElementById('notifPermission');
-  if (typeof Notification !== 'undefined') notifPerm.textContent = Notification.permission;
-  else notifPerm.textContent = 'Not supported';
+  setProductType('loose');
 }
 
 function switchTab(t) {
   document.querySelectorAll('.tabBtn').forEach(b => {
-    if (b.dataset.tab === t) { b.style.background = '#2e7d32'; b.style.color = '#fff'; }
-    else { b.style.background = '#ccc'; b.style.color = '#333'; }
+    b.classList.toggle('tab-btn-active', b.dataset.tab === t);
+    b.classList.toggle('tab-btn-inactive', b.dataset.tab !== t);
   });
   ['products','users','orders','udhar','info'].forEach(x => {
     document.getElementById('tab-'+x).classList.toggle('hidden', x !== t);
@@ -264,337 +194,75 @@ function renderInfo() {
   document.getElementById('secretInfo').innerHTML = `
     <div style="padding:4px 0;">ImgBB: ${SECRET.imgbb_key ? '✅' : '❌'}</div>
     <div style="padding:4px 0;">UPI: ${SECRET.upi_id || '❌'}</div>
-    <div style="padding:4px 0;">Firebase: ${FB_READY ? '✅ ready' : '❌ not ready'}</div>
-    <div style="padding:4px 0;">Owner UID: ${(getAuthUid() || '').substring(0,10)}...</div>
+    <div style="padding:4px 0;">Firebase: ${FB_READY ? '✅ ready' : '❌'}</div>
   `;
 }
 
-async function enableNotifications() {
-  const status = document.getElementById('notifStatus');
-  status.style.color = '#666';
-  status.textContent = '⏳ Setting up...';
-  try {
-    const token = await setupOwnerNotifications();
-    if (token) {
-      status.style.color = '#2e7d32';
-      status.textContent = '✅ Notifications ON';
-      document.getElementById('notifPermission').textContent = Notification.permission;
-      toast('✅ Notifications enable!');
-    } else {
-      status.style.color = '#c62828';
-      status.textContent = '❌ Token nahi mila';
-    }
-  } catch (e) {
-    status.style.color = '#c62828';
-    status.textContent = '❌ ' + (e.message || 'Error');
+/* ========== PRODUCT TYPE ========== */
+function setProductType(type) {
+  document.getElementById('pType').value = type;
+  if (type === 'loose') {
+    document.getElementById('typeLooseBtn').classList.add('active');
+    document.getElementById('typePacketBtn').classList.remove('active');
+    // Unit options for loose
+    const u = document.getElementById('pUnit');
+    u.innerHTML = `
+      <option value="kg">kg (kilogram)</option>
+      <option value="gram">gram</option>
+      <option value="liter">liter</option>
+      <option value="ml">ml</option>
+    `;
+  } else {
+    document.getElementById('typePacketBtn').classList.add('active');
+    document.getElementById('typeLooseBtn').classList.remove('active');
+    const u = document.getElementById('pUnit');
+    u.innerHTML = `
+      <option value="piece">piece (nag)</option>
+      <option value="packet">packet</option>
+      <option value="bottle">bottle</option>
+      <option value="dozen">dozen</option>
+      <option value="box">box</option>
+      <option value="strip">strip</option>
+    `;
   }
 }
 
-/* ================= LIVE CAMERA ================= */
-let cameraStream = null;
-let currentFacingMode = 'environment';
+function onUnitChange() {}
 
-async function openLiveCamera() {
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    toast('❌ Camera support nahi. Gallery use karo.');
-    document.getElementById('pImgGallery').click();
-    return;
-  }
-  try {
-    if (cameraStream) {
-      cameraStream.getTracks().forEach(t => t.stop());
-      cameraStream = null;
-    }
-    cameraStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: currentFacingMode, width: { ideal: 1280 }, height: { ideal: 720 } },
-      audio: false
-    });
-    const modal = document.getElementById('cameraModal');
-    const video = document.getElementById('cameraVideo');
-    modal.style.display = 'flex';
-    video.srcObject = cameraStream;
-    await video.play();
-  } catch (err) {
-    let msg = 'Camera nahi khul paya';
-    if (err.name === 'NotAllowedError') msg = '❌ Camera permission denied';
-    else if (err.name === 'NotFoundError') msg = '❌ Camera nahi mila';
-    else if (err.name === 'NotReadableError') msg = '❌ Camera busy hai';
-    toast(msg);
-    setTimeout(() => {
-      if (confirm('Camera nahi khul paya. Gallery se photo chunna chahte ho?')) {
-        document.getElementById('pImgGallery').click();
-      }
-    }, 300);
-  }
-}
-
-function closeCamera() {
-  if (cameraStream) {
-    cameraStream.getTracks().forEach(t => t.stop());
-    cameraStream = null;
-  }
-  const modal = document.getElementById('cameraModal');
-  const video = document.getElementById('cameraVideo');
-  if (modal) modal.style.display = 'none';
-  if (video) video.srcObject = null;
-}
-
-function capturePhoto() {
-  const video = document.getElementById('cameraVideo');
-  const canvas = document.getElementById('cameraCanvas');
-  if (!video.videoWidth || !video.videoHeight) {
-    toast('❌ Camera ready nahi hai');
-    return;
-  }
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
-  canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
-  canvas.toBlob((blob) => {
-    if (!blob) { toast('❌ Photo capture fail'); return; }
-    const file = new File([blob], 'camera-' + Date.now() + '.jpg', { type: 'image/jpeg' });
-    closeCamera();
-    processCapturedPhoto(file);
-  }, 'image/jpeg', 0.9);
-}
-
-async function switchCamera() {
-  currentFacingMode = currentFacingMode === 'environment' ? 'user' : 'environment';
-  if (cameraStream) {
-    cameraStream.getTracks().forEach(t => t.stop());
-    cameraStream = null;
-  }
-  try {
-    cameraStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: currentFacingMode }, audio: false
-    });
-    const video = document.getElementById('cameraVideo');
-    video.srcObject = cameraStream;
-    await video.play();
-  } catch (err) {
-    toast('❌ Camera switch fail');
-    closeCamera();
-  }
-}
-
-function processCapturedPhoto(file) {
-  const status = document.getElementById('imgStatus');
-  const prev = document.getElementById('pPreview');
-  status.className = 'img-status';
-  status.textContent = '⏳ Processing...';
-  if (file.size > 10 * 1024 * 1024) {
-    toast('❌ Photo 10MB se badi');
-    status.textContent = '❌ File bahut badi';
-    status.className = 'img-status error';
-    return;
-  }
-  try {
-    const quickUrl = URL.createObjectURL(file);
-    prev.src = quickUrl;
-    prev.style.display = 'block';
-    status.textContent = `📷 ${(file.size/1024).toFixed(0)} KB — compressing...`;
-  } catch(e) {}
-  compressImage(file, 1000, 1000, 0.75).then(compressed => {
-    compressedImageFile = compressed;
-    const newUrl = URL.createObjectURL(compressed);
-    prev.src = newUrl;
-    prev.style.display = 'block';
-    status.textContent = `✅ Ready (${(compressed.size/1024).toFixed(0)} KB)`;
-    status.className = 'img-status success';
-  }).catch(err => {
-    compressedImageFile = file;
-    status.textContent = `📷 ${(file.size/1024).toFixed(0)} KB (original)`;
-  });
-}
-
-function handleImageSelect(event) {
-  const input = event.target;
-  const file = input.files && input.files[0];
-  const status = document.getElementById('imgStatus');
-  const prev = document.getElementById('pPreview');
-  if (!file) return;
-  status.className = 'img-status';
-  if (file.size > 10 * 1024 * 1024) {
-    toast('❌ Image 10MB se choti honi chahiye');
-    status.textContent = '❌ File bahut badi';
-    status.className = 'img-status error';
-    return;
-  }
-  if (!file.type || !file.type.startsWith('image/')) {
-    toast('❌ Sirf image file chuno');
-    status.textContent = '❌ Ye image nahi hai';
-    status.className = 'img-status error';
-    return;
-  }
-  status.textContent = '⏳ Loading...';
-  status.className = 'img-status loading';
-  try {
-    const quickUrl = URL.createObjectURL(file);
-    prev.src = quickUrl;
-    prev.style.display = 'block';
-    status.textContent = `📷 ${(file.size/1024).toFixed(0)} KB — compressing...`;
-  } catch(e) {}
-  compressImage(file, 1000, 1000, 0.75).then(compressed => {
-    compressedImageFile = compressed;
-    const newUrl = URL.createObjectURL(compressed);
-    prev.src = newUrl;
-    prev.style.display = 'block';
-    status.textContent = `✅ Ready (${(compressed.size/1024).toFixed(0)} KB)`;
-    status.className = 'img-status success';
-  }).catch(err => {
-    compressedImageFile = file;
-    status.textContent = `📷 ${(file.size/1024).toFixed(0)} KB (original)`;
-  });
-  setTimeout(() => { try { input.value = ''; } catch(e){} }, 500);
-}
-
-function compressImage(file, maxW, maxH, quality) {
-  return new Promise((resolve) => {
-    const fallback = () => resolve(file);
-    try {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-          const img = new Image();
-          img.onload = () => {
-            try {
-              let w = img.width, h = img.height;
-              if (w > maxW) { h = Math.round(h * maxW / w); w = maxW; }
-              if (h > maxH) { w = Math.round(w * maxH / h); h = maxH; }
-              const canvas = document.createElement('canvas');
-              canvas.width = w; canvas.height = h;
-              const ctx = canvas.getContext('2d');
-              ctx.fillStyle = '#ffffff';
-              ctx.fillRect(0, 0, w, h);
-              ctx.drawImage(img, 0, 0, w, h);
-              canvas.toBlob((blob) => {
-                if (!blob) return fallback();
-                const outName = (file.name || 'photo').replace(/\.[^.]+$/, '') + '.jpg';
-                resolve(new File([blob], outName, { type: 'image/jpeg' }));
-              }, 'image/jpeg', quality);
-            } catch(err) { fallback(); }
-          };
-          img.onerror = () => fallback();
-          img.src = e.target.result;
-        } catch(err) { fallback(); }
-      };
-      reader.onerror = () => fallback();
-      reader.readAsDataURL(file);
-    } catch(err) { fallback(); }
-  });
-}
-
-/* ================= PRODUCTS — SIMPLE NAPNE WALA ================= */
-function addUnit(data) {
-  currentUnits.push(data || { label:'piece', retail:'', wholesale:'', stock:'', size:'' });
-  renderUnits();
-}
-
-function removeUnit(i) { 
-  currentUnits.splice(i,1); 
-  renderUnits(); 
-}
-
-function updateUnit(i,k,v) { 
-  currentUnits[i][k] = v;
-  if (k === 'label') currentUnits[i].size = '';
-}
-
-function renderUnits() {
-  const box = document.getElementById('unitList');
-  const OPT = ['kg','gram','liter','ml','piece','packet','box','dozen','strip','bottle'];
-  const MEASURED_UNITS = ['kg','gram','liter','ml'];
-  const COUNT_UNITS = ['packet','box','dozen','strip','bottle'];
-
-  box.innerHTML = currentUnits.map((u,i) => {
-    const isMeasured = MEASURED_UNITS.includes(u.label);
-    const isCount = COUNT_UNITS.includes(u.label);
-    const canHaveSize = isMeasured || isCount;
-
-    return `
-    <div style="background:#f9f9f9;padding:12px;border-radius:8px;margin-bottom:10px;border:1px solid #eee;">
-      <div class="row">
-        <select onchange="updateUnit(${i},'label',this.value); renderUnits();">
-          ${OPT.map(o => `<option value="${o}" ${u.label===o?'selected':''}>${o}</option>`).join('')}
-        </select>
-        <button class="primary small danger" style="flex:0;width:auto;" onclick="removeUnit(${i})">✕</button>
-      </div>
-
-      ${canHaveSize ? `
-        <div style="margin-top:8px;">
-          <label style="font-size:13px;color:#333;font-weight:bold;display:block;margin-bottom:6px;">
-            📏 Ye product kaise bechte ho?
-          </label>
-          <div style="display:flex;gap:8px;">
-            <button type="button" 
-                    onclick="updateUnit(${i},'size',''); renderUnits();"
-                    style="flex:1;padding:12px 8px;border:2px solid ${!u.size?'#2e7d32':'#ddd'};border-radius:8px;background:${!u.size?'#e8f5e9':'#fff'};font-weight:bold;color:${!u.size?'#2e7d32':'#333'};cursor:pointer;font-size:13px;">
-              ⚖️ Khula (Loose)
-            </button>
-            <button type="button" 
-                    onclick="updateUnit(${i},'size','FIXED'); renderUnits();"
-                    style="flex:1;padding:12px 8px;border:2px solid ${u.size?'#2e7d32':'#ddd'};border-radius:8px;background:${u.size?'#e8f5e9':'#fff'};font-weight:bold;color:${u.size?'#2e7d32':'#333'};cursor:pointer;font-size:13px;">
-              📦 Packet (Fixed)
-            </button>
-          </div>
-          <div style="font-size:11px;color:#888;margin-top:6px;">
-            ${!u.size 
-              ? '✅ Customer 250gm, 500gm, 1kg... choose karega' 
-              : '✅ Customer sirf 1, 2, 3 packet choose karega'}
-          </div>
-        </div>
-      ` : ''}
-
-      <div class="row" style="margin-top:8px;">
-        <input placeholder="Retail ₹" inputmode="decimal" value="${u.retail}" onchange="updateUnit(${i},'retail',this.value)">
-        <input placeholder="Whole ₹" inputmode="decimal" value="${u.wholesale}" onchange="updateUnit(${i},'wholesale',this.value)">
-      </div>
-      <input placeholder="Stock" inputmode="decimal" value="${u.stock}" onchange="updateUnit(${i},'stock',this.value)">
-    </div>`;
-  }).join('');
-}
-
-function resetProductForm() {
-  ['pId','pName','pCat'].forEach(id => document.getElementById(id).value = '');
-  try { document.getElementById('pImgGallery').value = ''; } catch(e){}
-  closeCamera();
-  const prev = document.getElementById('pPreview');
-  prev.style.display = 'none';
-  prev.src = '';
-  const status = document.getElementById('imgStatus');
-  status.textContent = '';
-  status.className = 'img-status';
-  compressedImageFile = null;
-  editingImageUrl = ''; currentUnits = [];
-  addUnit({ label:'piece', retail:'', wholesale:'', stock:'', size:'' });
-  document.getElementById('pFormTitle').textContent = '➕ Naya Product';
-}
-
+/* ========== SAVE PRODUCT ========== */
 async function saveProduct() {
   const name = document.getElementById('pName').value.trim();
   const cat = document.getElementById('pCat').value.trim();
+  const type = document.getElementById('pType').value;
+  const unit = document.getElementById('pUnit').value;
+  const retail = parseFloat(document.getElementById('pRetail').value) || 0;
+  const wholesale = parseFloat(document.getElementById('pWholesale').value) || retail;
+  const stock = parseFloat(document.getElementById('pStock').value) || 0;
   const editId = document.getElementById('pId').value;
-  if (!name) return toast('Naam zaroori');
-  for (const u of currentUnits) if (!u.retail) return toast(`${u.label} retail daalo`);
 
-  const units = currentUnits.map(u => ({
-    label: u.label, retail: +u.retail || 0,
-    wholesale: +u.wholesale || +u.retail, stock: +u.stock || 0,
-    size: u.size || ''
-  }));
+  if (!name) return toast('Naam daalo');
+  if (!retail || retail <= 0) return toast('Retail price daalo');
 
   try {
     toast('Save ho raha hai...');
     let imageUrl = editingImageUrl;
     if (compressedImageFile) {
-      toast('📤 Image upload...');
       imageUrl = await uploadImage(compressedImageFile);
     }
+
     let product;
     if (editId) {
       product = DATA.products.find(x => x.id === editId);
-      Object.assign(product, { name, units, category: cat, image: imageUrl });
+      Object.assign(product, { name, category: cat, type, unit, retail, wholesale, stock, image: imageUrl });
     } else {
-      product = { id: uid(), name, units, image: imageUrl, category: cat, hidden: false, created_at: new Date().toISOString() };
+      product = {
+        id: uid(),
+        name, category: cat, type, unit,
+        retail, wholesale, stock,
+        image: imageUrl,
+        hidden: false,
+        created_at: new Date().toISOString()
+      };
     }
     await fbSaveProduct(product);
     DATA = await loadData();
@@ -606,36 +274,42 @@ async function saveProduct() {
   }
 }
 
+function resetProductForm() {
+  ['pId','pName','pCat','pRetail','pWholesale','pStock'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('pImgGallery').value = '';
+  compressedImageFile = null; editingImageUrl = '';
+  const prev = document.getElementById('pPreview');
+  prev.style.display = 'none'; prev.src = '';
+  document.getElementById('imgStatus').textContent = '';
+  document.getElementById('pFormTitle').textContent = '➕ Naya Product';
+  setProductType('loose');
+}
+
 function editProduct(id) {
   const p = DATA.products.find(x => x.id === id);
   if (!p) return;
   document.getElementById('pId').value = p.id;
-  document.getElementById('pName').value = p.name;
+  document.getElementById('pName').value = p.name || '';
   document.getElementById('pCat').value = p.category || '';
+  setProductType(p.type || 'loose');
+  document.getElementById('pUnit').value = p.unit || 'kg';
+  document.getElementById('pRetail').value = p.retail || '';
+  document.getElementById('pWholesale').value = p.wholesale || '';
+  document.getElementById('pStock').value = p.stock || 0;
   editingImageUrl = p.image || '';
   compressedImageFile = null;
-  const prev = document.getElementById('pPreview');
-  const status = document.getElementById('imgStatus');
   if (p.image) {
+    const prev = document.getElementById('pPreview');
     prev.src = p.image;
     prev.style.display = 'block';
-    status.textContent = '📷 Existing image';
-    status.className = 'img-status';
-  } else {
-    prev.style.display = 'none';
-    status.textContent = '';
-    status.className = 'img-status';
   }
-  currentUnits = (p.units||[]).map(u => ({...u, size: u.size || ''}));
-  if (!currentUnits.length) currentUnits = [{label:'piece',retail:'',wholesale:'',stock:'',size:''}];
-  renderUnits();
-  document.getElementById('pFormTitle').textContent = '✏️ Edit';
+  document.getElementById('pFormTitle').textContent = '✏️ Edit Product';
   switchTab('products');
 }
 
 async function deleteProduct(id) {
   if (!confirm('Delete?')) return;
-  try { await fbDeleteProduct(id); DATA = await loadData(); toast('🗑️ Delete'); renderProducts(); }
+  try { await fbDeleteProduct(id); DATA = await loadData(); toast('🗑️'); renderProducts(); }
   catch (e) { toast('❌ ' + e.message); }
 }
 
@@ -652,23 +326,17 @@ function renderProducts() {
   const items = DATA.products.filter(p => p.name.toLowerCase().includes(q));
   if (!items.length) { list.innerHTML = '<div class="card center">Koi product nahi</div>'; return; }
   list.innerHTML = items.map(p => {
-    const rows = (p.units||[]).map(u => {
-      const typeLabel = u.size ? ' 📦 Packet' : (['kg','gram','liter','ml'].includes(u.label) ? ' ⚖️ Khula' : '');
-      return `
-      <div style="font-size:13px;padding:3px 0;">
-        <b>${u.label}${typeLabel}</b>: ${inr(u.retail)} <span style="color:#777;">(W ${inr(u.wholesale)})</span> — Stock: ${u.stock}
-      </div>`;
-    }).join('');
+    const typeLabel = p.type === 'loose' ? '⚖️ Khula' : '📦 Packet';
     return `
     <div class="card">
       <div class="row">
-        <img src="${p.image || 'https://via.placeholder.com/80'}" style="width:80px;height:80px;object-fit:cover;border-radius:8px;flex:0 0 80px;">
+        <img src="${p.image || 'https://via.placeholder.com/80'}" style="width:70px;height:70px;object-fit:cover;border-radius:8px;flex:0 0 70px;">
         <div style="flex:1;">
           <div style="font-weight:600;">${p.name} ${p.hidden?'<span style="color:#c62828;font-size:12px;">(Hidden)</span>':''}</div>
-          <div style="font-size:12px;color:#777;">${p.category||'-'}</div>
+          <div style="font-size:12px;color:#777;">${typeLabel} • ${p.unit} • Stock: ${p.stock||0}</div>
+          <div style="font-size:14px;color:#2e7d32;font-weight:bold;margin-top:2px;">₹${p.retail}/${p.unit} <span style="color:#777;font-weight:normal;font-size:12px;">(W ₹${p.wholesale})</span></div>
         </div>
       </div>
-      <div class="mt">${rows}</div>
       <div class="row mt">
         <button class="primary small" onclick="editProduct('${p.id}')">✏️</button>
         <button class="primary small" style="background:#f57c00;" onclick="toggleHide('${p.id}')">${p.hidden?'👁️':'🙈'}</button>
@@ -679,7 +347,7 @@ function renderProducts() {
 }
 document.getElementById('pSearch').oninput = renderProducts;
 
-/* ================= USERS ================= */
+/* ========== USERS ========== */
 function renderUsers() {
   const q = (document.getElementById('uSearch').value||'').toLowerCase();
   const list = document.getElementById('userList');
@@ -702,13 +370,13 @@ function renderUsers() {
         ${u.address ? `<div style="font-size:12px;color:#888;">📍 ${u.address}</div>` : ''}
         <div style="display:flex;gap:6px;margin-top:8px;">
           <button class="icon-btn btn-call" onclick="callPhone('${u.phone}')">📞</button>
-          <button class="icon-btn btn-wa" onclick="whatsappPhone('${u.phone}', 'Namaste ${u.name}, Dukan se')">💬</button>
+          <button class="icon-btn btn-wa" onclick="whatsappPhone('${u.phone}', 'Namaste ${u.name}')">💬</button>
           <button class="icon-btn btn-sms" onclick="smsPhone('${u.phone}')">✉️</button>
         </div>
         <div style="display:flex;gap:8px;font-size:13px;margin-top:8px;padding:8px;background:#f9f9f9;border-radius:6px;">
-          <div style="flex:1;text-align:center;"><div style="font-weight:bold;color:#2e7d32;">${inr(stats.total_orders)}</div><div style="font-size:11px;color:#666;">Total</div></div>
-          <div style="flex:1;text-align:center;"><div style="font-weight:bold;color:#2e7d32;">${inr(stats.total_paid)}</div><div style="font-size:11px;color:#666;">Paid</div></div>
-          <div style="flex:1;text-align:center;"><div style="font-weight:bold;color:${stats.total_pending>0?'#e65100':'#2e7d32'};">${inr(stats.total_pending)}</div><div style="font-size:11px;color:#666;">Bakaya</div></div>
+          <div style="flex:1;text-align:center;"><div style="font-weight:bold;color:#2e7d32;">₹${stats.total_orders.toFixed(0)}</div><div style="font-size:11px;color:#666;">Total</div></div>
+          <div style="flex:1;text-align:center;"><div style="font-weight:bold;color:#2e7d32;">₹${stats.total_paid.toFixed(0)}</div><div style="font-size:11px;color:#666;">Paid</div></div>
+          <div style="flex:1;text-align:center;"><div style="font-weight:bold;color:${stats.total_pending>0?'#e65100':'#2e7d32'};">₹${stats.total_pending.toFixed(0)}</div><div style="font-size:11px;color:#666;">Bakaya</div></div>
         </div>
         <div class="row mt">
           <button class="primary small" style="background:#1976d2;" onclick="editCustomerName('${u.id}')">✏️ Naam</button>
@@ -726,7 +394,7 @@ async function editCustomerName(id) {
   const newName = prompt('Customer ka naam:', u.name);
   if (!newName || !newName.trim()) return;
   u.name = newName.trim();
-  try { await fbSaveUser(u); DATA = await loadData(); toast('✅ Naam save'); renderUsers(); renderUdhar(); }
+  try { await fbSaveUser(u); DATA = await loadData(); toast('✅ Save'); renderUsers(); renderUdhar(); }
   catch (e) { toast('❌ ' + e.message); }
 }
 
@@ -739,36 +407,25 @@ async function toggleWholesale(id) {
   catch (e) { toast('❌ ' + e.message); }
 }
 
-/* ================= ORDERS ================= */
+/* ========== ORDERS ========== */
 async function approvePayment(orderId) {
   if (!confirm('Payment confirm?')) return;
   try {
-    const o = DATA.orders.find(x => x.id === orderId);
-    const history = o.history || [];
-    history.push({ at: new Date().toISOString(), by: 'owner', action: 'payment_confirmed' });
-    await fbUpdateOrder(orderId, { payment_status: 'paid', owner_confirmed_at: new Date().toISOString(), history });
+    await fbUpdateOrder(orderId, { payment_status: 'paid', owner_confirmed_at: new Date().toISOString() });
     DATA = await loadData(); toast('✅ Payment confirm'); renderOrders();
   } catch (e) { toast('❌ ' + e.message); }
 }
-
 async function approveOrder(orderId) {
   if (!confirm('Order approve?')) return;
   try {
-    const o = DATA.orders.find(x => x.id === orderId);
-    const history = o.history || [];
-    history.push({ at: new Date().toISOString(), by: 'owner', action: 'order_approved' });
-    await fbUpdateOrder(orderId, { order_status: 'approved', owner_approved: true, history });
-    DATA = await loadData(); toast('✅ Order approve'); renderOrders();
+    await fbUpdateOrder(orderId, { order_status: 'approved', owner_approved: true });
+    DATA = await loadData(); toast('✅ Approve'); renderOrders();
   } catch (e) { toast('❌ ' + e.message); }
 }
-
 async function markDelivered(orderId) {
-  if (!confirm('Delivered mark?')) return;
+  if (!confirm('Delivered?')) return;
   try {
-    const o = DATA.orders.find(x => x.id === orderId);
-    const history = o.history || [];
-    history.push({ at: new Date().toISOString(), by: 'owner', action: 'delivered' });
-    await fbUpdateOrder(orderId, { order_status: 'delivered', history });
+    await fbUpdateOrder(orderId, { order_status: 'delivered' });
     DATA = await loadData(); toast('✅ Delivered'); renderOrders();
   } catch (e) { toast('❌ ' + e.message); }
 }
@@ -777,37 +434,28 @@ function renderOrders() {
   const list = document.getElementById('orderList');
   if (!DATA.orders.length) { list.innerHTML = '<div class="card center">Koi order nahi</div>'; return; }
   list.innerHTML = DATA.orders.map(o => {
-    const items = (o.items || []).map(it => {
-      const p = DATA.products.find(x => x.id === it.product_id) || { name: it.product_name || '?' };
-      const unitDisplay = it.size ? `${it.unit} (Packet)` : it.unit;
-      return `<div style="font-size:13px;">• ${p.name} — ${it.qty} ${unitDisplay} × ${inr(it.price)} = ${inr(it.price*it.qty)}</div>`;
-    }).join('');
+    const items = (o.items || []).map(it => `<div style="font-size:13px;">• ${it.product_name} — ${it.qty} ${it.unit} × ₹${it.price} = ₹${(it.qty*it.price).toFixed(2)}</div>`).join('');
     const isPaid = o.payment_status === 'paid';
     const isApproved = o.order_status === 'approved' || o.order_status === 'delivered';
     const isDelivered = o.order_status === 'delivered';
     return `
       <div class="card" style="border-left:4px solid ${isDelivered?'#2e7d32':isPaid?'#1976d2':'#f57c00'};">
-        <div style="display:flex;justify-content:space-between;align-items:center;">
-          <div>
-            <b>${o.user_name||'?'}</b>
-            <div style="font-size:11px;color:#666;">📞 ${o.user_phone||''}</div>
-          </div>
+        <div style="display:flex;justify-content:space-between;">
+          <b>${o.user_name||'?'}</b>
           <div style="display:flex;gap:4px;">
             <button class="icon-btn btn-call" onclick="callPhone('${o.user_phone}')">📞</button>
-            <button class="icon-btn btn-wa" onclick="whatsappPhone('${o.user_phone}', 'Namaste ${o.user_name}, Dukan se')">💬</button>
+            <button class="icon-btn btn-wa" onclick="whatsappPhone('${o.user_phone}', 'Namaste ${o.user_name}')">💬</button>
           </div>
         </div>
         <div style="font-size:11px;color:#888;text-align:right;">${new Date(o.created_at).toLocaleString('hi-IN')}</div>
         <div class="mt">${items}</div>
-        ${o.extra_charge > 0 ? `<div style="font-size:12px;color:#e65100;margin-top:4px;">Subtotal: ${inr(o.subtotal)} + Online Fee: ${inr(o.extra_charge)}</div>` : ''}
-        <div style="font-weight:bold;color:#2e7d32;margin-top:6px;font-size:16px;">Total: ${inr(o.total)}</div>
+        <div style="font-weight:bold;color:#2e7d32;margin-top:6px;font-size:16px;">Total: ₹${(o.total||0).toFixed(2)}</div>
         <div style="font-size:13px;margin-top:6px;background:#f9f9f9;padding:8px;border-radius:6px;">
-          <div>📦 Order: <b style="color:${isDelivered?'#2e7d32':isApproved?'#1976d2':'#e65100'};">${isDelivered?'✅ DELIVERED':isApproved?'📦 APPROVED':'⏳ PENDING'}</b></div>
-          <div>💰 Payment: <b style="color:${isPaid?'#2e7d32':'#e65100'};">${isPaid?'✅ PAID':'⏳ PENDING'}</b></div>
-          <div>Mode: <b>${(o.payment_mode||'cash').toUpperCase()}</b></div>
+          <div>📦 ${isDelivered?'✅ DELIVERED':isApproved?'📦 APPROVED':'⏳ PENDING'}</div>
+          <div>💰 ${isPaid?'✅ PAID':'⏳ PENDING'}</div>
         </div>
         <div class="row mt">
-          ${!isPaid ? `<button class="primary small" style="background:#2e7d32;" onclick="approvePayment('${o.id}')">💰 Payment Confirm</button>` : ''}
+          ${!isPaid ? `<button class="primary small" style="background:#2e7d32;" onclick="approvePayment('${o.id}')">💰 Payment</button>` : ''}
           ${isPaid && !isApproved ? `<button class="primary small" style="background:#1976d2;" onclick="approveOrder('${o.id}')">📦 Approve</button>` : ''}
           ${isApproved && !isDelivered ? `<button class="primary small" onclick="markDelivered('${o.id}')">✅ Delivered</button>` : ''}
         </div>
@@ -815,103 +463,93 @@ function renderOrders() {
   }).join('');
 }
 
-/* ================= UDHAR (Note-style) ================= */
-function openAddUdharModal(customerId) {
-  udharBuilder = { 
-    user_id: customerId || '', 
-    type: 'udhar', 
-    items: [],
-    note: '', 
-    date: new Date().toISOString().split('T')[0]
-  };
+/* ================= UDHAR NOTEBOOK ================= */
+function openNewUdhar(customerId) {
+  udharBuilder = { user_id: customerId || '', type: 'udhar', items: [], note: '' };
   renderUdharBuilder();
 }
 
 function renderUdharBuilder() {
-  const totalAmount = udharBuilder.items.reduce((sum, item) => sum + (+item.amount || 0), 0);
+  const total = udharBuilder.items.reduce((s, it) => s + (+it.amount || 0), 0);
+  const isUdhar = udharBuilder.type === 'udhar';
 
   document.getElementById('udharModalRoot').innerHTML = `
-    <div class="modal-udhar-bg" onclick="if(event.target===this) closeUdharModal()">
-      <div class="modal-udhar">
+    <div class="modal-bg" onclick="if(event.target===this) closeUdharModal()">
+      <div class="modal-box">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-          <h3 style="margin:0;">📝 Naya Udhar</h3>
-          <button class="primary small" style="width:auto;background:#777;padding:6px 10px;" onclick="closeUdharModal()">✕</button>
+          <h3 style="margin:0;">📝 ${isUdhar ? 'Naya Udhar' : 'Payment Jama'}</h3>
+          <button class="primary small" style="width:auto;background:#777;" onclick="closeUdharModal()">✕</button>
         </div>
 
-        <!-- Customer select -->
-        <label style="font-size:13px;color:#666;font-weight:bold;display:block;margin-bottom:4px;">👤 Customer</label>
-        <select id="udUserSel" onchange="udharBuilder.user_id = this.value;" style="width:100%;padding:10px;border:1px solid #ccc;border-radius:6px;font-size:15px;margin-bottom:10px;">
-          <option value="">-- Customer select karo --</option>
+        <label style="font-size:13px;font-weight:bold;">👤 Customer</label>
+        <select id="udUserSel" onchange="udharBuilder.user_id = this.value;" style="width:100%;padding:10px;border:1px solid #ccc;border-radius:6px;margin:6px 0 12px;">
+          <option value="">-- Select --</option>
           ${DATA.users.map(u => `<option value="${u.id}" ${udharBuilder.user_id === u.id ? 'selected' : ''}>${u.name} (${u.phone})</option>`).join('')}
         </select>
 
-        <!-- Type -->
-        <label style="font-size:13px;color:#666;font-weight:bold;display:block;margin-bottom:4px;">🔽 Type</label>
-        <div style="display:flex;gap:8px;margin-bottom:10px;">
-          <button type="button" class="type-btn ${udharBuilder.type==='udhar'?'selected-udhar':''}" onclick="setUdharType('udhar')">
-            📕 Udhar (Saman liya)
+        <div style="display:flex;gap:8px;margin-bottom:12px;">
+          <button type="button" class="primary" style="flex:1;background:${isUdhar?'#e65100':'#ccc'};color:${isUdhar?'#fff':'#333'};font-size:14px;" onclick="setUdharType('udhar')">
+            📕 Udhar (Saman)
           </button>
-          <button type="button" class="type-btn ${udharBuilder.type==='jama'?'selected-jama':''}" onclick="setUdharType('jama')">
-            💚 Jama (Paisa diya)
+          <button type="button" class="primary" style="flex:1;background:${!isUdhar?'#2e7d32':'#ccc'};color:${!isUdhar?'#fff':'#333'};font-size:14px;" onclick="setUdharType('jama')">
+            💚 Jama (Paisa)
           </button>
         </div>
 
-        <!-- Date -->
-        <label style="font-size:13px;color:#666;font-weight:bold;display:block;margin-bottom:4px;">📅 Date</label>
-        <input type="date" id="udDateInput" value="${udharBuilder.date}" onchange="udharBuilder.date = this.value;" style="width:100%;padding:10px;border:1px solid #ccc;border-radius:6px;font-size:15px;margin-bottom:10px;">
-
-        <!-- Items list -->
-        <label style="font-size:13px;color:#666;font-weight:bold;display:block;margin-bottom:6px;">📋 Saman List</label>
-        <div id="udItemsList" style="background:#f9f9f9;padding:8px;border-radius:8px;margin-bottom:10px;min-height:40px;">
-          ${udharBuilder.items.length === 0 
-            ? '<div style="text-align:center;color:#888;font-size:13px;padding:12px;">Abhi koi saman add nahi kiya. Neeche se add karo 👇</div>' 
-            : udharBuilder.items.map((item, idx) => `
-              <div class="udhar-item-row">
-                <div style="flex:1;">
-                  <div style="font-weight:600;font-size:14px;">${item.name}</div>
-                  <div style="font-size:11px;color:#666;">${item.qty} × ₹${item.price} = ₹${(item.qty * item.price).toFixed(2)}</div>
+        ${isUdhar ? `
+          <!-- SAMAN LIST -->
+          <label style="font-size:13px;font-weight:bold;">📋 Saman List</label>
+          <div style="background:#f9f9f9;padding:8px;border-radius:8px;margin:6px 0 12px;min-height:40px;">
+            ${udharBuilder.items.length === 0 
+              ? '<div style="text-align:center;color:#888;font-size:13px;padding:12px;">Neeche se saman add karo 👇</div>'
+              : udharBuilder.items.map((it, idx) => `
+                <div class="udhar-item">
+                  <div class="info">
+                    <div style="font-weight:600;">${it.name}</div>
+                    <div style="font-size:11px;color:#666;">${it.qty} ${it.unit} × ₹${it.price}</div>
+                  </div>
+                  <div class="amount">₹${it.amount.toFixed(2)}</div>
+                  <button class="primary small danger" style="width:auto;padding:6px 8px;font-size:12px;" onclick="removeUdharItem(${idx})">✕</button>
                 </div>
-                <input type="number" value="${item.amount}" onchange="updateUdharItemAmount(${idx}, this.value)" 
-                       style="width:80px;padding:6px;border:1px solid #ccc;border-radius:4px;font-size:13px;text-align:right;">
-                <button class="primary small danger" style="width:auto;padding:6px 8px;font-size:12px;" onclick="removeUdharItem(${idx})">✕</button>
-              </div>
-            `).join('')}
-        </div>
+              `).join('')}
+          </div>
 
-        <!-- Add item section -->
-        <div style="background:#e3f2fd;padding:10px;border-radius:8px;margin-bottom:10px;">
-          <label style="font-size:12px;color:#1976d2;font-weight:bold;display:block;margin-bottom:6px;">➕ Naya Saman Add Karo</label>
-          
-          <select id="itemProductSel" onchange="onProductSelect(this.value)" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:6px;font-size:14px;margin-bottom:6px;">
-            <option value="">-- Saman select karo --</option>
-            ${DATA.products.filter(p => !p.hidden).map(p => `<option value="${p.id}">${p.name}</option>`).join('')}
-          </select>
-
-          <div id="itemUnitRow" style="display:none;margin-bottom:6px;">
-            <select id="itemUnitSel" onchange="updateItemPrice()" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:6px;font-size:14px;">
+          <!-- ADD ITEM -->
+          <div style="background:#e3f2fd;padding:10px;border-radius:8px;margin-bottom:12px;">
+            <label style="font-size:12px;color:#1976d2;font-weight:bold;">➕ Saman Add Karo</label>
+            <select id="itemProductSel" onchange="onItemProductChange()" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:6px;margin:6px 0;font-size:14px;">
+              <option value="">-- Product --</option>
+              ${DATA.products.filter(p => !p.hidden).map(p => `<option value="${p.id}">${p.name}</option>`).join('')}
             </select>
+
+            <div id="itemQtySection" style="display:none;">
+              <div style="font-size:12px;color:#666;margin-bottom:4px;">Quantity:</div>
+              <div id="itemQtyButtons" style="display:grid;grid-template-columns:repeat(3, 1fr);gap:6px;margin-bottom:8px;"></div>
+              <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;">
+                <input type="number" id="itemCustomQty" placeholder="Custom qty" step="0.25" min="0.25" onchange="updateItemPreview()" style="flex:1;padding:8px;border:1px solid #ccc;border-radius:6px;">
+                <span id="itemUnitLabel" style="font-weight:bold;"></span>
+              </div>
+              <div style="text-align:right;font-size:13px;margin-bottom:6px;">
+                Subtotal: <b id="itemSubtotalPreview" style="color:#2e7d32;font-size:16px;">₹0</b>
+              </div>
+              <button type="button" class="primary" style="background:#1976d2;font-size:14px;" onclick="addItemToUdhar()">
+                ➕ Add to List
+              </button>
+            </div>
           </div>
+        ` : `
+          <!-- JAMA AMOUNT -->
+          <label style="font-size:13px;font-weight:bold;">💵 Amount ₹</label>
+          <input type="number" id="jamaAmountInput" placeholder="Paisa kitna diya" style="width:100%;padding:10px;border:1px solid #ccc;border-radius:6px;margin:6px 0 12px;font-size:15px;" onchange="updateJamaPreview()">
+        `}
 
-          <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;">
-            <input type="number" id="itemQtyInput" placeholder="Qty" value="1" step="1" min="1" onchange="updateItemSubtotal()"
-                   style="flex:1;padding:8px;border:1px solid #ccc;border-radius:6px;font-size:14px;">
-            <span id="itemSubtotal" style="font-size:13px;font-weight:bold;color:#2e7d32;min-width:80px;text-align:right;">₹0</span>
-          </div>
+        <label style="font-size:13px;font-weight:bold;">📝 Note (optional)</label>
+        <input id="udNoteInput" placeholder="Jaise: Ghar le gaya" value="${udharBuilder.note}" onchange="udharBuilder.note = this.value;" style="width:100%;padding:10px;border:1px solid #ccc;border-radius:6px;margin:6px 0 12px;">
 
-          <button type="button" class="primary" style="background:#1976d2;font-size:14px;padding:10px;" onclick="addItemToUdhar()">
-            ➕ List me Add Karo
-          </button>
-        </div>
-
-        <!-- Manual note/amount -->
-        <label style="font-size:13px;color:#666;font-weight:bold;display:block;margin-bottom:4px;">📝 Note (optional)</label>
-        <input id="udNoteInput" placeholder="Jaise: ghar le gaya, cash diya" value="${udharBuilder.note}" onchange="udharBuilder.note = this.value;" style="width:100%;padding:10px;border:1px solid #ccc;border-radius:6px;font-size:15px;margin-bottom:10px;">
-
-        <!-- Total -->
-        <div style="background:${udharBuilder.type === 'jama' ? '#e8f5e9' : '#fff3e0'};padding:12px;border-radius:8px;margin-bottom:10px;text-align:center;">
-          <div style="font-size:13px;color:#666;">Total ${udharBuilder.type === 'jama' ? 'Jama' : 'Udhar'}</div>
-          <div style="font-size:24px;font-weight:bold;color:${udharBuilder.type === 'jama' ? '#2e7d32' : '#e65100'};">
-            ₹${totalAmount.toFixed(2)}
+        <div style="background:${isUdhar?'#fff3e0':'#e8f5e9'};padding:12px;border-radius:8px;margin-bottom:12px;text-align:center;">
+          <div style="font-size:13px;color:#666;">Total ${isUdhar?'Udhar':'Jama'}</div>
+          <div id="udTotalPreview" style="font-size:26px;font-weight:bold;color:${isUdhar?'#e65100':'#2e7d32'};">
+            ₹${total.toFixed(2)}
           </div>
         </div>
 
@@ -923,74 +561,89 @@ function renderUdharBuilder() {
     </div>`;
 }
 
-function setUdharType(type) {
-  udharBuilder.type = type;
+function setUdharType(t) {
+  udharBuilder.type = t;
   renderUdharBuilder();
 }
 
-function onProductSelect(productId) {
-  const p = DATA.products.find(x => x.id === productId);
-  const row = document.getElementById('itemUnitRow');
-  const sel = document.getElementById('itemUnitSel');
+function onItemProductChange() {
+  const pid = document.getElementById('itemProductSel').value;
+  const p = DATA.products.find(x => x.id === pid);
+  const section = document.getElementById('itemQtySection');
+  const btns = document.getElementById('itemQtyButtons');
+  const unitLabel = document.getElementById('itemUnitLabel');
   
-  if (!p) { row.style.display = 'none'; return; }
+  if (!p) { section.style.display = 'none'; return; }
   
-  row.style.display = 'block';
-  sel.innerHTML = p.units.map(u => `
-    <option value="${u.label}">${u.label}${u.size ? ' (Packet)' : ''} — ₹${u.retail}</option>
-  `).join('');
-  
-  updateItemPrice();
+  section.style.display = 'block';
+  unitLabel.textContent = p.unit;
+  document.getElementById('itemCustomQty').value = '';
+  document.getElementById('itemSubtotalPreview').textContent = '₹0';
+
+  // Quick quantity buttons based on type
+  if (p.type === 'loose') {
+    // Loose — 250gm, 500gm, 1kg, 2kg, 5kg
+    let opts = [];
+    if (p.unit === 'kg') opts = [0.25, 0.5, 1, 2, 5, 10];
+    else if (p.unit === 'gram') opts = [50, 100, 250, 500, 1000];
+    else if (p.unit === 'liter') opts = [0.25, 0.5, 1, 2, 5];
+    else if (p.unit === 'ml') opts = [100, 250, 500, 1000];
+    
+    btns.innerHTML = opts.map(q => {
+      const disp = q >= 1 ? q : Math.round(q * 1000);
+      const dispU = q >= 1 ? p.unit : (p.unit === 'kg' ? 'gm' : p.unit === 'liter' ? 'ml' : p.unit);
+      return `<button type="button" onclick="setItemQty(${q})" style="padding:10px 4px;border:2px solid #ddd;border-radius:8px;background:#fff;font-weight:bold;font-size:13px;cursor:pointer;">
+        ${disp}${dispU}
+      </button>`;
+    }).join('');
+  } else {
+    // Packet — 1, 2, 3, 4, 5, 10
+    btns.innerHTML = [1, 2, 3, 4, 5, 10].map(n => `
+      <button type="button" onclick="setItemQty(${n})" style="padding:10px 4px;border:2px solid #ddd;border-radius:8px;background:#fff;font-weight:bold;font-size:13px;cursor:pointer;">
+        ${n} ${p.unit}
+      </button>
+    `).join('');
+  }
 }
 
-function updateItemPrice() {
-  const productId = document.getElementById('itemProductSel').value;
-  const unitLabel = document.getElementById('itemUnitSel').value;
-  const p = DATA.products.find(x => x.id === productId);
+let _tempQty = 1;
+function setItemQty(q) {
+  _tempQty = q;
+  document.getElementById('itemCustomQty').value = q;
+  updateItemPreview();
+}
+
+function updateItemPreview() {
+  const pid = document.getElementById('itemProductSel').value;
+  const p = DATA.products.find(x => x.id === pid);
   if (!p) return;
-  const u = p.units.find(x => x.label === unitLabel);
-  if (!u) return;
-  
-  const qty = parseFloat(document.getElementById('itemQtyInput').value) || 1;
-  const subtotal = u.retail * qty;
-  document.getElementById('itemSubtotal').textContent = '₹' + subtotal.toFixed(2);
-}
-
-function updateItemSubtotal() {
-  updateItemPrice();
+  const q = parseFloat(document.getElementById('itemCustomQty').value) || 0;
+  const sub = (p.retail || 0) * q;
+  document.getElementById('itemSubtotalPreview').textContent = '₹' + sub.toFixed(2);
 }
 
 function addItemToUdhar() {
-  const productId = document.getElementById('itemProductSel').value;
-  const unitLabel = document.getElementById('itemUnitSel').value;
-  const qty = parseFloat(document.getElementById('itemQtyInput').value) || 0;
+  const pid = document.getElementById('itemProductSel').value;
+  const p = DATA.products.find(x => x.id === pid);
+  if (!p) return toast('Product select karo');
 
-  if (!productId) return toast('Saman select karo');
-  if (!unitLabel) return toast('Unit select karo');
-  if (qty <= 0) return toast('Qty daalo');
+  const q = parseFloat(document.getElementById('itemCustomQty').value) || 0;
+  if (q <= 0) return toast('Quantity daalo');
 
-  const p = DATA.products.find(x => x.id === productId);
-  const u = p.units.find(x => x.label === unitLabel);
-  if (!u) return toast('Unit nahi mila');
-
-  const amount = u.retail * qty;
-
+  const amount = (p.retail || 0) * q;
   udharBuilder.items.push({
-    product_id: productId,
-    product_name: p.name,
-    unit: unitLabel,
-    has_size: u.size ? true : false,
-    qty: qty,
-    price: u.retail,
-    amount: amount,
-    name: `${p.name} (${qty} ${unitLabel})`
+    product_id: pid,
+    name: p.name,
+    unit: p.unit,
+    qty: q,
+    price: p.retail,
+    amount: amount
   });
 
-  // Reset add section
   document.getElementById('itemProductSel').value = '';
-  document.getElementById('itemQtyInput').value = 1;
-  document.getElementById('itemUnitRow').style.display = 'none';
-  document.getElementById('itemSubtotal').textContent = '₹0';
+  document.getElementById('itemQtySection').style.display = 'none';
+  document.getElementById('itemCustomQty').value = '';
+  document.getElementById('itemSubtotalPreview').textContent = '₹0';
 
   renderUdharBuilder();
 }
@@ -1000,54 +653,55 @@ function removeUdharItem(idx) {
   renderUdharBuilder();
 }
 
-function updateUdharItemAmount(idx, val) {
-  const amt = parseFloat(val) || 0;
-  udharBuilder.items[idx].amount = amt;
-  renderUdharBuilder();
+function updateJamaPreview() {
+  const amt = parseFloat(document.getElementById('jamaAmountInput').value) || 0;
+  document.getElementById('udTotalPreview').textContent = '₹' + amt.toFixed(2);
 }
 
 function closeUdharModal() {
   document.getElementById('udharModalRoot').innerHTML = '';
-  udharBuilder = { user_id: '', type: 'udhar', items: [], note: '', date: '' };
+  udharBuilder = { user_id: '', type: 'udhar', items: [], note: '' };
 }
 
 async function saveUdharEntry() {
-  const user_id = udharBuilder.user_id || document.getElementById('udUserSel').value;
+  const user_id = document.getElementById('udUserSel').value;
   if (!user_id) return toast('Customer select karo');
-  
+
   const note = document.getElementById('udNoteInput').value.trim();
-  const totalAmount = udharBuilder.items.reduce((sum, item) => sum + (+item.amount || 0), 0);
-  
-  if (totalAmount <= 0) return toast('Kuch saman ya amount daalo');
+  let total = 0;
+  let items = [];
+
+  if (udharBuilder.type === 'udhar') {
+    items = udharBuilder.items;
+    total = items.reduce((s, it) => s + (+it.amount || 0), 0);
+    if (total <= 0) return toast('Kuch saman add karo');
+  } else {
+    total = parseFloat(document.getElementById('jamaAmountInput').value) || 0;
+    if (total <= 0) return toast('Amount daalo');
+  }
 
   const u = DATA.users.find(x => x.id === user_id);
-  if (!u) return toast('Customer nahi mila');
-  
-  const dateVal = udharBuilder.date || document.getElementById('udDateInput').value;
-  const now = dateVal ? new Date(dateVal + 'T' + new Date().toTimeString().split(' ')[0]) : new Date();
+  const now = new Date();
 
   const rec = {
     id: uid(),
-    user_id: user_id,
+    user_id,
     user_name: u.name,
     user_phone: u.phone,
-    amount: totalAmount,
-    items: udharBuilder.items,
-    note: note || (udharBuilder.type === 'jama' ? 'Payment jama' : 'Udhar'),
     type: udharBuilder.type,
+    items: items,
+    amount: total,
+    note: note || (udharBuilder.type === 'jama' ? 'Payment jama' : 'Udhar'),
     status: udharBuilder.type === 'jama' ? 'paid' : 'pending',
     created_at: now.toISOString(),
     date_str: now.toISOString().split('T')[0],
-    time_str: now.toTimeString().slice(0,5),
-    year: now.getFullYear(),
-    month: now.getMonth() + 1,
-    day: now.getDate()
+    time_str: now.toTimeString().slice(0,5)
   };
 
   try {
     await fbSaveUdhar(rec);
     DATA = await loadData();
-    toast(udharBuilder.type === 'jama' ? '✅ Jama likh diya' : '✅ Udhar likh diya');
+    toast(udharBuilder.type === 'jama' ? '✅ Jama' : '✅ Udhar');
     closeUdharModal();
     renderUdhar();
   } catch (e) { toast('❌ ' + e.message); }
@@ -1055,37 +709,26 @@ async function saveUdharEntry() {
 
 function renderUdhar() {
   const list = document.getElementById('udharCustomerList');
-  const searchEl = document.getElementById('udCustomerSearch');
-  const q = (searchEl.value || '').toLowerCase();
+  const q = (document.getElementById('udCustomerSearch').value || '').toLowerCase();
 
   const byCustomer = {};
   DATA.udhar.forEach(u => {
     if (!byCustomer[u.user_id]) {
       byCustomer[u.user_id] = {
-        user_id: u.user_id,
-        user_name: u.user_name,
-        user_phone: u.user_phone,
-        entries: [],
-        total_udhar: 0,
-        total_jama: 0
+        user_id: u.user_id, user_name: u.user_name, user_phone: u.user_phone,
+        entries: [], total_udhar: 0, total_jama: 0
       };
     }
     byCustomer[u.user_id].entries.push(u);
     const isJama = u.type === 'jama' || u.status === 'paid';
-    if (isJama) {
-      byCustomer[u.user_id].total_jama += +u.amount || 0;
-    } else {
-      byCustomer[u.user_id].total_udhar += +u.amount || 0;
-    }
+    if (isJama) byCustomer[u.user_id].total_jama += +u.amount || 0;
+    else byCustomer[u.user_id].total_udhar += +u.amount || 0;
   });
 
   const customerList = Object.values(byCustomer).map(c => {
     c.balance = c.total_udhar - c.total_jama;
     return c;
-  }).filter(c => {
-    if (!q) return true;
-    return (c.user_name || '').toLowerCase().includes(q) || (c.user_phone || '').includes(q);
-  });
+  }).filter(c => !q || (c.user_name||'').toLowerCase().includes(q) || (c.user_phone||'').includes(q));
 
   customerList.sort((a, b) => b.balance - a.balance);
 
@@ -1095,31 +738,23 @@ function renderUdhar() {
     list.innerHTML = customerList.map(c => {
       const isAdvance = c.balance < 0;
       const isClear = c.balance === 0;
-      const balanceColor = isAdvance ? '#2e7d32' : (isClear ? '#666' : '#c62828');
-      const balanceText = isAdvance 
+      const color = isAdvance ? '#2e7d32' : (isClear ? '#666' : '#c62828');
+      const text = isAdvance 
         ? `💚 ₹${Math.abs(c.balance).toFixed(2)} Advance` 
         : (isClear ? '✅ Clear' : `📕 ₹${c.balance.toFixed(2)} Baaki`);
 
       return `
         <div style="padding:12px;border-bottom:1px solid #f0f0f0;cursor:pointer;" onclick="openCustomerLedger('${c.user_id}')">
-          <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div style="display:flex;justify-content:space-between;">
             <div style="flex:1;">
-              <div style="font-weight:bold;font-size:15px;">${c.user_name}</div>
+              <div style="font-weight:bold;">${c.user_name}</div>
               <div style="font-size:12px;color:#666;">📞 ${c.user_phone}</div>
-              <div style="font-size:11px;color:#999;margin-top:2px;">
-                📕 ₹${c.total_udhar.toFixed(0)} udhar • 💚 ₹${c.total_jama.toFixed(0)} jama
-              </div>
+              <div style="font-size:11px;color:#999;">📕 ₹${c.total_udhar.toFixed(0)} • 💚 ₹${c.total_jama.toFixed(0)}</div>
             </div>
             <div style="text-align:right;">
-              <div style="font-weight:bold;color:${balanceColor};font-size:15px;">${balanceText}</div>
-              <div style="font-size:11px;color:#888;margin-top:2px;">${c.entries.length} entries ›</div>
+              <div style="font-weight:bold;color:${color};font-size:15px;">${text}</div>
+              <div style="font-size:11px;color:#888;">${c.entries.length} entries ›</div>
             </div>
-          </div>
-          <div style="display:flex;gap:6px;margin-top:8px;">
-            <button class="primary small" style="background:#e65100;font-size:12px;padding:6px;" onclick="event.stopPropagation(); openAddUdharModal('${c.user_id}')">📕 Udhar</button>
-            <button class="primary small" style="background:#2e7d32;font-size:12px;padding:6px;" onclick="event.stopPropagation(); openJamaModal('${c.user_id}')">💚 Jama</button>
-            <button class="primary small" style="background:#1976d2;font-size:12px;padding:6px;" onclick="event.stopPropagation(); callPhone('${c.user_phone}')">📞</button>
-            <button class="primary small" style="background:#25d366;font-size:12px;padding:6px;" onclick="event.stopPropagation(); whatsappPhone('${c.user_phone}', 'Namaste ${c.user_name}, aapka udhar ₹${c.balance.toFixed(2)} hai')">💬</button>
           </div>
         </div>`;
     }).join('');
@@ -1136,7 +771,6 @@ function renderUdhar() {
   document.getElementById('udTotalAdvance').textContent = '₹' + totals.advance.toFixed(0);
   document.getElementById('udTotalCustomers').textContent = Object.keys(byCustomer).length;
 }
-
 document.getElementById('udCustomerSearch').oninput = renderUdhar;
 
 function openCustomerLedger(userId) {
@@ -1146,17 +780,13 @@ function openCustomerLedger(userId) {
   const entries = DATA.udhar.filter(x => x.user_id === userId)
     .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
 
-  let runningBalance = 0;
+  let running = 0;
   const ledger = entries.map(e => {
     const isJama = e.type === 'jama' || e.status === 'paid';
-    if (isJama) {
-      runningBalance -= +e.amount;
-    } else {
-      runningBalance += +e.amount;
-    }
-    return { ...e, running: runningBalance, isJama };
+    if (isJama) running -= +e.amount;
+    else running += +e.amount;
+    return { ...e, running, isJama };
   });
-
   ledger.reverse();
 
   const totalUdhar = entries.filter(e => !(e.type === 'jama' || e.status === 'paid')).reduce((a, e) => a + +e.amount, 0);
@@ -1164,71 +794,57 @@ function openCustomerLedger(userId) {
   const finalBalance = totalUdhar - totalJama;
 
   document.getElementById('udharModalRoot').innerHTML = `
-    <div class="modal-udhar-bg" onclick="if(event.target===this) closeUdharModal()">
-      <div class="modal-udhar">
-        
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+    <div class="modal-bg" onclick="if(event.target===this) closeUdharModal()">
+      <div class="modal-box">
+        <div style="display:flex;justify-content:space-between;margin-bottom:12px;">
           <div>
             <h3 style="margin:0;">📔 ${u.name}</h3>
             <div style="font-size:12px;color:#666;">📞 ${u.phone}</div>
           </div>
-          <button class="primary small" style="width:auto;background:#777;padding:6px 10px;" onclick="closeUdharModal()">✕</button>
+          <button class="primary small" style="width:auto;background:#777;" onclick="closeUdharModal()">✕</button>
         </div>
 
-        <div style="background:${finalBalance > 0 ? '#ffebee' : finalBalance < 0 ? '#e8f5e9' : '#f5f5f5'};padding:12px;border-radius:8px;margin-bottom:12px;">
-          <div style="display:flex;justify-content:space-between;font-size:13px;color:#666;">
-            <span>📕 Total Udhar:</span><b>₹${totalUdhar.toFixed(2)}</b>
-          </div>
-          <div style="display:flex;justify-content:space-between;font-size:13px;color:#666;margin-top:4px;">
-            <span>💚 Total Jama:</span><b>₹${totalJama.toFixed(2)}</b>
-          </div>
-          <div style="display:flex;justify-content:space-between;font-size:18px;font-weight:bold;color:${finalBalance > 0 ? '#c62828' : finalBalance < 0 ? '#2e7d32' : '#333'};margin-top:8px;padding-top:8px;border-top:1px solid rgba(0,0,0,0.1);">
-            <span>${finalBalance > 0 ? '📕 Baaki:' : finalBalance < 0 ? '💚 Advance:' : '✅ Clear:'}</span>
+        <div style="background:${finalBalance>0?'#ffebee':finalBalance<0?'#e8f5e9':'#f5f5f5'};padding:12px;border-radius:8px;margin-bottom:12px;">
+          <div style="display:flex;justify-content:space-between;font-size:13px;color:#666;"><span>📕 Udhar:</span><b>₹${totalUdhar.toFixed(2)}</b></div>
+          <div style="display:flex;justify-content:space-between;font-size:13px;color:#666;margin-top:4px;"><span>💚 Jama:</span><b>₹${totalJama.toFixed(2)}</b></div>
+          <div style="display:flex;justify-content:space-between;font-size:18px;font-weight:bold;color:${finalBalance>0?'#c62828':finalBalance<0?'#2e7d32':'#333'};margin-top:8px;padding-top:8px;border-top:1px solid #ddd;">
+            <span>${finalBalance>0?'📕 Baaki:':finalBalance<0?'💚 Advance:':'✅ Clear:'}</span>
             <b>₹${Math.abs(finalBalance).toFixed(2)}</b>
           </div>
         </div>
 
         <div style="display:flex;gap:8px;margin-bottom:12px;">
-          <button class="primary small" style="background:#e65100;" onclick="openAddUdharModal('${userId}')">📕 Naya Udhar</button>
-          <button class="primary small" style="background:#2e7d32;" onclick="openJamaModal('${userId}')">💚 Jama Karo</button>
+          <button class="primary small" style="background:#e65100;" onclick="openNewUdhar('${userId}')">📕 Udhar</button>
+          <button class="primary small" style="background:#2e7d32;" onclick="openNewJama('${userId}')">💚 Jama</button>
         </div>
 
-        <div style="font-size:13px;font-weight:bold;color:#666;margin-bottom:8px;">📋 Poora Hisaab (Latest upar)</div>
+        <div style="font-size:13px;font-weight:bold;margin-bottom:8px;">📋 Poora Hisaab</div>
         <div style="background:#f9f9f9;border-radius:8px;padding:4px;">
           ${ledger.length === 0 ? '<div style="padding:20px;text-align:center;color:#888;">Koi entry nahi</div>' : ledger.map(e => {
             const d = new Date(e.created_at);
             const dateStr = d.toLocaleDateString('hi-IN', { day: '2-digit', month: 'short', year: 'numeric' });
             const timeStr = d.toLocaleTimeString('hi-IN', { hour: '2-digit', minute: '2-digit' });
-            
-            // Items list
-            const itemsList = (e.items && e.items.length) 
-              ? e.items.map(it => `<div style="font-size:11px;color:#555;padding-left:14px;">• ${it.name || (it.product_name + ' × ' + it.qty + ' ' + it.unit)} = ₹${(+it.amount).toFixed(2)}</div>`).join('')
+            const itemsList = (e.items && e.items.length)
+              ? e.items.map(it => `<div style="font-size:12px;color:#555;padding-left:12px;">• ${it.name || it.product_name} — ${it.qty} ${it.unit} × ₹${it.price} = ₹${(+it.amount).toFixed(2)}</div>`).join('')
               : '';
-            
             return `
-              <div class="ledger-entry ${e.isJama ? 'jama' : 'udhar'}">
-                <div style="display:flex;justify-content:space-between;align-items:center;">
+              <div style="background:#fff;border-radius:6px;padding:10px;margin-bottom:6px;border-left:4px solid ${e.isJama?'#2e7d32':'#e65100'};">
+                <div style="display:flex;justify-content:space-between;">
                   <div style="flex:1;">
-                    <div style="font-size:11px;color:#888;">
-                      📅 ${dateStr} • ⏰ ${timeStr}
-                    </div>
-                    <div style="font-size:13px;font-weight:600;margin-top:2px;">
-                      ${e.isJama ? '💚' : '📕'} ${e.note}
-                    </div>
+                    <div style="font-size:11px;color:#888;">📅 ${dateStr} • ⏰ ${timeStr}</div>
+                    <div style="font-size:13px;font-weight:600;">${e.isJama?'💚':'📕'} ${e.note}</div>
                     ${itemsList}
                   </div>
                   <div style="text-align:right;">
-                    <div style="font-size:15px;font-weight:bold;color:${e.isJama ? '#2e7d32' : '#c62828'};">
-                      ${e.isJama ? '−' : '+'} ₹${(+e.amount).toFixed(2)}
+                    <div style="font-size:15px;font-weight:bold;color:${e.isJama?'#2e7d32':'#c62828'};">
+                      ${e.isJama?'−':'+'} ₹${(+e.amount).toFixed(2)}
                     </div>
-                    <div style="font-size:11px;color:#666;margin-top:2px;">
-                      Balance: ₹${(+e.running).toFixed(2)}
-                    </div>
+                    <div style="font-size:11px;color:#666;">Bal: ₹${(+e.running).toFixed(2)}</div>
                   </div>
                 </div>
                 <div style="margin-top:6px;display:flex;gap:6px;">
-                  <button class="primary small" style="background:#1976d2;font-size:11px;padding:4px 8px;width:auto;" onclick="editUdharEntry('${e.id}', '${userId}')">✏️ Edit</button>
-                  <button class="primary small danger" style="font-size:11px;padding:4px 8px;width:auto;" onclick="deleteUdharEntry('${e.id}', '${userId}')">🗑️</button>
+                  <button class="primary small" style="background:#1976d2;font-size:11px;width:auto;padding:4px 8px;" onclick="editUdharEntry('${e.id}', '${userId}')">✏️</button>
+                  <button class="primary small danger" style="font-size:11px;width:auto;padding:4px 8px;" onclick="deleteUdharEntry('${e.id}', '${userId}')">🗑️</button>
                 </div>
               </div>`;
           }).join('')}
@@ -1239,32 +855,24 @@ function openCustomerLedger(userId) {
     </div>`;
 }
 
-function openJamaModal(customerId) {
-  openAddUdharModal(customerId);
-  setTimeout(() => {
-    setUdharType('jama');
-  }, 100);
+function openNewJama(customerId) {
+  openNewUdhar(customerId);
+  setTimeout(() => setUdharType('jama'), 100);
 }
 
 async function editUdharEntry(id, userId) {
   const e = DATA.udhar.find(x => x.id === id);
   if (!e) return;
-  const newAmt = prompt('Amount badlo:', e.amount);
+  const newAmt = prompt('Amount:', e.amount);
   if (newAmt === null) return;
-  const newNote = prompt('Note badlo:', e.note);
+  const newNote = prompt('Note:', e.note);
   if (newNote === null) return;
-
   const amt = parseFloat(newAmt);
-  if (!amt || amt <= 0) return toast('Invalid amount');
-
+  if (!amt || amt <= 0) return toast('Invalid');
   try {
-    await FB.collection('udhar').doc(id).set({
-      amount: amt,
-      note: newNote,
-      updated_at: new Date().toISOString()
-    }, { merge: true });
+    await FB.collection('udhar').doc(id).set({ amount: amt, note: newNote, updated_at: new Date().toISOString() }, { merge: true });
     DATA = await loadData();
-    toast('✅ Update ho gaya');
+    toast('✅ Update');
     closeUdharModal();
     setTimeout(() => openCustomerLedger(userId), 200);
     renderUdhar();
@@ -1272,14 +880,94 @@ async function editUdharEntry(id, userId) {
 }
 
 async function deleteUdharEntry(id, userId) {
-  if (!confirm('Ye entry delete karni hai?')) return;
+  if (!confirm('Delete?')) return;
   try {
     await FB.collection('udhar').doc(id).delete();
     DATA = await loadData();
-    toast('🗑️ Delete ho gaya');
+    toast('🗑️');
     closeUdharModal();
     renderUdhar();
   } catch (err) { toast('❌ ' + err.message); }
+}
+
+/* ========== CAMERA ========== */
+let cameraStream = null, currentFacingMode = 'environment';
+async function openLiveCamera() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    document.getElementById('pImgGallery').click(); return;
+  }
+  try {
+    if (cameraStream) cameraStream.getTracks().forEach(t => t.stop());
+    cameraStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: currentFacingMode }, audio: false
+    });
+    document.getElementById('cameraModal').style.display = 'flex';
+    document.getElementById('cameraVideo').srcObject = cameraStream;
+    await document.getElementById('cameraVideo').play();
+  } catch (err) { toast('❌ ' + err.name); }
+}
+function closeCamera() {
+  if (cameraStream) { cameraStream.getTracks().forEach(t => t.stop()); cameraStream = null; }
+  document.getElementById('cameraModal').style.display = 'none';
+  document.getElementById('cameraVideo').srcObject = null;
+}
+function capturePhoto() {
+  const v = document.getElementById('cameraVideo');
+  const c = document.getElementById('cameraCanvas');
+  if (!v.videoWidth) return;
+  c.width = v.videoWidth; c.height = v.videoHeight;
+  c.getContext('2d').drawImage(v, 0, 0);
+  c.toBlob(b => {
+    closeCamera();
+    processImage(new File([b], 'cam-' + Date.now() + '.jpg', { type: 'image/jpeg' }));
+  }, 'image/jpeg', 0.9);
+}
+async function switchCamera() {
+  currentFacingMode = currentFacingMode === 'environment' ? 'user' : 'environment';
+  closeCamera(); openLiveCamera();
+}
+function handleImageSelect(e) {
+  const f = e.target.files && e.target.files[0];
+  if (!f) return;
+  processImage(f);
+  setTimeout(() => { try { e.target.value = ''; } catch(x){} }, 500);
+}
+async function processImage(file) {
+  const status = document.getElementById('imgStatus');
+  const prev = document.getElementById('pPreview');
+  if (file.size > 10*1024*1024) return toast('❌ 10MB');
+  status.textContent = '⏳ Compress...';
+  const compressed = await compressImage(file, 1000, 1000, 0.75);
+  compressedImageFile = compressed;
+  prev.src = URL.createObjectURL(compressed);
+  prev.style.display = 'block';
+  status.textContent = '✅ Ready';
+}
+function compressImage(file, maxW, maxH, quality) {
+  return new Promise(resolve => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        let w = img.width, h = img.height;
+        if (w > maxW) { h = Math.round(h * maxW / w); w = maxW; }
+        if (h > maxH) { w = Math.round(w * maxH / h); h = maxH; }
+        const c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        const ctx = c.getContext('2d');
+        ctx.fillStyle = '#fff'; ctx.fillRect(0,0,w,h);
+        ctx.drawImage(img, 0, 0, w, h);
+        c.toBlob(b => {
+          if (!b) return resolve(file);
+          resolve(new File([b], (file.name||'photo').replace(/\.[^.]+$/, '')+'.jpg', { type: 'image/jpeg' }));
+        }, 'image/jpeg', quality);
+      };
+      img.onerror = () => resolve(file);
+      img.src = e.target.result;
+    };
+    reader.onerror = () => resolve(file);
+    reader.readAsDataURL(file);
+  });
 }
 
 init();
