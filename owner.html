@@ -32,11 +32,13 @@
 .modal-box{background:#fff;border-radius:12px;padding:16px;width:100%;max-width:500px;max-height:94vh;overflow-y:auto;}
 .tab-btn-active{background:#2e7d32 !important;color:#fff !important;}
 .tab-btn-inactive{background:#ccc !important;color:#333 !important;}
+.live-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#4caf50;animation:pulse 1.5s infinite;margin-left:6px;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.3;}}
 </style>
 </head>
 <body>
 <div class="header">
-<h1>👨‍💼 Owner</h1>
+<h1>👨‍💼 Owner <span class="live-dot"></span></h1>
 <button onclick="logout()">Logout</button>
 </div>
 
@@ -130,6 +132,9 @@
 <div class="card">
 <h3>ℹ️ Info</h3>
 <div id="secretInfo" style="font-size:13px;color:#555;"></div>
+<div style="margin-top:10px;padding:10px;background:#e8f5e9;border-radius:8px;font-size:13px;color:#2e7d32;">
+  🔴 <b>Live Sync Active</b> — har second data auto-update hota hai
+</div>
 </div>
 </div>
 </div>
@@ -151,7 +156,8 @@
 const s = getSession();
 if (!s || s.role !== 'owner') location.replace('index.html');
 
-let DATA = null, editingImageUrl = '', compressedImageFile = null;
+let DATA = { products: [], users: [], orders: [], udhar: [] };
+let editingImageUrl = '', compressedImageFile = null;
 let udharBuilder = { user_id: '', type: 'udhar', items: [], note: '' };
 
 async function init() {
@@ -159,16 +165,23 @@ async function init() {
   if (!ok) { alert('Firebase ready nahi'); return; }
   const uid = await waitForAuth();
   if (!uid) { alert('Session expire'); location.replace('index.html'); return; }
-  
-  // FRESH DATA
-  const [products, users, orders, udhar] = await Promise.all([
-    getFreshProducts(), getFreshUsers(), getFreshOrders(), getFreshUdhar()
-  ]);
-  DATA = { products, users, orders, udhar };
-  
+
+  // Pehli baar data
+  DATA = await loadData();
   renderProducts(); renderUsers(); renderOrders(); renderUdhar(); renderInfo();
   resetProductForm();
   setProductType('loose');
+
+  // ⭐⭐⭐ REAL-TIME SYNC START ⭐⭐⭐
+  startOwnerLiveSync((type, data) => {
+    DATA[type] = data;
+    
+    const currentTab = document.querySelector('.tabBtn.tab-btn-active')?.dataset.tab || 'products';
+    if (currentTab === 'products') renderProducts();
+    if (currentTab === 'users') renderUsers();
+    if (currentTab === 'orders') renderOrders();
+    if (currentTab === 'udhar') renderUdhar();
+  });
 }
 
 function switchTab(t) {
@@ -182,20 +195,13 @@ function switchTab(t) {
 }
 
 document.querySelectorAll('.tabBtn').forEach(btn => {
-  btn.onclick = async () => {
+  btn.onclick = () => {
     switchTab(btn.dataset.tab);
-    // FRESH DATA on every tab
-    try {
-      const [products, users, orders, udhar] = await Promise.all([
-        getFreshProducts(), getFreshUsers(), getFreshOrders(), getFreshUdhar()
-      ]);
-      DATA = { products, users, orders, udhar };
-      const tab = btn.dataset.tab;
-      if (tab === 'products') renderProducts();
-      if (tab === 'users') renderUsers();
-      if (tab === 'orders') renderOrders();
-      if (tab === 'udhar') renderUdhar();
-    } catch (err) { console.warn('Refresh fail:', err); }
+    const tab = btn.dataset.tab;
+    if (tab === 'products') renderProducts();
+    if (tab === 'users') renderUsers();
+    if (tab === 'orders') renderOrders();
+    if (tab === 'udhar') renderUdhar();
   };
 });
 
@@ -264,11 +270,9 @@ async function saveProduct() {
       };
     }
     await fbSaveProduct(product);
-    // Refresh
-    DATA.products = await getFreshProducts();
     toast('✅ Save ho gaya');
     resetProductForm();
-    renderProducts();
+    // real-time listener khud update karega
   } catch (e) { toast('❌ ' + e.message); }
 }
 
@@ -308,19 +312,15 @@ async function deleteProduct(id) {
   if (!confirm('Delete?')) return;
   try { 
     await fbDeleteProduct(id); 
-    DATA.products = await getFreshProducts(); 
-    toast('🗑️'); renderProducts(); 
+    toast('🗑️ Delete'); 
   } catch (e) { toast('❌ ' + e.message); }
 }
 
 async function toggleHide(id) {
   const p = DATA.products.find(x => x.id === id);
   p.hidden = !p.hidden;
-  try { 
-    await fbSaveProduct(p); 
-    DATA.products = await getFreshProducts(); 
-    renderProducts(); 
-  } catch (e) { toast('❌ ' + e.message); }
+  try { await fbSaveProduct(p); }
+  catch (e) { toast('❌ ' + e.message); }
 }
 
 function renderProducts() {
@@ -397,12 +397,8 @@ async function editCustomerName(id) {
   const newName = prompt('Customer ka naam:', u.name);
   if (!newName || !newName.trim()) return;
   u.name = newName.trim();
-  try { 
-    await fbSaveUser(u); 
-    DATA.users = await getFreshUsers();
-    toast('✅ Save'); 
-    renderUsers(); renderUdhar(); 
-  } catch (e) { toast('❌ ' + e.message); }
+  try { await fbSaveUser(u); toast('✅ Save'); }
+  catch (e) { toast('❌ ' + e.message); }
 }
 
 async function toggleWholesale(id) {
@@ -410,12 +406,8 @@ async function toggleWholesale(id) {
   const newType = u.price_type === 'wholesale' ? 'retail' : 'wholesale';
   if (!confirm(`${u.name} → ${newType.toUpperCase()}?`)) return;
   u.price_type = newType;
-  try { 
-    await fbSaveUser(u); 
-    DATA.users = await getFreshUsers();
-    toast(newType==='wholesale'?'💼':'🛒'); 
-    renderUsers(); 
-  } catch (e) { toast('❌ ' + e.message); }
+  try { await fbSaveUser(u); toast(newType==='wholesale'?'💼':'🛒'); }
+  catch (e) { toast('❌ ' + e.message); }
 }
 
 /* ========== ORDERS ========== */
@@ -423,24 +415,21 @@ async function approvePayment(orderId) {
   if (!confirm('Payment confirm?')) return;
   try {
     await fbUpdateOrder(orderId, { payment_status: 'paid', owner_confirmed_at: new Date().toISOString() });
-    DATA.orders = await getFreshOrders();
-    toast('✅ Payment'); renderOrders();
+    toast('✅ Payment');
   } catch (e) { toast('❌ ' + e.message); }
 }
 async function approveOrder(orderId) {
   if (!confirm('Approve?')) return;
   try {
     await fbUpdateOrder(orderId, { order_status: 'approved', owner_approved: true });
-    DATA.orders = await getFreshOrders();
-    toast('✅ Approve'); renderOrders();
+    toast('✅ Approve');
   } catch (e) { toast('❌ ' + e.message); }
 }
 async function markDelivered(orderId) {
   if (!confirm('Delivered?')) return;
   try {
     await fbUpdateOrder(orderId, { order_status: 'delivered' });
-    DATA.orders = await getFreshOrders();
-    toast('✅ Delivered'); renderOrders();
+    toast('✅ Delivered');
   } catch (e) { toast('❌ ' + e.message); }
 }
 
@@ -486,8 +475,6 @@ function openNewUdhar(customerId) {
 function renderUdharBuilder() {
   const total = udharBuilder.items.reduce((s, it) => s + (+it.amount || 0), 0);
   const isUdhar = udharBuilder.type === 'udhar';
-
-  // Product options from home
   const productOptions = DATA.products.filter(p => !p.hidden).map(p => 
     `<option value="${p.id}">${p.name} (₹${p.retail}/${p.unit})</option>`
   ).join('');
@@ -625,7 +612,6 @@ function addItemToUdhar() {
   const pid = document.getElementById('itemProductSel').value;
   const p = DATA.products.find(x => x.id === pid);
   if (!p) return toast('Product select karo');
-
   const q = parseFloat(document.getElementById('itemCustomQty').value) || 0;
   if (q <= 0) return toast('Quantity daalo');
 
@@ -688,10 +674,8 @@ async function saveUdharEntry() {
 
   try {
     await fbSaveUdhar(rec);
-    DATA.udhar = await getFreshUdhar();
     toast(udharBuilder.type === 'jama' ? '✅ Jama' : '✅ Udhar');
     closeUdharModal();
-    renderUdhar();
   } catch (e) { toast('❌ ' + e.message); }
 }
 
@@ -878,11 +862,9 @@ async function editUdharEntry(id, userId) {
   if (!amt || amt <= 0) return toast('Invalid');
   try {
     await FB.collection('udhar').doc(id).set({ amount: amt, note: newNote, updated_at: new Date().toISOString() }, { merge: true });
-    DATA.udhar = await getFreshUdhar();
     toast('✅ Update');
     closeUdharModal();
     setTimeout(() => openCustomerLedger(userId), 200);
-    renderUdhar();
   } catch (err) { toast('❌ ' + err.message); }
 }
 
@@ -890,10 +872,8 @@ async function deleteUdharEntry(id, userId) {
   if (!confirm('Delete?')) return;
   try {
     await FB.collection('udhar').doc(id).delete();
-    DATA.udhar = await getFreshUdhar();
     toast('🗑️');
     closeUdharModal();
-    renderUdhar();
   } catch (err) { toast('❌ ' + err.message); }
 }
 
