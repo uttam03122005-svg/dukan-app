@@ -166,16 +166,14 @@ async function init() {
   const uid = await waitForAuth();
   if (!uid) { alert('Session expire'); location.replace('index.html'); return; }
 
-  // Pehli baar data
   DATA = await loadData();
   renderProducts(); renderUsers(); renderOrders(); renderUdhar(); renderInfo();
   resetProductForm();
   setProductType('loose');
 
-  // ⭐⭐⭐ REAL-TIME SYNC START ⭐⭐⭐
+  // ⭐ REAL-TIME SYNC START
   startOwnerLiveSync((type, data) => {
     DATA[type] = data;
-    
     const currentTab = document.querySelector('.tabBtn.tab-btn-active')?.dataset.tab || 'products';
     if (currentTab === 'products') renderProducts();
     if (currentTab === 'users') renderUsers();
@@ -210,6 +208,7 @@ function renderInfo() {
     <div style="padding:4px 0;">ImgBB: ${SECRET.imgbb_key ? '✅' : '❌'}</div>
     <div style="padding:4px 0;">UPI: ${SECRET.upi_id || '❌'}</div>
     <div style="padding:4px 0;">Firebase: ${FB_READY ? '✅ ready' : '❌'}</div>
+    <div style="padding:4px 0;">Live Sync: ${LIVE_ACTIVE ? '🔴 Active' : '⚠️ Not active'}</div>
   `;
 }
 
@@ -272,7 +271,6 @@ async function saveProduct() {
     await fbSaveProduct(product);
     toast('✅ Save ho gaya');
     resetProductForm();
-    // real-time listener khud update karega
   } catch (e) { toast('❌ ' + e.message); }
 }
 
@@ -771,7 +769,6 @@ function openCustomerLedger(userId) {
             <div>
               <h2 style="margin:0;font-size:20px;">📔 ${u.name}</h2>
               <div style="font-size:13px;margin-top:4px;opacity:0.95;">📞 ${u.phone}</div>
-              ${u.address ? `<div style="font-size:12px;opacity:0.9;">📍 ${u.address}</div>` : ''}
             </div>
             <button class="primary small" style="width:auto;background:rgba(255,255,255,0.2);padding:6px 10px;color:#fff;" onclick="closeUdharModal()">✕</button>
           </div>
@@ -797,7 +794,7 @@ function openCustomerLedger(userId) {
           <button class="primary" style="background:#2e7d32;font-size:14px;" onclick="openNewJama('${userId}')">💚 Jama Karo</button>
         </div>
 
-        <div style="font-size:14px;font-weight:bold;margin-bottom:8px;">📋 Poora Hisaab (Latest upar)</div>
+        <div style="font-size:14px;font-weight:bold;margin-bottom:8px;">📋 Poora Hisaab</div>
         <div style="background:#f9f9f9;border-radius:8px;padding:6px;max-height:55vh;overflow-y:auto;">
           ${ledger.length === 0 ? '<div style="padding:30px;text-align:center;color:#888;">Koi entry nahi</div>' : ledger.map(e => {
             const d = new Date(e.created_at);
@@ -815,7 +812,7 @@ function openCustomerLedger(userId) {
             
             return `
               <div style="background:#fff;border-radius:8px;padding:12px;margin-bottom:8px;border-left:4px solid ${e.isJama?'#2e7d32':'#e65100'};">
-                <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+                <div style="display:flex;justify-content:space-between;">
                   <div style="flex:1;">
                     <div style="font-size:11px;color:#888;font-weight:600;">📅 ${dateStr} • ⏰ ${timeStr}</div>
                     <div style="font-size:14px;font-weight:600;margin-top:4px;color:${e.isJama?'#2e7d32':'#e65100'};">
@@ -823,19 +820,16 @@ function openCustomerLedger(userId) {
                     </div>
                     ${itemsList ? '<div style="margin-top:6px;padding-top:6px;border-top:1px dashed #eee;">' + itemsList + '</div>' : ''}
                   </div>
-                  <div style="text-align:right;margin-left:10px;">
+                  <div style="text-align:right;">
                     <div style="font-size:17px;font-weight:bold;color:${e.isJama?'#2e7d32':'#c62828'};">
                       ${e.isJama?'−':'+'} ₹${(+e.amount).toFixed(2)}
                     </div>
-                    <div style="font-size:11px;color:#666;margin-top:2px;background:#f5f5f5;padding:2px 6px;border-radius:4px;">
-                      बाकी: ₹${(+e.running).toFixed(2)}
-                    </div>
+                    <div style="font-size:11px;color:#666;">Bal: ₹${(+e.running).toFixed(2)}</div>
                   </div>
                 </div>
                 <div style="margin-top:8px;display:flex;gap:6px;">
-                  <button class="primary small" style="background:#1976d2;font-size:11px;width:auto;padding:4px 10px;" onclick="editUdharEntry('${e.id}', '${userId}')">✏️ Edit</button>
+                  <button class="primary small" style="background:#1976d2;font-size:11px;width:auto;padding:4px 10px;" onclick="editUdharEntry('${e.id}', '${userId}')">✏️</button>
                   <button class="primary small danger" style="font-size:11px;width:auto;padding:4px 10px;" onclick="deleteUdharEntry('${e.id}', '${userId}')">🗑️</button>
-                  <button class="primary small" style="background:#25d366;font-size:11px;width:auto;padding:4px 10px;" onclick="whatsappPhone('${u.phone}', 'Namaste ${u.name}, aapka udhar ₹${finalBalance.toFixed(2)} hai')">💬 WhatsApp</button>
                 </div>
               </div>`;
           }).join('')}
