@@ -11,13 +11,80 @@
 .btn-call{background:#2e7d32;color:#fff;}
 .btn-wa{background:#25d366;color:#fff;}
 .btn-sms{background:#1976d2;color:#fff;}
-.pick-btn{width:100%;padding:16px;border:2px dashed #1976d2;border-radius:10px;font-size:16px;font-weight:bold;color:#1976d2;background:#e3f2fd;cursor:pointer;margin-top:8px;display:flex;align-items:center;justify-content:center;gap:8px;box-sizing:border-box;-webkit-tap-highlight-color:rgba(25,118,210,0.2);}
-.pick-btn:active{background:#bbdefb;}
-.img-status{font-size:13px;color:#666;margin-top:8px;text-align:center;min-height:18px;padding:6px;border-radius:6px;}
+
+.pick-btn{
+  width:100%;
+  padding:16px;
+  border:2px dashed #1976d2;
+  border-radius:10px;
+  font-size:16px;
+  font-weight:bold;
+  color:#1976d2;
+  background:#e3f2fd;
+  cursor:pointer;
+  margin-top:8px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  box-sizing:border-box;
+  -webkit-tap-highlight-color:rgba(25,118,210,0.2);
+}
+.pick-btn:active{opacity:0.7;}
+
+.img-status{
+  font-size:13px;color:#666;margin-top:8px;text-align:center;
+  min-height:18px;padding:6px;border-radius:6px;
+}
 .img-status.success{background:#e8f5e9;color:#2e7d32;font-weight:bold;}
 .img-status.error{background:#ffebee;color:#c62828;}
 .img-status.loading{background:#fff3e0;color:#e65100;}
-#pPreview{max-width:100%;margin-top:10px;border-radius:10px;display:none;box-shadow:0 2px 10px rgba(0,0,0,.2);max-height:320px;object-fit:contain;background:#f5f5f5;width:100%;}
+
+#pPreview{
+  max-width:100%;margin-top:10px;border-radius:10px;display:none;
+  box-shadow:0 2px 10px rgba(0,0,0,.2);max-height:320px;
+  object-fit:contain;background:#f5f5f5;width:100%;
+}
+
+/* Camera Modal */
+#cameraModal{
+  display:none;
+  position:fixed;
+  inset:0;
+  background:#000;
+  z-index:1000;
+  flex-direction:column;
+}
+#cameraVideo{
+  flex:1;
+  width:100%;
+  object-fit:cover;
+  background:#000;
+}
+.camera-controls{
+  padding:20px 16px;
+  padding-bottom:calc(20px + env(safe-area-inset-bottom, 0px));
+  background:#000;
+  display:flex;
+  gap:12px;
+  justify-content:center;
+  align-items:center;
+}
+.cam-btn{
+  padding:16px 24px;
+  border:none;
+  border-radius:50px;
+  font-size:16px;
+  font-weight:bold;
+  color:#fff;
+  cursor:pointer;
+}
+.cam-btn:active{opacity:0.8;}
+.cam-cancel{background:#666;}
+.cam-capture{background:#2e7d32;padding:16px 40px;font-size:18px;}
+.cam-switch{background:#1976d2;padding:16px 20px;}
+
+#cameraCanvas{display:none;}
 </style>
 </head>
 <body>
@@ -41,13 +108,39 @@
 <input type="hidden" id="pId">
 <input id="pName" placeholder="Product name">
 
-<!-- IMAGE PICKER - LABEL BASED (100% working) -->
-<label for="pImgInput" class="pick-btn">📷 Photo Chuno</label>
-<input id="pImgInput" type="file" accept="image/*" onchange="handleImageSelect(event)" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;">
-<div style="font-size:11px;color:#888;text-align:center;margin-top:4px;">Phone: Camera ya Gallery choose karo • Laptop: File browse karo</div>
+<!-- ============ IMAGE PICKER — CAMERA + GALLERY ============ -->
+<div style="display:flex;gap:8px;margin-top:8px;">
+  <button type="button" class="pick-btn" style="flex:1;background:#e8f5e9;border-color:#2e7d32;color:#2e7d32;margin-top:0;" onclick="openLiveCamera()">
+    📷 Camera
+  </button>
+  <label for="pImgGallery" class="pick-btn" style="flex:1;margin-top:0;">
+    🖼️ Gallery
+  </label>
+</div>
+
+<!-- Gallery input (hidden) -->
+<input id="pImgGallery" type="file" accept="image/*" onchange="handleImageSelect(event)" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;">
+
+<div style="font-size:11px;color:#888;text-align:center;margin-top:6px;">
+  📷 Camera = live photo kheencho • 🖼️ Gallery = purani photo
+</div>
+
+<!-- Live Camera Modal -->
+<div id="cameraModal">
+  <video id="cameraVideo" autoplay playsinline muted></video>
+  <div class="camera-controls">
+    <button type="button" class="cam-btn cam-cancel" onclick="closeCamera()">✕ Cancel</button>
+    <button type="button" class="cam-btn cam-capture" onclick="capturePhoto()">📸 Capture</button>
+    <button type="button" class="cam-btn cam-switch" onclick="switchCamera()">🔄</button>
+  </div>
+</div>
+
+<!-- Hidden canvas for capture -->
+<canvas id="cameraCanvas"></canvas>
 
 <div id="imgStatus" class="img-status"></div>
 <img id="pPreview" alt="Preview">
+<!-- ============ END IMAGE PICKER ============ -->
 
 <input id="pCat" placeholder="Category">
 <label style="font-size:13px;font-weight:bold;color:#2e7d32;margin-top:8px;display:block;">Units & Price</label>
@@ -170,9 +263,171 @@ async function enableNotifications() {
   }
 }
 
-/* ================= IMAGE HANDLER ================= */
+/* ================= LIVE CAMERA (PWA + Browser) ================= */
+let cameraStream = null;
+let currentFacingMode = 'environment'; // 'environment' = back camera
+
+async function openLiveCamera() {
+  console.log('📷 Opening live camera...');
+
+  // Check support
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    toast('❌ Camera support nahi. Gallery use karo.');
+    document.getElementById('pImgGallery').click();
+    return;
+  }
+
+  try {
+    // Stop previous stream if any
+    if (cameraStream) {
+      cameraStream.getTracks().forEach(t => t.stop());
+      cameraStream = null;
+    }
+
+    cameraStream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: currentFacingMode,
+        width: { ideal: 1280 },
+        height: { ideal: 720 }
+      },
+      audio: false
+    });
+
+    console.log('✅ Camera stream obtained');
+
+    const modal = document.getElementById('cameraModal');
+    const video = document.getElementById('cameraVideo');
+    modal.style.display = 'flex';
+    video.srcObject = cameraStream;
+    await video.play();
+    console.log('✅ Camera preview showing');
+
+  } catch (err) {
+    console.error('❌ Camera error:', err);
+    let msg = 'Camera nahi khul paya';
+    if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+      msg = '❌ Camera permission denied. Browser/App settings me allow karo.';
+    } else if (err.name === 'NotFoundError') {
+      msg = '❌ Camera nahi mila';
+    } else if (err.name === 'NotReadableError') {
+      msg = '❌ Camera busy hai (doosri app band karo)';
+    } else if (err.name === 'OverconstrainedError') {
+      msg = '❌ Camera quality support nahi';
+    }
+    toast(msg);
+    // Fallback to gallery
+    setTimeout(() => {
+      if (confirm('Camera nahi khul paya. Gallery se photo chunna chahte ho?')) {
+        document.getElementById('pImgGallery').click();
+      }
+    }, 300);
+  }
+}
+
+function closeCamera() {
+  console.log('📷 Closing camera...');
+  if (cameraStream) {
+    cameraStream.getTracks().forEach(t => t.stop());
+    cameraStream = null;
+  }
+  const modal = document.getElementById('cameraModal');
+  const video = document.getElementById('cameraVideo');
+  if (modal) modal.style.display = 'none';
+  if (video) video.srcObject = null;
+}
+
+function capturePhoto() {
+  console.log('📸 Capturing photo...');
+
+  const video = document.getElementById('cameraVideo');
+  const canvas = document.getElementById('cameraCanvas');
+
+  if (!video.videoWidth || !video.videoHeight) {
+    toast('❌ Camera ready nahi hai');
+    return;
+  }
+
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+  canvas.toBlob((blob) => {
+    if (!blob) {
+      toast('❌ Photo capture fail');
+      return;
+    }
+    const fileName = 'camera-' + Date.now() + '.jpg';
+    const file = new File([blob], fileName, { type: 'image/jpeg' });
+    console.log('✅ Photo captured:', file.size, 'bytes');
+    closeCamera();
+    processCapturedPhoto(file);
+  }, 'image/jpeg', 0.9);
+}
+
+async function switchCamera() {
+  console.log('🔄 Switching camera...');
+  currentFacingMode = currentFacingMode === 'environment' ? 'user' : 'environment';
+
+  if (cameraStream) {
+    cameraStream.getTracks().forEach(t => t.stop());
+    cameraStream = null;
+  }
+
+  try {
+    cameraStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: currentFacingMode },
+      audio: false
+    });
+    const video = document.getElementById('cameraVideo');
+    video.srcObject = cameraStream;
+    await video.play();
+    console.log('✅ Switched to:', currentFacingMode);
+  } catch (err) {
+    console.error('❌ Switch camera error:', err);
+    toast('❌ Camera switch fail');
+    closeCamera();
+  }
+}
+
+function processCapturedPhoto(file) {
+  const status = document.getElementById('imgStatus');
+  const prev = document.getElementById('pPreview');
+  status.className = 'img-status';
+  status.textContent = '⏳ Processing...';
+
+  if (file.size > 10 * 1024 * 1024) {
+    toast('❌ Photo 10MB se badi');
+    status.textContent = '❌ File bahut badi';
+    status.className = 'img-status error';
+    return;
+  }
+
+  try {
+    const quickUrl = URL.createObjectURL(file);
+    prev.src = quickUrl;
+    prev.style.display = 'block';
+    status.textContent = `📷 ${(file.size/1024).toFixed(0)} KB — compressing...`;
+  } catch(e) { console.warn('Preview fail:', e); }
+
+  compressImage(file, 1000, 1000, 0.75).then(compressed => {
+    console.log('✅ Compressed:', compressed.size);
+    compressedImageFile = compressed;
+    const newUrl = URL.createObjectURL(compressed);
+    prev.src = newUrl;
+    prev.style.display = 'block';
+    status.textContent = `✅ Ready (${(compressed.size/1024).toFixed(0)} KB)`;
+    status.className = 'img-status success';
+  }).catch(err => {
+    console.warn('Compress fail:', err);
+    compressedImageFile = file;
+    status.textContent = `📷 ${(file.size/1024).toFixed(0)} KB (original)`;
+  });
+}
+
+/* ================= GALLERY HANDLER ================= */
 function handleImageSelect(event) {
-  console.log('✅ onchange fired!');
+  console.log('✅ Gallery onchange fired!');
   const input = event.target;
   const file = input.files && input.files[0];
   const status = document.getElementById('imgStatus');
@@ -180,7 +435,7 @@ function handleImageSelect(event) {
 
   if (!file) { console.log('❌ No file'); return; }
 
-  console.log('📷 File:', file.name, file.type, file.size);
+  console.log('🖼️ File:', file.name, file.type, file.size);
   status.className = 'img-status';
 
   if (file.size > 10 * 1024 * 1024) {
@@ -218,10 +473,13 @@ function handleImageSelect(event) {
     console.warn('Compress fail:', err);
     compressedImageFile = file;
     status.textContent = `📷 ${(file.size/1024).toFixed(0)} KB (original)`;
-    status.className = 'img-status';
   });
+
+  // Clear input so same file can be selected again
+  setTimeout(() => { try { input.value = ''; } catch(e){} }, 500);
 }
 
+/* ================= COMPRESS IMAGE ================= */
 function compressImage(file, maxW, maxH, quality) {
   return new Promise((resolve) => {
     const fallback = () => resolve(file);
@@ -287,7 +545,9 @@ function renderUnits() {
 
 function resetProductForm() {
   ['pId','pName','pCat'].forEach(id => document.getElementById(id).value = '');
-  try { document.getElementById('pImgInput').value = ''; } catch(e){}
+  try { document.getElementById('pImgGallery').value = ''; } catch(e){}
+  // Close camera if open
+  closeCamera();
   const prev = document.getElementById('pPreview');
   prev.style.display = 'none';
   prev.src = '';
