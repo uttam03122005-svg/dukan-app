@@ -517,29 +517,42 @@ function compressImage(file, maxW, maxH, quality) {
   });
 }
 
-/* ================= PRODUCTS ================= */
+/* ================= PRODUCTS — NAPNE WALA SYSTEM ================= */
 function addUnit(data) {
   currentUnits.push(data || { label:'piece', retail:'', wholesale:'', stock:'', size:'' });
   renderUnits();
 }
-function removeUnit(i) { currentUnits.splice(i,1); renderUnits(); }
+
+function removeUnit(i) { 
+  currentUnits.splice(i,1); 
+  renderUnits(); 
+}
+
 function updateUnit(i,k,v) { 
   currentUnits[i][k] = v;
   if (k === 'label') currentUnits[i].size = '';
 }
+
 function renderUnits() {
   const box = document.getElementById('unitList');
   const OPT = ['kg','gram','liter','ml','piece','packet','box','dozen','strip','bottle'];
   const MEASURED_UNITS = ['kg','gram','liter','ml'];
+  const COUNT_UNITS = ['packet','box','dozen','strip'];
+  
   const SIZE_OPTIONS = {
-    'kg': ['100gm','250gm','500gm','1kg','2kg','5kg','10kg'],
+    'kg': ['100gm','250gm','500gm','1kg','2kg','5kg','10kg','25kg'],
     'gram': ['50gm','100gm','250gm','500gm','1kg'],
-    'liter': ['100ml','250ml','500ml','1L','2L','5L'],
-    'ml': ['50ml','100ml','250ml','500ml','1L']
+    'liter': ['100ml','250ml','500ml','1L','2L','5L','15L'],
+    'ml': ['50ml','100ml','250ml','500ml','1L'],
+    'packet': ['6 pcs','10 pcs','12 pcs','15 pcs','20 pcs','24 pcs','50 pcs','100 pcs'],
+    'box': ['6 pcs','10 pcs','12 pcs','20 pcs','24 pcs','50 pcs'],
+    'dozen': ['12 pcs'],
+    'strip': ['10 pcs','15 pcs']
   };
 
   box.innerHTML = currentUnits.map((u,i) => {
     const isMeasured = MEASURED_UNITS.includes(u.label);
+    const isCount = COUNT_UNITS.includes(u.label);
     const sizeOptions = SIZE_OPTIONS[u.label] || [];
 
     return `
@@ -551,13 +564,20 @@ function renderUnits() {
         <button class="primary small danger" style="flex:0;width:auto;" onclick="removeUnit(${i})">✕</button>
       </div>
 
-      ${isMeasured ? `
+      ${(isMeasured || isCount) ? `
         <div style="margin-top:6px;">
-          <label style="font-size:12px;color:#666;font-weight:bold;">📏 Fixed Size (packet/bottle ka size):</label>
+          <label style="font-size:12px;color:#666;font-weight:bold;">
+            ${isMeasured ? '📏 Packet ka Size (agar fixed packet bechte ho)' : '📦 Packet me kitna hai'}
+          </label>
           <select onchange="updateUnit(${i},'size',this.value)" style="margin-top:4px;">
-            <option value="">-- Koi fixed size nahi (loose) --</option>
+            <option value="">-- Loose / No fixed size --</option>
             ${sizeOptions.map(s => `<option value="${s}" ${u.size===s?'selected':''}>${s}</option>`).join('')}
           </select>
+          <div style="font-size:11px;color:#888;margin-top:4px;">
+            ${isMeasured 
+              ? '1L oil packet? Size "1L" choose karo. Loose bechte ho? Khaali chhodo.'
+              : 'Biscuit packet me 12 pcs? Size "12 pcs" choose karo.'}
+          </div>
         </div>
       ` : ''}
 
@@ -567,7 +587,7 @@ function renderUnits() {
       </div>
       <input placeholder="Stock" inputmode="decimal" value="${u.stock}" onchange="updateUnit(${i},'stock',this.value)">
 
-      ${u.size ? `<div style="font-size:11px;color:#2e7d32;margin-top:4px;">✅ Har ${u.label} = ${u.size}</div>` : ''}
+      ${u.size ? `<div style="font-size:11px;color:#2e7d32;margin-top:4px;background:#e8f5e9;padding:4px 8px;border-radius:4px;display:inline-block;">✅ Har ${u.label} = ${u.size}</div>` : ''}
     </div>`;
   }).join('');
 }
@@ -794,9 +814,10 @@ function renderOrders() {
   const list = document.getElementById('orderList');
   if (!DATA.orders.length) { list.innerHTML = '<div class="card center">Koi order nahi</div>'; return; }
   list.innerHTML = DATA.orders.map(o => {
-    const items = o.items.map(it => {
+    const items = (o.items || []).map(it => {
       const p = DATA.products.find(x => x.id === it.product_id) || { name: it.product_name || '?' };
-      return `<div style="font-size:13px;">• ${p.name} — ${it.qty} ${it.unit} × ${inr(it.price)} = ${inr(it.price*it.qty)}</div>`;
+      const unitDisplay = it.size ? `${it.unit} (${it.size})` : it.unit;
+      return `<div style="font-size:13px;">• ${p.name} — ${it.qty} ${unitDisplay} × ${inr(it.price)} = ${inr(it.price*it.qty)}</div>`;
     }).join('');
     const isPaid = o.payment_status === 'paid';
     const isApproved = o.order_status === 'approved' || o.order_status === 'delivered';
