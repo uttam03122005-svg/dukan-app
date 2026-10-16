@@ -108,6 +108,7 @@ function renderGrid() {
     if (!first) return '';
     const price = getUnitPrice(p, first.label, ME);
     const unit = first.label;
+    const unitDisplay = first.size ? `${first.label} (${first.size})` : first.label;
     const totalStock = (p.units||[]).reduce((a,b) => a + (+b.stock||0), 0);
     const out = totalStock <= 0;
     return `
@@ -115,7 +116,7 @@ function renderGrid() {
         <img src="${p.image || 'https://via.placeholder.com/150'}" alt="${p.name}">
         <div class="info">
           <div class="name">${p.name}</div>
-          <div class="price">${inr(price)}/${unit}</div>
+          <div class="price">${inr(price)}/${unitDisplay}</div>
           <div class="stock">${out ? '❌ Khatam' : '✔ ' + totalStock + ' ' + unit}</div>
           <button class="primary small" style="margin-top:auto;" ${out?'disabled style="background:#ccc;"':''} onclick="openUnitPicker('${p.id}')">
             ${out ? 'Khatam' : '🛒 Add'}
@@ -130,70 +131,200 @@ let pickerState = null;
 function openUnitPicker(pid) {
   const p = PRODUCTS.find(x => x.id === pid);
   if (!p || !p.units?.length) return;
-  pickerState = { productId: pid, unitLabel: p.units[0].label, qty: UNIT_STEP[p.units[0].label] || 1 };
+  pickerState = { productId: pid, unitLabel: p.units[0].label, qty: getDefaultQty(p.units[0]) };
   renderPickerModal();
 }
+
+function getDefaultQty(u) {
+  const MEASURED_UNITS = ['kg','gram','liter','ml'];
+  const isMeasured = MEASURED_UNITS.includes(u.label);
+  const hasSize = !!u.size;
+  if (!isMeasured || hasSize) return 1;
+  return UNIT_STEP[u.label] || 0.25;
+}
+
 function renderPickerModal() {
   const p = PRODUCTS.find(x => x.id === pickerState.productId);
   const u = p.units.find(x => x.label === pickerState.unitLabel);
   const price = getUnitPrice(p, u.label, ME);
-  const step = UNIT_STEP[u.label] || 1;
   const subtotal = price * pickerState.qty;
+
+  const MEASURED_UNITS = ['kg','gram','liter','ml'];
+  const FIXED_UNITS = ['piece','packet','box','dozen','strip','bottle'];
+  const isMeasured = MEASURED_UNITS.includes(u.label);
+  const isFixed = FIXED_UNITS.includes(u.label);
+  const hasSize = !!u.size;
+
   const rows = p.units.map(un => {
     const up = getUnitPrice(p, un.label, ME);
     const sel = un.label === pickerState.unitLabel ? 'selected' : '';
+    const displayLabel = un.size ? `${un.label} (${un.size})` : un.label;
     return `
       <div class="unit-row ${sel}" onclick="selectUnit('${un.label}')">
         <div style="flex:1;">
-          <div style="font-weight:bold;">${un.label}</div>
+          <div style="font-weight:bold;">${displayLabel}</div>
           <div style="font-size:13px;color:#2e7d32;">${inr(up)}/${un.label}</div>
           <div style="font-size:11px;color:#777;">Stock: ${un.stock}</div>
         </div>
         ${sel ? '<span style="color:#2e7d32;font-size:20px;">✓</span>' : ''}
       </div>`;
   }).join('');
+
+  let quantitySelector = '';
+
+  if (isFixed) {
+    quantitySelector = `
+      <div style="margin-top:14px;padding-top:12px;border-top:1px solid #eee;">
+        <div style="font-size:13px;color:#666;text-align:center;margin-bottom:8px;">
+          Kitne ${u.label}? ${u.size ? '(' + u.size + ' each)' : ''}
+        </div>
+        <div class="row" style="align-items:center;">
+          <button class="primary small qty-btn" onclick="changeQty(-1)">−</button>
+          <input type="number" value="${pickerState.qty}" min="1" step="1" 
+                 style="text-align:center;margin:0;font-size:18px;font-weight:bold;" 
+                 onchange="setPickerQty(this.value)">
+          <span style="flex:0;white-space:nowrap;font-weight:bold;">${u.label}</span>
+          <button class="primary small qty-btn" onclick="changeQty(1)">+</button>
+        </div>
+        <div style="text-align:center;font-size:16px;margin-top:10px;">
+          Total: <b style="color:#2e7d32;">${inr(subtotal)}</b>
+        </div>
+      </div>`;
+  } else if (isMeasured && !hasSize) {
+    const QUICK_QTY = {
+      'kg': [0.25, 0.5, 1, 2, 5, 10],
+      'gram': [50, 100, 250, 500, 1000],
+      'liter': [0.25, 0.5, 1, 2, 5],
+      'ml': [100, 250, 500, 1000]
+    };
+    const quickList = QUICK_QTY[u.label] || [];
+    
+    quantitySelector = `
+      <div style="margin-top:14px;padding-top:12px;border-top:1px solid #eee;">
+        <div style="font-size:13px;color:#666;text-align:center;margin-bottom:8px;">
+          Kitna ${u.label}?
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">
+          ${quickList.map(q => {
+            const displayQty = q >= 1 ? q : (q * 1000);
+            const displayUnit = q >= 1 ? u.label : (u.label === 'kg' ? 'gm' : (u.label === 'liter' ? 'ml' : u.label));
+            const sel = pickerState.qty === q;
+            return `
+            <button type="button" 
+                    onclick="setPickerQty(${q})"
+                    style="flex:1;min-width:60px;padding:10px 4px;border:2px solid ${sel?'#2e7d32':'#ddd'};border-radius:8px;background:${sel?'#e8f5e9':'#fff'};font-weight:bold;color:${sel?'#2e7d32':'#333'};cursor:pointer;font-size:13px;">
+              ${displayQty}${displayUnit}
+            </button>`;
+          }).join('')}
+        </div>
+        <div class="row" style="align-items:center;">
+          <button class="primary small qty-btn" onclick="changeQty(-1)">−</button>
+          <input type="number" value="${pickerState.qty}" min="${UNIT_STEP[u.label] || 0.25}" step="${UNIT_STEP[u.label] || 0.25}" 
+                 style="text-align:center;margin:0;font-size:18px;font-weight:bold;" 
+                 onchange="setPickerQty(this.value)">
+          <span style="flex:0;white-space:nowrap;font-weight:bold;">${u.label}</span>
+          <button class="primary small qty-btn" onclick="changeQty(1)">+</button>
+        </div>
+        <div style="text-align:center;font-size:16px;margin-top:10px;">
+          Total: <b style="color:#2e7d32;">${inr(subtotal)}</b>
+        </div>
+      </div>`;
+  } else if (isMeasured && hasSize) {
+    quantitySelector = `
+      <div style="margin-top:14px;padding-top:12px;border-top:1px solid #eee;">
+        <div style="font-size:13px;color:#666;text-align:center;margin-bottom:8px;">
+          Kitne packet? (Har ek ${u.size})
+        </div>
+        <div class="row" style="align-items:center;">
+          <button class="primary small qty-btn" onclick="changeQty(-1)">−</button>
+          <input type="number" value="${pickerState.qty}" min="1" step="1" 
+                 style="text-align:center;margin:0;font-size:18px;font-weight:bold;" 
+                 onchange="setPickerQty(this.value)">
+          <span style="flex:0;white-space:nowrap;font-weight:bold;">packet</span>
+          <button class="primary small qty-btn" onclick="changeQty(1)">+</button>
+        </div>
+        <div style="font-size:12px;color:#1976d2;text-align:center;margin-top:6px;">
+          📦 Total: ${pickerState.qty} × ${u.size}
+        </div>
+        <div style="text-align:center;font-size:16px;margin-top:10px;">
+          Total: <b style="color:#2e7d32;">${inr(subtotal)}</b>
+        </div>
+      </div>`;
+  }
+
   document.getElementById('modalRoot').innerHTML = `
     <div class="modal-bg" onclick="if(event.target===this) closePicker()">
       <div class="modal">
         <h3>${p.name}</h3>
         <p style="font-size:13px;color:#666;margin-bottom:10px;">Unit select karo</p>
         ${rows}
-        <div style="margin-top:14px;padding-top:12px;border-top:1px solid #eee;">
-          <div class="row" style="align-items:center;">
-            <button class="primary small qty-btn" onclick="changeQty(-1)">−</button>
-            <input type="number" value="${pickerState.qty}" step="${step}" style="text-align:center;margin:0;" onchange="setPickerQty(this.value)">
-            <span style="flex:0;white-space:nowrap;font-weight:bold;">${u.label}</span>
-            <button class="primary small qty-btn" onclick="changeQty(1)">+</button>
-          </div>
-          <div style="text-align:center;font-size:16px;margin-top:10px;">Total: <b style="color:#2e7d32;">${inr(subtotal)}</b></div>
-        </div>
-        <div class="row mt">
+        ${quantitySelector}
+        <div class="row mt" style="margin-top:16px;">
           <button class="primary" style="background:#777;" onclick="closePicker()">Cancel</button>
           <button class="primary" onclick="confirmAdd()">🛒 Add</button>
         </div>
       </div>
     </div>`;
 }
-function selectUnit(label) { pickerState.unitLabel = label; pickerState.qty = UNIT_STEP[label] || 1; renderPickerModal(); }
+
+function selectUnit(label) { 
+  pickerState.unitLabel = label; 
+  const p = PRODUCTS.find(x => x.id === pickerState.productId);
+  const u = p.units.find(x => x.label === label);
+  pickerState.qty = getDefaultQty(u);
+  renderPickerModal(); 
+}
+
 function changeQty(dir) {
   const p = PRODUCTS.find(x => x.id === pickerState.productId);
   const u = p.units.find(x => x.label === pickerState.unitLabel);
-  const step = UNIT_STEP[u.label] || 1;
+  
+  const MEASURED_UNITS = ['kg','gram','liter','ml'];
+  const isMeasured = MEASURED_UNITS.includes(u.label);
+  const hasSize = !!u.size;
+  
+  let step;
+  if (isMeasured && !hasSize) {
+    step = UNIT_STEP[u.label] || 0.25;
+  } else {
+    step = 1;
+  }
+  
   let v = pickerState.qty + dir * step;
-  v = Math.round(v*100)/100;
+  v = Math.round(v * 100) / 100;
   if (v < step) v = step;
-  pickerState.qty = v; renderPickerModal();
+  pickerState.qty = v;
+  renderPickerModal();
 }
+
 function setPickerQty(val) {
-  const v = Math.round(parseFloat(val)*100)/100;
+  const p = PRODUCTS.find(x => x.id === pickerState.productId);
+  const u = p.units.find(x => x.label === pickerState.unitLabel);
+  
+  const MEASURED_UNITS = ['kg','gram','liter','ml'];
+  const isMeasured = MEASURED_UNITS.includes(u.label);
+  const hasSize = !!u.size;
+  
+  let v = parseFloat(val);
   if (!v || v <= 0) return;
-  pickerState.qty = v; renderPickerModal();
+  
+  if (!isMeasured || hasSize) {
+    v = Math.round(v);
+    if (v < 1) v = 1;
+  } else {
+    v = Math.round(v * 100) / 100;
+  }
+  
+  pickerState.qty = v;
+  renderPickerModal();
 }
+
 function confirmAdd() {
   const key = pickerState.productId + '::' + pickerState.unitLabel;
   CART[key] = Math.round(((CART[key]||0) + pickerState.qty) * 100) / 100;
   saveCart(); closePicker(); toast('Cart me add');
 }
+
 function closePicker() { document.getElementById('modalRoot').innerHTML = ''; pickerState = null; }
 
 function saveCart() { localStorage.setItem('cart', JSON.stringify(CART)); updateCartBadge(); }
@@ -221,14 +352,19 @@ function renderCart() {
     const qty = CART[key];
     const price = getUnitPrice(p, ul, ME);
     total += price * qty;
-    const step = UNIT_STEP[ul] || 1;
+    const u = p.units.find(x => x.label === ul);
+    const MEASURED_UNITS = ['kg','gram','liter','ml'];
+    const isMeasured = MEASURED_UNITS.includes(ul);
+    const hasSize = u && u.size;
+    const step = (!isMeasured || hasSize) ? 1 : (UNIT_STEP[ul] || 0.25);
+    const displayLabel = (u && u.size) ? `${ul} (${u.size})` : ul;
     return `
       <div class="card">
         <div class="row">
           <img src="${p.image||'https://via.placeholder.com/60'}" style="width:60px;height:60px;object-fit:cover;border-radius:6px;flex:0 0 60px;">
           <div style="flex:1;">
             <div style="font-weight:600;font-size:14px;">${p.name}</div>
-            <div style="color:#2e7d32;font-weight:bold;">${inr(price)}/${ul}</div>
+            <div style="color:#2e7d32;font-weight:bold;">${inr(price)}/${displayLabel}</div>
           </div>
         </div>
         <div class="row mt">
@@ -241,19 +377,45 @@ function renderCart() {
       </div>`;
   }).join('') + `<div class="card center" style="font-weight:bold;font-size:18px;">Total: ${inr(total)}</div>`;
 }
+
 function changeCartQty(key, dir) {
-  const ul = key.split('::')[1]; const step = UNIT_STEP[ul] || 1;
-  let v = (CART[key]||0) + dir*step; v = Math.round(v*100)/100;
+  const [pid, ul] = key.split('::');
+  const p = PRODUCTS.find(x => x.id === pid);
+  const u = p.units.find(x => x.label === ul);
+  const MEASURED_UNITS = ['kg','gram','liter','ml'];
+  const isMeasured = MEASURED_UNITS.includes(ul);
+  const hasSize = u && u.size;
+  const step = (!isMeasured || hasSize) ? 1 : (UNIT_STEP[ul] || 0.25);
+  let v = (CART[key]||0) + dir*step; 
+  v = Math.round(v*100)/100;
   if (v <= 0) delete CART[key]; else CART[key] = v;
   saveCart(); renderCart();
 }
+
 function setCartQty(key, val) {
-  const v = Math.round(parseFloat(val)*100)/100;
-  if (!v || v <= 0) delete CART[key]; else CART[key] = v;
+  const [pid, ul] = key.split('::');
+  const p = PRODUCTS.find(x => x.id === pid);
+  const u = p.units.find(x => x.label === ul);
+  const MEASURED_UNITS = ['kg','gram','liter','ml'];
+  const isMeasured = MEASURED_UNITS.includes(ul);
+  const hasSize = u && u.size;
+  
+  let v = parseFloat(val);
+  if (!v || v <= 0) { delete CART[key]; saveCart(); renderCart(); return; }
+  
+  if (!isMeasured || hasSize) {
+    v = Math.round(v);
+    if (v < 1) v = 1;
+  } else {
+    v = Math.round(v * 100) / 100;
+  }
+  
+  CART[key] = v;
   saveCart(); renderCart();
 }
 
 let payState = { mode: 'cash', cashPaid: 0 };
+
 function calcCharges() {
   const subtotal = cartTotal();
   let extraCharge = 0;
@@ -334,6 +496,7 @@ function renderPaymentModal() {
       </div>
     </div>`;
 }
+
 function setPayMode(m) {
   payState.mode = m;
   if (m === 'cash') payState.cashPaid = cartTotal();
@@ -341,6 +504,7 @@ function setPayMode(m) {
   else if (m === 'split') payState.cashPaid = Math.round(cartTotal() / 2 * 100) / 100;
   renderPaymentModal();
 }
+
 function setCash(val) { payState.cashPaid = Math.max(0, parseFloat(val) || 0); renderPaymentModal(); }
 function closePayment() { document.getElementById('modalRoot').innerHTML = ''; }
 function openApp(link) { window.location.href = link; }
@@ -360,7 +524,15 @@ async function confirmOrder() {
   const items = keys.map(key => {
     const [pid, ul] = key.split('::');
     const p = PRODUCTS.find(x => x.id === pid);
-    return { product_id: pid, product_name: p.name, unit: ul, qty: CART[key], price: getUnitPrice(p, ul, ME) };
+    const u = p.units.find(x => x.label === ul);
+    return { 
+      product_id: pid, 
+      product_name: p.name, 
+      unit: ul, 
+      size: (u && u.size) || '',
+      qty: CART[key], 
+      price: getUnitPrice(p, ul, ME) 
+    };
   });
   const order = {
     id: uid(), user_id: ME.id, user_name: ME.name, user_phone: ME.phone,
@@ -392,7 +564,8 @@ function renderOrders() {
   list.innerHTML = MY_ORDERS.map(o => {
     const items = o.items.map(it => {
       const p = PRODUCTS.find(x => x.id === it.product_id) || { name: it.product_name || '?' };
-      return `<div style="font-size:13px;">• ${p.name} — ${it.qty} ${it.unit} × ${inr(it.price)} = ${inr(it.qty*it.price)}</div>`;
+      const unitDisplay = it.size ? `${it.unit} (${it.size})` : it.unit;
+      return `<div style="font-size:13px;">• ${p.name} — ${it.qty} ${unitDisplay} × ${inr(it.price)} = ${inr(it.qty*it.price)}</div>`;
     }).join('');
     const isPaid = o.payment_status === 'paid';
     const isApproved = o.order_status === 'approved';
@@ -411,15 +584,21 @@ function renderOrders() {
 
 function renderProfile() {
   const stats = calculateUserStats(ME.id, MY_ORDERS, MY_UDHAR);
-  const udharRows = MY_UDHAR.map(u => `
+  const udharRows = MY_UDHAR.map(u => {
+    const isJama = u.type === 'jama' || u.status === 'paid';
+    return `
     <div style="padding:6px 0;border-bottom:1px solid #f0f0f0;font-size:13px;">
       <div style="display:flex;justify-content:space-between;">
-        <b>${new Date(u.created_at).toLocaleDateString('hi-IN')}</b>
-        <span style="color:${u.status==='paid'?'#2e7d32':'#e65100'};">${u.status === 'paid' ? '✅ Paid' : '⏳ Pending'}</span>
+        <b>${new Date(u.created_at).toLocaleString('hi-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</b>
+        <span style="color:${isJama?'#2e7d32':'#e65100'};">
+          ${isJama ? '💚 Jama' : '📕 Udhar'}
+        </span>
       </div>
       <div>${u.note || 'Udhar'}</div>
-      <div style="font-weight:bold;">${inr(u.amount)}</div>
-    </div>`).join('') || '<div style="font-size:13px;color:#888;">Koi udhar nahi</div>';
+      <div style="font-weight:bold;color:${isJama?'#2e7d32':'#c62828'};">${isJama?'−':'+'} ${inr(u.amount)}</div>
+    </div>`;
+  }).join('') || '<div style="font-size:13px;color:#888;">Koi udhar nahi</div>';
+
   document.getElementById('profileBox').innerHTML = `
     <div class="card">
       <h3>Meri Info</h3>
