@@ -25,11 +25,6 @@
 .type-option{display:flex;gap:10px;margin-top:8px;}
 .type-option button{flex:1;padding:14px 8px;border:2px solid #ddd;border-radius:10px;background:#fff;font-weight:bold;color:#333;cursor:pointer;font-size:14px;}
 .type-option button.active{border-color:#2e7d32;background:#e8f5e9;color:#2e7d32;}
-.udhar-item{display:flex;gap:8px;align-items:center;padding:10px;background:#f9f9f9;border-radius:8px;margin-bottom:6px;}
-.udhar-item .info{flex:1;}
-.udhar-item .amount{font-weight:bold;color:#2e7d32;font-size:15px;min-width:70px;text-align:right;}
-.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:500;padding:12px;}
-.modal-box{background:#fff;border-radius:12px;padding:16px;width:100%;max-width:500px;max-height:94vh;overflow-y:auto;}
 .tab-btn-active{background:#2e7d32 !important;color:#fff !important;}
 .tab-btn-inactive{background:#ccc !important;color:#333 !important;}
 .live-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#4caf50;animation:pulse 1.5s infinite;margin-left:6px;}
@@ -47,7 +42,6 @@
 <button class="primary tabBtn" data-tab="products">Products</button>
 <button class="primary tabBtn" data-tab="users">Customers</button>
 <button class="primary tabBtn" data-tab="orders">Orders</button>
-<button class="primary tabBtn" data-tab="udhar">Udhar</button>
 <button class="primary tabBtn" data-tab="info">ℹ️</button>
 </div>
 
@@ -106,40 +100,17 @@
 <div id="orderList"></div>
 </div>
 
-<!-- UDHAR -->
-<div id="tab-udhar" class="hidden">
-<div class="card" style="background:linear-gradient(135deg,#2e7d32,#1b5e20);color:#fff;">
-  <h3 style="color:#fff;">💰 Udhar Khata</h3>
-  <div style="display:flex;justify-content:space-around;text-align:center;margin-top:8px;">
-    <div><div style="font-size:22px;font-weight:bold;" id="udTotalPending">₹0</div><div style="font-size:11px;">📕 Baaki</div></div>
-    <div><div style="font-size:22px;font-weight:bold;" id="udTotalAdvance">₹0</div><div style="font-size:11px;">💚 Advance</div></div>
-    <div><div style="font-size:22px;font-weight:bold;" id="udTotalCustomers">0</div><div style="font-size:11px;">👥 Customers</div></div>
-  </div>
-</div>
-
-<div class="card">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-    <h3 style="margin:0;">👥 Customers</h3>
-    <button class="primary small" style="width:auto;padding:8px 14px;background:#1976d2;" onclick="openNewUdhar()">➕ Naya Udhar</button>
-  </div>
-  <input class="search-bar" id="udCustomerSearch" placeholder="🔍 Customer dhundo" style="margin-bottom:10px;">
-  <div id="udharCustomerList"></div>
-</div>
-</div>
-
 <!-- INFO -->
 <div id="tab-info" class="hidden">
 <div class="card">
 <h3>ℹ️ Info</h3>
 <div id="secretInfo" style="font-size:13px;color:#555;"></div>
 <div style="margin-top:10px;padding:10px;background:#e8f5e9;border-radius:8px;font-size:13px;color:#2e7d32;">
-  🔴 <b>Live Sync Active</b> — har second data auto-update hota hai
+  🔴 <b>Auto-Refresh Active</b> — har 5 second data auto-update
 </div>
 </div>
 </div>
 </div>
-
-<div id="udharModalRoot"></div>
 
 <div id="cameraModal">
   <video id="cameraVideo" autoplay playsinline muted></video>
@@ -156,9 +127,8 @@
 const s = getSession();
 if (!s || s.role !== 'owner') location.replace('index.html');
 
-let DATA = { products: [], users: [], orders: [], udhar: [] };
+let DATA = { products: [], users: [], orders: [] };
 let editingImageUrl = '', compressedImageFile = null;
-let udharBuilder = { user_id: '', type: 'udhar', items: [], note: '' };
 
 async function init() {
   const ok = await waitForFirebase();
@@ -167,18 +137,17 @@ async function init() {
   if (!uid) { alert('Session expire'); location.replace('index.html'); return; }
 
   DATA = await loadData();
-  renderProducts(); renderUsers(); renderOrders(); renderUdhar(); renderInfo();
+  renderProducts(); renderUsers(); renderOrders(); renderInfo();
   resetProductForm();
   setProductType('loose');
 
-  // ⭐ REAL-TIME SYNC START
-  startOwnerLiveSync((type, data) => {
+  // ⭐ AUTO-REFRESH every 5 sec
+  startOwnerPolling((type, data) => {
     DATA[type] = data;
     const currentTab = document.querySelector('.tabBtn.tab-btn-active')?.dataset.tab || 'products';
     if (currentTab === 'products') renderProducts();
     if (currentTab === 'users') renderUsers();
     if (currentTab === 'orders') renderOrders();
-    if (currentTab === 'udhar') renderUdhar();
   });
 }
 
@@ -187,7 +156,7 @@ function switchTab(t) {
     b.classList.toggle('tab-btn-active', b.dataset.tab === t);
     b.classList.toggle('tab-btn-inactive', b.dataset.tab !== t);
   });
-  ['products','users','orders','udhar','info'].forEach(x => {
+  ['products','users','orders','info'].forEach(x => {
     document.getElementById('tab-'+x).classList.toggle('hidden', x !== t);
   });
 }
@@ -199,7 +168,6 @@ document.querySelectorAll('.tabBtn').forEach(btn => {
     if (tab === 'products') renderProducts();
     if (tab === 'users') renderUsers();
     if (tab === 'orders') renderOrders();
-    if (tab === 'udhar') renderUdhar();
   };
 });
 
@@ -208,11 +176,10 @@ function renderInfo() {
     <div style="padding:4px 0;">ImgBB: ${SECRET.imgbb_key ? '✅' : '❌'}</div>
     <div style="padding:4px 0;">UPI: ${SECRET.upi_id || '❌'}</div>
     <div style="padding:4px 0;">Firebase: ${FB_READY ? '✅ ready' : '❌'}</div>
-    <div style="padding:4px 0;">Live Sync: ${LIVE_ACTIVE ? '🔴 Active' : '⚠️ Not active'}</div>
+    <div style="padding:4px 0;">Auto-Refresh: ${POLL_ACTIVE ? '🔴 Active (5s)' : '⚠️ Off'}</div>
   `;
 }
 
-/* ========== PRODUCT TYPE ========== */
 function setProductType(type) {
   document.getElementById('pType').value = type;
   if (type === 'loose') {
@@ -238,7 +205,6 @@ function setProductType(type) {
   }
 }
 
-/* ========== SAVE PRODUCT ========== */
 async function saveProduct() {
   const name = document.getElementById('pName').value.trim();
   const cat = document.getElementById('pCat').value.trim();
@@ -308,10 +274,8 @@ function editProduct(id) {
 
 async function deleteProduct(id) {
   if (!confirm('Delete?')) return;
-  try { 
-    await fbDeleteProduct(id); 
-    toast('🗑️ Delete'); 
-  } catch (e) { toast('❌ ' + e.message); }
+  try { await fbDeleteProduct(id); toast('🗑️ Delete'); }
+  catch (e) { toast('❌ ' + e.message); }
 }
 
 async function toggleHide(id) {
@@ -348,7 +312,6 @@ function renderProducts() {
 }
 document.getElementById('pSearch').oninput = renderProducts;
 
-/* ========== USERS ========== */
 function renderUsers() {
   const q = (document.getElementById('uSearch').value||'').toLowerCase();
   const list = document.getElementById('userList');
@@ -358,7 +321,7 @@ function renderUsers() {
   if (!items.length) { list.innerHTML = '<div class="card center">Koi customer nahi</div>'; return; }
   list.innerHTML = items.map(u => {
     const w = u.price_type === 'wholesale';
-    const stats = calculateUserStats(u.id, DATA.orders, DATA.udhar);
+    const stats = calculateUserStats(u.id, DATA.orders);
     return `
       <div class="card">
         <div style="display:flex;justify-content:space-between;">
@@ -408,7 +371,6 @@ async function toggleWholesale(id) {
   catch (e) { toast('❌ ' + e.message); }
 }
 
-/* ========== ORDERS ========== */
 async function approvePayment(orderId) {
   if (!confirm('Payment confirm?')) return;
   try {
@@ -462,413 +424,6 @@ function renderOrders() {
         </div>
       </div>`;
   }).join('');
-}
-
-/* ========== UDHAR ========== */
-function openNewUdhar(customerId) {
-  udharBuilder = { user_id: customerId || '', type: 'udhar', items: [], note: '' };
-  renderUdharBuilder();
-}
-
-function renderUdharBuilder() {
-  const total = udharBuilder.items.reduce((s, it) => s + (+it.amount || 0), 0);
-  const isUdhar = udharBuilder.type === 'udhar';
-  const productOptions = DATA.products.filter(p => !p.hidden).map(p => 
-    `<option value="${p.id}">${p.name} (₹${p.retail}/${p.unit})</option>`
-  ).join('');
-
-  document.getElementById('udharModalRoot').innerHTML = `
-    <div class="modal-bg" onclick="if(event.target===this) closeUdharModal()">
-      <div class="modal-box">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-          <h3 style="margin:0;">📝 ${isUdhar ? 'Naya Udhar' : 'Payment Jama'}</h3>
-          <button class="primary small" style="width:auto;background:#777;" onclick="closeUdharModal()">✕</button>
-        </div>
-
-        <label style="font-size:13px;font-weight:bold;">👤 Customer</label>
-        <select id="udUserSel" onchange="udharBuilder.user_id = this.value;" style="width:100%;padding:10px;border:1px solid #ccc;border-radius:6px;margin:6px 0 12px;">
-          <option value="">-- Select --</option>
-          ${DATA.users.map(u => `<option value="${u.id}" ${udharBuilder.user_id === u.id ? 'selected' : ''}>${u.name} (${u.phone})</option>`).join('')}
-        </select>
-
-        <div style="display:flex;gap:8px;margin-bottom:12px;">
-          <button type="button" class="primary" style="flex:1;background:${isUdhar?'#e65100':'#ccc'};color:${isUdhar?'#fff':'#333'};font-size:14px;" onclick="setUdharType('udhar')">📕 Udhar</button>
-          <button type="button" class="primary" style="flex:1;background:${!isUdhar?'#2e7d32':'#ccc'};color:${!isUdhar?'#fff':'#333'};font-size:14px;" onclick="setUdharType('jama')">💚 Jama</button>
-        </div>
-
-        ${isUdhar ? `
-          <label style="font-size:13px;font-weight:bold;">📋 Saman List</label>
-          <div style="background:#f9f9f9;padding:8px;border-radius:8px;margin:6px 0 12px;min-height:40px;">
-            ${udharBuilder.items.length === 0 
-              ? '<div style="text-align:center;color:#888;font-size:13px;padding:12px;">Neeche se saman add karo 👇</div>'
-              : udharBuilder.items.map((it, idx) => `
-                <div class="udhar-item">
-                  <div class="info">
-                    <div style="font-weight:600;">${it.name}</div>
-                    <div style="font-size:11px;color:#666;">${it.qty} ${it.unit} × ₹${it.price}</div>
-                  </div>
-                  <div class="amount">₹${it.amount.toFixed(2)}</div>
-                  <button class="primary small danger" style="width:auto;padding:6px 8px;font-size:12px;" onclick="removeUdharItem(${idx})">✕</button>
-                </div>
-              `).join('')}
-          </div>
-
-          <div style="background:#e3f2fd;padding:10px;border-radius:8px;margin-bottom:12px;">
-            <label style="font-size:12px;color:#1976d2;font-weight:bold;">➕ Saman Add Karo</label>
-            <select id="itemProductSel" onchange="onItemProductChange()" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:6px;margin:6px 0;font-size:14px;">
-              <option value="">-- Saman select --</option>
-              ${productOptions}
-            </select>
-
-            <div id="itemQtySection" style="display:none;">
-              <div style="font-size:12px;color:#666;margin-bottom:4px;">Quantity:</div>
-              <div id="itemQtyButtons" style="display:grid;grid-template-columns:repeat(3, 1fr);gap:6px;margin-bottom:8px;"></div>
-              <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;">
-                <input type="number" id="itemCustomQty" placeholder="Ya khud daalo" step="0.25" min="0.25" onchange="updateItemPreview()" style="flex:1;padding:8px;border:1px solid #ccc;border-radius:6px;">
-                <span id="itemUnitLabel" style="font-weight:bold;"></span>
-              </div>
-              <div style="text-align:right;font-size:13px;margin-bottom:6px;">
-                Subtotal: <b id="itemSubtotalPreview" style="color:#2e7d32;font-size:16px;">₹0</b>
-              </div>
-              <button type="button" class="primary" style="background:#1976d2;font-size:14px;" onclick="addItemToUdhar()">➕ Add to List</button>
-            </div>
-          </div>
-        ` : `
-          <label style="font-size:13px;font-weight:bold;">💵 Amount ₹</label>
-          <input type="number" id="jamaAmountInput" placeholder="Paisa kitna diya" style="width:100%;padding:10px;border:1px solid #ccc;border-radius:6px;margin:6px 0 12px;font-size:15px;" onchange="updateJamaPreview()">
-        `}
-
-        <label style="font-size:13px;font-weight:bold;">📝 Note</label>
-        <input id="udNoteInput" placeholder="Jaise: Ghar le gaya" value="${udharBuilder.note}" onchange="udharBuilder.note = this.value;" style="width:100%;padding:10px;border:1px solid #ccc;border-radius:6px;margin:6px 0 12px;">
-
-        <div style="background:${isUdhar?'#fff3e0':'#e8f5e9'};padding:12px;border-radius:8px;margin-bottom:12px;text-align:center;">
-          <div style="font-size:13px;color:#666;">Total ${isUdhar?'Udhar':'Jama'}</div>
-          <div id="udTotalPreview" style="font-size:26px;font-weight:bold;color:${isUdhar?'#e65100':'#2e7d32'};">₹${total.toFixed(2)}</div>
-        </div>
-
-        <div style="display:flex;gap:8px;">
-          <button class="primary" style="background:#777;" onclick="closeUdharModal()">Cancel</button>
-          <button class="primary" style="background:#2e7d32;" onclick="saveUdharEntry()">💾 Save</button>
-        </div>
-      </div>
-    </div>`;
-}
-
-function setUdharType(t) {
-  udharBuilder.type = t;
-  renderUdharBuilder();
-}
-
-function onItemProductChange() {
-  const pid = document.getElementById('itemProductSel').value;
-  const p = DATA.products.find(x => x.id === pid);
-  const section = document.getElementById('itemQtySection');
-  const btns = document.getElementById('itemQtyButtons');
-  const unitLabel = document.getElementById('itemUnitLabel');
-  
-  if (!p) { section.style.display = 'none'; return; }
-  
-  section.style.display = 'block';
-  unitLabel.textContent = p.unit;
-  document.getElementById('itemCustomQty').value = '';
-  document.getElementById('itemSubtotalPreview').textContent = '₹0';
-
-  if (p.type === 'loose') {
-    let opts = [];
-    if (p.unit === 'kg') opts = [0.25, 0.5, 1, 2, 5, 10];
-    else if (p.unit === 'gram') opts = [50, 100, 250, 500, 1000];
-    else if (p.unit === 'liter') opts = [0.25, 0.5, 1, 2, 5];
-    else if (p.unit === 'ml') opts = [100, 250, 500, 1000];
-    
-    btns.innerHTML = opts.map(q => {
-      const disp = q >= 1 ? q : Math.round(q * 1000);
-      const dispU = q >= 1 ? p.unit : (p.unit === 'kg' ? 'gm' : p.unit === 'liter' ? 'ml' : p.unit);
-      return `<button type="button" onclick="setItemQty(${q})" style="padding:10px 4px;border:2px solid #ddd;border-radius:8px;background:#fff;font-weight:bold;font-size:13px;cursor:pointer;">${disp}${dispU}</button>`;
-    }).join('');
-  } else {
-    btns.innerHTML = [1, 2, 3, 4, 5, 10].map(n => 
-      `<button type="button" onclick="setItemQty(${n})" style="padding:10px 4px;border:2px solid #ddd;border-radius:8px;background:#fff;font-weight:bold;font-size:13px;cursor:pointer;">${n} ${p.unit}</button>`
-    ).join('');
-  }
-}
-
-function setItemQty(q) {
-  document.getElementById('itemCustomQty').value = q;
-  updateItemPreview();
-}
-
-function updateItemPreview() {
-  const pid = document.getElementById('itemProductSel').value;
-  const p = DATA.products.find(x => x.id === pid);
-  if (!p) return;
-  const q = parseFloat(document.getElementById('itemCustomQty').value) || 0;
-  const sub = (p.retail || 0) * q;
-  document.getElementById('itemSubtotalPreview').textContent = '₹' + sub.toFixed(2);
-}
-
-function addItemToUdhar() {
-  const pid = document.getElementById('itemProductSel').value;
-  const p = DATA.products.find(x => x.id === pid);
-  if (!p) return toast('Product select karo');
-  const q = parseFloat(document.getElementById('itemCustomQty').value) || 0;
-  if (q <= 0) return toast('Quantity daalo');
-
-  const amount = (p.retail || 0) * q;
-  udharBuilder.items.push({
-    product_id: pid, name: p.name, unit: p.unit,
-    qty: q, price: p.retail, amount: amount
-  });
-
-  document.getElementById('itemProductSel').value = '';
-  document.getElementById('itemQtySection').style.display = 'none';
-  document.getElementById('itemCustomQty').value = '';
-  document.getElementById('itemSubtotalPreview').textContent = '₹0';
-  renderUdharBuilder();
-}
-
-function removeUdharItem(idx) {
-  udharBuilder.items.splice(idx, 1);
-  renderUdharBuilder();
-}
-
-function updateJamaPreview() {
-  const amt = parseFloat(document.getElementById('jamaAmountInput').value) || 0;
-  document.getElementById('udTotalPreview').textContent = '₹' + amt.toFixed(2);
-}
-
-function closeUdharModal() {
-  document.getElementById('udharModalRoot').innerHTML = '';
-  udharBuilder = { user_id: '', type: 'udhar', items: [], note: '' };
-}
-
-async function saveUdharEntry() {
-  const user_id = document.getElementById('udUserSel').value;
-  if (!user_id) return toast('Customer select karo');
-
-  const note = document.getElementById('udNoteInput').value.trim();
-  let total = 0, items = [];
-
-  if (udharBuilder.type === 'udhar') {
-    items = udharBuilder.items;
-    total = items.reduce((s, it) => s + (+it.amount || 0), 0);
-    if (total <= 0) return toast('Saman add karo');
-  } else {
-    total = parseFloat(document.getElementById('jamaAmountInput').value) || 0;
-    if (total <= 0) return toast('Amount daalo');
-  }
-
-  const u = DATA.users.find(x => x.id === user_id);
-  const now = new Date();
-
-  const rec = {
-    id: uid(), user_id, user_name: u.name, user_phone: u.phone,
-    type: udharBuilder.type, items: items, amount: total,
-    note: note || (udharBuilder.type === 'jama' ? 'Payment jama' : 'Udhar'),
-    status: udharBuilder.type === 'jama' ? 'paid' : 'pending',
-    created_at: now.toISOString(),
-    date_str: now.toISOString().split('T')[0],
-    time_str: now.toTimeString().slice(0,5)
-  };
-
-  try {
-    await fbSaveUdhar(rec);
-    toast(udharBuilder.type === 'jama' ? '✅ Jama' : '✅ Udhar');
-    closeUdharModal();
-  } catch (e) { toast('❌ ' + e.message); }
-}
-
-function renderUdhar() {
-  const list = document.getElementById('udharCustomerList');
-  const q = (document.getElementById('udCustomerSearch').value || '').toLowerCase();
-
-  const byCustomer = {};
-  DATA.udhar.forEach(u => {
-    if (!byCustomer[u.user_id]) {
-      byCustomer[u.user_id] = {
-        user_id: u.user_id, user_name: u.user_name, user_phone: u.user_phone,
-        entries: [], total_udhar: 0, total_jama: 0
-      };
-    }
-    byCustomer[u.user_id].entries.push(u);
-    const isJama = u.type === 'jama' || u.status === 'paid';
-    if (isJama) byCustomer[u.user_id].total_jama += +u.amount || 0;
-    else byCustomer[u.user_id].total_udhar += +u.amount || 0;
-  });
-
-  const customerList = Object.values(byCustomer).map(c => {
-    c.balance = c.total_udhar - c.total_jama;
-    return c;
-  }).filter(c => !q || (c.user_name||'').toLowerCase().includes(q) || (c.user_phone||'').includes(q));
-
-  customerList.sort((a, b) => b.balance - a.balance);
-
-  if (!customerList.length) {
-    list.innerHTML = '<div class="center" style="padding:20px;color:#888;">Koi udhar nahi. ➕ Naya Udhar dabao.</div>';
-  } else {
-    list.innerHTML = customerList.map(c => {
-      const isAdvance = c.balance < 0;
-      const isClear = c.balance === 0;
-      const color = isAdvance ? '#2e7d32' : (isClear ? '#666' : '#c62828');
-      const text = isAdvance ? `💚 ₹${Math.abs(c.balance).toFixed(2)} Advance` : (isClear ? '✅ Clear' : `📕 ₹${c.balance.toFixed(2)} Baaki`);
-
-      return `
-        <div style="padding:12px;border-bottom:1px solid #f0f0f0;cursor:pointer;" onclick="openCustomerLedger('${c.user_id}')">
-          <div style="display:flex;justify-content:space-between;">
-            <div style="flex:1;">
-              <div style="font-weight:bold;">${c.user_name}</div>
-              <div style="font-size:12px;color:#666;">📞 ${c.user_phone}</div>
-              <div style="font-size:11px;color:#999;">📕 ₹${c.total_udhar.toFixed(0)} • 💚 ₹${c.total_jama.toFixed(0)}</div>
-            </div>
-            <div style="text-align:right;">
-              <div style="font-weight:bold;color:${color};font-size:15px;">${text}</div>
-              <div style="font-size:11px;color:#888;">${c.entries.length} entries ›</div>
-            </div>
-          </div>
-        </div>`;
-    }).join('');
-  }
-
-  const totals = Object.values(byCustomer).reduce((acc, c) => {
-    const bal = c.total_udhar - c.total_jama;
-    if (bal > 0) acc.pending += bal;
-    else acc.advance += Math.abs(bal);
-    return acc;
-  }, { pending: 0, advance: 0 });
-
-  document.getElementById('udTotalPending').textContent = '₹' + totals.pending.toFixed(0);
-  document.getElementById('udTotalAdvance').textContent = '₹' + totals.advance.toFixed(0);
-  document.getElementById('udTotalCustomers').textContent = Object.keys(byCustomer).length;
-}
-document.getElementById('udCustomerSearch').oninput = renderUdhar;
-
-function openCustomerLedger(userId) {
-  const u = DATA.users.find(x => x.id === userId);
-  if (!u) return;
-
-  const entries = DATA.udhar.filter(x => x.user_id === userId)
-    .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-
-  let running = 0;
-  const ledger = entries.map(e => {
-    const isJama = e.type === 'jama' || e.status === 'paid';
-    if (isJama) running -= +e.amount;
-    else running += +e.amount;
-    return { ...e, running, isJama };
-  });
-  ledger.reverse();
-
-  const totalUdhar = entries.filter(e => !(e.type === 'jama' || e.status === 'paid')).reduce((a, e) => a + +e.amount, 0);
-  const totalJama = entries.filter(e => e.type === 'jama' || e.status === 'paid').reduce((a, e) => a + +e.amount, 0);
-  const finalBalance = totalUdhar - totalJama;
-
-  document.getElementById('udharModalRoot').innerHTML = `
-    <div class="modal-bg" onclick="if(event.target===this) closeUdharModal()">
-      <div class="modal-box" style="max-width:600px;">
-        <div style="background:linear-gradient(135deg,#2e7d32,#1b5e20);color:#fff;padding:16px;border-radius:8px;margin-bottom:12px;">
-          <div style="display:flex;justify-content:space-between;">
-            <div>
-              <h2 style="margin:0;font-size:20px;">📔 ${u.name}</h2>
-              <div style="font-size:13px;margin-top:4px;opacity:0.95;">📞 ${u.phone}</div>
-            </div>
-            <button class="primary small" style="width:auto;background:rgba(255,255,255,0.2);padding:6px 10px;color:#fff;" onclick="closeUdharModal()">✕</button>
-          </div>
-        </div>
-
-        <div style="display:flex;gap:8px;margin-bottom:14px;">
-          <div style="flex:1;background:#fff3e0;padding:12px;border-radius:8px;text-align:center;">
-            <div style="font-size:11px;color:#666;">📕 Total Udhar</div>
-            <div style="font-size:18px;font-weight:bold;color:#e65100;">₹${totalUdhar.toFixed(2)}</div>
-          </div>
-          <div style="flex:1;background:#e8f5e9;padding:12px;border-radius:8px;text-align:center;">
-            <div style="font-size:11px;color:#666;">💚 Total Jama</div>
-            <div style="font-size:18px;font-weight:bold;color:#2e7d32;">₹${totalJama.toFixed(2)}</div>
-          </div>
-          <div style="flex:1;background:${finalBalance>0?'#ffebee':'#e8f5e9'};padding:12px;border-radius:8px;text-align:center;">
-            <div style="font-size:11px;color:#666;">${finalBalance>0?'📕 Baaki':finalBalance<0?'💚 Advance':'✅ Clear'}</div>
-            <div style="font-size:18px;font-weight:bold;color:${finalBalance>0?'#c62828':finalBalance<0?'#2e7d32':'#333'};">₹${Math.abs(finalBalance).toFixed(2)}</div>
-          </div>
-        </div>
-
-        <div style="display:flex;gap:8px;margin-bottom:14px;">
-          <button class="primary" style="background:#e65100;font-size:14px;" onclick="openNewUdhar('${userId}')">📕 Naya Udhar</button>
-          <button class="primary" style="background:#2e7d32;font-size:14px;" onclick="openNewJama('${userId}')">💚 Jama Karo</button>
-        </div>
-
-        <div style="font-size:14px;font-weight:bold;margin-bottom:8px;">📋 Poora Hisaab</div>
-        <div style="background:#f9f9f9;border-radius:8px;padding:6px;max-height:55vh;overflow-y:auto;">
-          ${ledger.length === 0 ? '<div style="padding:30px;text-align:center;color:#888;">Koi entry nahi</div>' : ledger.map(e => {
-            const d = new Date(e.created_at);
-            const dateStr = d.toLocaleDateString('hi-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-            const timeStr = d.toLocaleTimeString('hi-IN', { hour: '2-digit', minute: '2-digit' });
-            const itemsList = (e.items && e.items.length)
-              ? e.items.map(it => {
-                  const name = it.name || it.product_name || '?';
-                  return `<div style="display:flex;justify-content:space-between;font-size:12px;padding:2px 0;color:#444;">
-                    <span>• ${name} <span style="color:#888;">(${it.qty} ${it.unit} × ₹${it.price})</span></span>
-                    <span>₹${(+it.amount).toFixed(2)}</span>
-                  </div>`;
-                }).join('')
-              : '';
-            
-            return `
-              <div style="background:#fff;border-radius:8px;padding:12px;margin-bottom:8px;border-left:4px solid ${e.isJama?'#2e7d32':'#e65100'};">
-                <div style="display:flex;justify-content:space-between;">
-                  <div style="flex:1;">
-                    <div style="font-size:11px;color:#888;font-weight:600;">📅 ${dateStr} • ⏰ ${timeStr}</div>
-                    <div style="font-size:14px;font-weight:600;margin-top:4px;color:${e.isJama?'#2e7d32':'#e65100'};">
-                      ${e.isJama?'💚':'📕'} ${e.note || 'Udhar'}
-                    </div>
-                    ${itemsList ? '<div style="margin-top:6px;padding-top:6px;border-top:1px dashed #eee;">' + itemsList + '</div>' : ''}
-                  </div>
-                  <div style="text-align:right;">
-                    <div style="font-size:17px;font-weight:bold;color:${e.isJama?'#2e7d32':'#c62828'};">
-                      ${e.isJama?'−':'+'} ₹${(+e.amount).toFixed(2)}
-                    </div>
-                    <div style="font-size:11px;color:#666;">Bal: ₹${(+e.running).toFixed(2)}</div>
-                  </div>
-                </div>
-                <div style="margin-top:8px;display:flex;gap:6px;">
-                  <button class="primary small" style="background:#1976d2;font-size:11px;width:auto;padding:4px 10px;" onclick="editUdharEntry('${e.id}', '${userId}')">✏️</button>
-                  <button class="primary small danger" style="font-size:11px;width:auto;padding:4px 10px;" onclick="deleteUdharEntry('${e.id}', '${userId}')">🗑️</button>
-                </div>
-              </div>`;
-          }).join('')}
-        </div>
-
-        <button class="primary" style="background:#777;margin-top:12px;" onclick="closeUdharModal()">Close</button>
-      </div>
-    </div>`;
-}
-
-function openNewJama(customerId) {
-  openNewUdhar(customerId);
-  setTimeout(() => setUdharType('jama'), 100);
-}
-
-async function editUdharEntry(id, userId) {
-  const e = DATA.udhar.find(x => x.id === id);
-  if (!e) return;
-  const newAmt = prompt('Amount:', e.amount);
-  if (newAmt === null) return;
-  const newNote = prompt('Note:', e.note);
-  if (newNote === null) return;
-  const amt = parseFloat(newAmt);
-  if (!amt || amt <= 0) return toast('Invalid');
-  try {
-    await FB.collection('udhar').doc(id).set({ amount: amt, note: newNote, updated_at: new Date().toISOString() }, { merge: true });
-    toast('✅ Update');
-    closeUdharModal();
-    setTimeout(() => openCustomerLedger(userId), 200);
-  } catch (err) { toast('❌ ' + err.message); }
-}
-
-async function deleteUdharEntry(id, userId) {
-  if (!confirm('Delete?')) return;
-  try {
-    await FB.collection('udhar').doc(id).delete();
-    toast('🗑️');
-    closeUdharModal();
-  } catch (err) { toast('❌ ' + err.message); }
 }
 
 /* ========== CAMERA ========== */
