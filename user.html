@@ -19,6 +19,15 @@
 .upi-apps{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;}
 .upi-apps button{flex:1;min-width:60px;padding:8px 4px;font-size:11px;border:none;border-radius:6px;color:#fff;font-weight:bold;}
 .fee-badge{font-size:10px;color:#e65100;display:block;margin-top:2px;}
+.quick-qty{
+  flex:1;min-width:65px;padding:10px 4px;
+  border:2px solid #ddd;border-radius:8px;
+  background:#fff;font-weight:bold;color:#333;
+  cursor:pointer;font-size:13px;
+}
+.quick-qty.selected{
+  border-color:#2e7d32;background:#e8f5e9;color:#2e7d32;
+}
 </style>
 </head>
 <body>
@@ -82,7 +91,25 @@ async function init() {
   MY_UDHAR = data.myUdhar || [];
   saveSession('user', { id: ME.id, name: ME.name, phone: ME.phone, price_type: ME.price_type });
   document.getElementById('welcome').textContent = 'Namaste, ' + ME.name;
+  
+  // Purane cart ko clean karo — koi product delete ho gaya ho to
+  cleanCart();
+  
   renderGrid(); renderCart(); renderOrders(); renderProfile(); updateCartBadge();
+}
+
+// Purane cart se delete-ho-chuke products hatao
+function cleanCart() {
+  let changed = false;
+  Object.keys(CART).forEach(key => {
+    const [pid] = key.split('::');
+    const p = PRODUCTS.find(x => x.id === pid);
+    if (!p) {
+      delete CART[key];
+      changed = true;
+    }
+  });
+  if (changed) saveCart();
 }
 
 document.querySelectorAll('.bottom-nav a').forEach(a => {
@@ -98,6 +125,7 @@ document.querySelectorAll('.bottom-nav a').forEach(a => {
   };
 });
 
+/* ================= PRODUCT GRID ================= */
 function renderGrid() {
   const q = (document.getElementById('search').value||'').toLowerCase();
   const items = PRODUCTS.filter(p => !p.hidden && p.name.toLowerCase().includes(q));
@@ -127,7 +155,9 @@ function renderGrid() {
 }
 document.getElementById('search').oninput = renderGrid;
 
+/* ================= UNIT PICKER ================= */
 let pickerState = null;
+
 function openUnitPicker(pid) {
   const p = PRODUCTS.find(x => x.id === pid);
   if (!p || !p.units?.length) return;
@@ -145,7 +175,10 @@ function getDefaultQty(u) {
 
 function renderPickerModal() {
   const p = PRODUCTS.find(x => x.id === pickerState.productId);
+  if (!p) { closePicker(); return; }
   const u = p.units.find(x => x.label === pickerState.unitLabel);
+  if (!u) { closePicker(); return; }
+  
   const price = getUnitPrice(p, u.label, ME);
   const subtotal = price * pickerState.qty;
 
@@ -155,6 +188,7 @@ function renderPickerModal() {
   const isFixed = FIXED_UNITS.includes(u.label);
   const hasSize = !!u.size;
 
+  // Unit rows
   const rows = p.units.map(un => {
     const up = getUnitPrice(p, un.label, ME);
     const sel = un.label === pickerState.unitLabel ? 'selected' : '';
@@ -173,6 +207,7 @@ function renderPickerModal() {
   let quantitySelector = '';
 
   if (isFixed) {
+    // FIXED UNITS — sirf whole number
     quantitySelector = `
       <div style="margin-top:14px;padding-top:12px;border-top:1px solid #eee;">
         <div style="font-size:13px;color:#666;text-align:center;margin-bottom:8px;">
@@ -191,6 +226,7 @@ function renderPickerModal() {
         </div>
       </div>`;
   } else if (isMeasured && !hasSize) {
+    // MEASURED + LOOSE — quick buttons
     const QUICK_QTY = {
       'kg': [0.25, 0.5, 1, 2, 5, 10],
       'gram': [50, 100, 250, 500, 1000],
@@ -206,13 +242,13 @@ function renderPickerModal() {
         </div>
         <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">
           ${quickList.map(q => {
-            const displayQty = q >= 1 ? q : (q * 1000);
+            const displayQty = q >= 1 ? q : Math.round(q * 1000);
             const displayUnit = q >= 1 ? u.label : (u.label === 'kg' ? 'gm' : (u.label === 'liter' ? 'ml' : u.label));
-            const sel = pickerState.qty === q;
+            const sel = Math.abs(pickerState.qty - q) < 0.001;
             return `
             <button type="button" 
-                    onclick="setPickerQty(${q})"
-                    style="flex:1;min-width:60px;padding:10px 4px;border:2px solid ${sel?'#2e7d32':'#ddd'};border-radius:8px;background:${sel?'#e8f5e9':'#fff'};font-weight:bold;color:${sel?'#2e7d32':'#333'};cursor:pointer;font-size:13px;">
+                    class="quick-qty ${sel?'selected':''}"
+                    onclick="setPickerQty(${q})">
               ${displayQty}${displayUnit}
             </button>`;
           }).join('')}
@@ -230,6 +266,7 @@ function renderPickerModal() {
         </div>
       </div>`;
   } else if (isMeasured && hasSize) {
+    // MEASURED + FIXED SIZE — packets/bottles of fixed size
     quantitySelector = `
       <div style="margin-top:14px;padding-top:12px;border-top:1px solid #eee;">
         <div style="font-size:13px;color:#666;text-align:center;margin-bottom:8px;">
@@ -340,24 +377,34 @@ function cartTotal() {
   return t;
 }
 
+/* ================= CART (FIXED) ================= */
 function renderCart() {
   const list = document.getElementById('cartList');
   const keys = Object.keys(CART);
   if (!keys.length) { list.innerHTML = '<div class="card center">Cart khali</div>'; return; }
+  
   let total = 0;
-  list.innerHTML = keys.map(key => {
+  const validKeys = [];
+  
+  const html = keys.map(key => {
     const [pid, ul] = key.split('::');
     const p = PRODUCTS.find(x => x.id === pid);
-    if (!p) return '';
+    if (!p) {
+      delete CART[key];
+      return '';
+    }
+    validKeys.push(key);
+    
     const qty = CART[key];
     const price = getUnitPrice(p, ul, ME);
     total += price * qty;
-    const u = p.units.find(x => x.label === ul);
+    const u = p.units?.find(x => x.label === ul);
     const MEASURED_UNITS = ['kg','gram','liter','ml'];
     const isMeasured = MEASURED_UNITS.includes(ul);
     const hasSize = u && u.size;
     const step = (!isMeasured || hasSize) ? 1 : (UNIT_STEP[ul] || 0.25);
     const displayLabel = (u && u.size) ? `${ul} (${u.size})` : ul;
+    
     return `
       <div class="card">
         <div class="row">
@@ -375,12 +422,22 @@ function renderCart() {
         </div>
         <div class="center" style="font-size:13px;color:#555;margin-top:4px;">Sub: <b>${inr(price*qty)}</b></div>
       </div>`;
-  }).join('') + `<div class="card center" style="font-weight:bold;font-size:18px;">Total: ${inr(total)}</div>`;
+  }).join('');
+  
+  if (validKeys.length !== keys.length) saveCart();
+  
+  if (!validKeys.length) {
+    list.innerHTML = '<div class="card center">Cart khali</div>';
+    return;
+  }
+  
+  list.innerHTML = html + `<div class="card center" style="font-weight:bold;font-size:18px;">Total: ${inr(total)}</div>`;
 }
 
 function changeCartQty(key, dir) {
   const [pid, ul] = key.split('::');
   const p = PRODUCTS.find(x => x.id === pid);
+  if (!p) { delete CART[key]; saveCart(); renderCart(); return; }
   const u = p.units.find(x => x.label === ul);
   const MEASURED_UNITS = ['kg','gram','liter','ml'];
   const isMeasured = MEASURED_UNITS.includes(ul);
@@ -395,6 +452,7 @@ function changeCartQty(key, dir) {
 function setCartQty(key, val) {
   const [pid, ul] = key.split('::');
   const p = PRODUCTS.find(x => x.id === pid);
+  if (!p) { delete CART[key]; saveCart(); renderCart(); return; }
   const u = p.units.find(x => x.label === ul);
   const MEASURED_UNITS = ['kg','gram','liter','ml'];
   const isMeasured = MEASURED_UNITS.includes(ul);
@@ -414,6 +472,7 @@ function setCartQty(key, val) {
   saveCart(); renderCart();
 }
 
+/* ================= PAYMENT ================= */
 let payState = { mode: 'cash', cashPaid: 0 };
 
 function calcCharges() {
@@ -433,6 +492,9 @@ function calcCharges() {
 }
 
 function openPaymentModal() {
+  if (!Object.keys(CART).length) return toast('Cart khali');
+  // Clean cart first
+  cleanCart();
   if (!Object.keys(CART).length) return toast('Cart khali');
   payState = { mode: 'cash', cashPaid: cartTotal() };
   renderPaymentModal();
@@ -509,9 +571,11 @@ function setCash(val) { payState.cashPaid = Math.max(0, parseFloat(val) || 0); r
 function closePayment() { document.getElementById('modalRoot').innerHTML = ''; }
 function openApp(link) { window.location.href = link; }
 
+/* ================= CONFIRM ORDER (FIXED) ================= */
 async function confirmOrder() {
   const keys = Object.keys(CART);
   if (!keys.length) return toast('Cart khali');
+  
   const { subtotal, extraCharge, total } = calcCharges();
   let cashPaid = 0, onlinePaid = 0;
   if (payState.mode === 'cash') cashPaid = subtotal;
@@ -521,19 +585,44 @@ async function confirmOrder() {
     const onlineBase = subtotal - cashPaid;
     onlinePaid = onlineBase + (Math.round(onlineBase * EXTRA_PERCENT) / 100);
   }
-  const items = keys.map(key => {
+  
+  // ⭐ SAFE items build karo
+  const items = [];
+  const missingItems = [];
+  
+  keys.forEach(key => {
     const [pid, ul] = key.split('::');
     const p = PRODUCTS.find(x => x.id === pid);
-    const u = p.units.find(x => x.label === ul);
-    return { 
+    
+    if (!p) {
+      missingItems.push(ul);
+      delete CART[key];
+      return;
+    }
+    
+    const u = p.units?.find(x => x.label === ul);
+    items.push({ 
       product_id: pid, 
       product_name: p.name, 
       unit: ul, 
       size: (u && u.size) || '',
       qty: CART[key], 
       price: getUnitPrice(p, ul, ME) 
-    };
+    });
   });
+  
+  if (missingItems.length > 0) {
+    saveCart();
+    renderCart();
+    toast('❌ Kuch products shop se hat gaye. Cart update ho gaya.');
+    return;
+  }
+  
+  if (!items.length) {
+    toast('❌ Cart khali');
+    return;
+  }
+  
   const order = {
     id: uid(), user_id: ME.id, user_name: ME.name, user_phone: ME.phone,
     items, subtotal, extra_charge: extraCharge, total,
@@ -543,6 +632,7 @@ async function confirmOrder() {
     history: [{ at: new Date().toISOString(), by: 'user', action: 'order_placed' }],
     created_at: new Date().toISOString()
   };
+  
   try {
     toast('Order place ho raha hai...');
     await fbSaveOrder(order);
@@ -555,14 +645,18 @@ async function confirmOrder() {
     const d = await loadMyData(uid2);
     MY_ORDERS = d.myOrders || [];
     renderOrders();
-  } catch (e) { toast('❌ ' + e.message); }
+  } catch (e) { 
+    console.error('Order error:', e);
+    toast('❌ ' + (e.message || 'Order fail')); 
+  }
 }
 
+/* ================= ORDERS ================= */
 function renderOrders() {
   const list = document.getElementById('myOrders');
   if (!MY_ORDERS.length) { list.innerHTML = '<div class="card center">Koi order nahi</div>'; return; }
   list.innerHTML = MY_ORDERS.map(o => {
-    const items = o.items.map(it => {
+    const items = (o.items || []).map(it => {
       const p = PRODUCTS.find(x => x.id === it.product_id) || { name: it.product_name || '?' };
       const unitDisplay = it.size ? `${it.unit} (${it.size})` : it.unit;
       return `<div style="font-size:13px;">• ${p.name} — ${it.qty} ${unitDisplay} × ${inr(it.price)} = ${inr(it.qty*it.price)}</div>`;
@@ -582,6 +676,7 @@ function renderOrders() {
   }).join('');
 }
 
+/* ================= PROFILE ================= */
 function renderProfile() {
   const stats = calculateUserStats(ME.id, MY_ORDERS, MY_UDHAR);
   const udharRows = MY_UDHAR.map(u => {
