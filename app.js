@@ -105,8 +105,10 @@ async function fbLoadMyUser(uid) {
 }
 async function fbLoadAllOrders() {
   if (!FB_READY) return [];
-  const snap = await FB.collection('orders').orderBy('created_at', 'desc').get();
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  const snap = await FB.collection('orders').get();
+  const arr = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  arr.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+  return arr;
 }
 async function fbLoadMyOrders(uid) {
   if (!FB_READY) return [];
@@ -171,76 +173,39 @@ async function loadMyData(uid) {
   return { products, me, myOrders, myUdhar };
 }
 
-/* ================== FRESH DATA (one-time) ================== */
-async function getFreshProducts() {
-  if (!FB_READY) return [];
-  const snap = await FB.collection('products').get();
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
-}
-async function getFreshUsers() {
-  if (!FB_READY) return [];
-  const snap = await FB.collection('users').get();
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
-}
-async function getFreshUser(uid) {
-  if (!FB_READY) return null;
-  const doc = await FB.collection('users').doc(uid).get();
-  return doc.exists ? { id: doc.id, ...doc.data() } : null;
-}
-async function getFreshOrders() {
-  if (!FB_READY) return [];
-  const snap = await FB.collection('orders').orderBy('created_at', 'desc').get();
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
-}
-async function getFreshMyOrders(uid) {
-  if (!FB_READY) return [];
-  const snap = await FB.collection('orders').where('user_id', '==', uid).get();
-  const arr = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-  arr.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
-  return arr;
-}
-async function getFreshUdhar() {
-  if (!FB_READY) return [];
-  const snap = await FB.collection('udhar').get();
-  const arr = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-  arr.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
-  return arr;
-}
-async function getFreshMyUdhar(uid) {
-  if (!FB_READY) return [];
-  const snap = await FB.collection('udhar').where('user_id', '==', uid).get();
-  const arr = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-  arr.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
-  return arr;
-}
-
 /* ================== REAL-TIME LISTENERS ================== */
 let LIVE_UNSUBS = {
   products: null, users: null, orders: null, udhar: null,
   myOrders: null, myUdhar: null, myUser: null
 };
+let LIVE_ACTIVE = false;
 
 function startOwnerLiveSync(onUpdate) {
   stopAllLive();
+  LIVE_ACTIVE = true;
   console.log('🔴 Owner live sync starting...');
   
   LIVE_UNSUBS.products = FB.collection('products').onSnapshot(snap => {
+    console.log('📦 Products updated:', snap.size);
     const products = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     onUpdate('products', products);
   }, err => console.warn('products listener error:', err));
   
   LIVE_UNSUBS.users = FB.collection('users').onSnapshot(snap => {
+    console.log('👥 Users updated:', snap.size);
     const users = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     onUpdate('users', users);
   }, err => console.warn('users listener error:', err));
   
   LIVE_UNSUBS.orders = FB.collection('orders').onSnapshot(snap => {
+    console.log('🛒 Orders updated:', snap.size);
     const orders = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     orders.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
     onUpdate('orders', orders);
   }, err => console.warn('orders listener error:', err));
   
   LIVE_UNSUBS.udhar = FB.collection('udhar').onSnapshot(snap => {
+    console.log('💰 Udhar updated:', snap.size);
     const udhar = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     udhar.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
     onUpdate('udhar', udhar);
@@ -249,9 +214,11 @@ function startOwnerLiveSync(onUpdate) {
 
 function startUserLiveSync(uid, onUpdate) {
   stopAllLive();
-  console.log('🔴 User live sync starting...');
+  LIVE_ACTIVE = true;
+  console.log('🔴 User live sync starting for uid:', uid);
   
   LIVE_UNSUBS.products = FB.collection('products').onSnapshot(snap => {
+    console.log('📦 Products updated:', snap.size);
     const products = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     onUpdate('products', products);
   }, err => console.warn('products listener error:', err));
@@ -261,12 +228,14 @@ function startUserLiveSync(uid, onUpdate) {
   }, err => console.warn('myUser listener error:', err));
   
   LIVE_UNSUBS.myOrders = FB.collection('orders').where('user_id', '==', uid).onSnapshot(snap => {
+    console.log('🛒 My orders updated:', snap.size);
     const orders = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     orders.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
     onUpdate('myOrders', orders);
   }, err => console.warn('myOrders listener error:', err));
   
   LIVE_UNSUBS.myUdhar = FB.collection('udhar').where('user_id', '==', uid).onSnapshot(snap => {
+    console.log('💰 My udhar updated:', snap.size);
     const udhar = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     udhar.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
     onUpdate('myUdhar', udhar);
@@ -280,6 +249,7 @@ function stopAllLive() {
       LIVE_UNSUBS[k] = null;
     }
   });
+  LIVE_ACTIVE = false;
   console.log('🔴 All listeners stopped');
 }
 
@@ -362,11 +332,6 @@ function getUnitPrice(product, unitLabel, user) {
   }
   const u = product.units?.find(x => x.label === unitLabel);
   if (!u) return 0;
-  if (user && user.special_prices) {
-    const key = product.id + ':' + unitLabel;
-    if (user.special_prices[key] != null) return user.special_prices[key];
-    if (user.special_prices[product.id] != null) return user.special_prices[product.id];
-  }
   if (user && user.price_type === 'wholesale') return u.wholesale;
   return u.retail;
 }
@@ -419,7 +384,6 @@ function isWebView() {
 }
 
 async function initMessaging() {
-  console.log('🔔 initMessaging start');
   if (!FB_READY || !AUTH) throw new Error('Firebase ready nahi');
   if (!('Notification' in window)) throw new Error('Notifications support nahi');
   if (!('serviceWorker' in navigator)) throw new Error('Service Worker support nahi');
