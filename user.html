@@ -18,11 +18,13 @@
 .fee-badge{font-size:10px;color:#e65100;display:block;margin-top:2px;}
 .quick-qty{flex:1;min-width:70px;padding:12px 8px;border:2px solid #ddd;border-radius:10px;background:#fff;font-weight:bold;color:#333;cursor:pointer;font-size:15px;}
 .quick-qty.selected{border-color:#2e7d32;background:#e8f5e9;color:#2e7d32;}
+.live-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#4caf50;animation:pulse 1.5s infinite;margin-left:6px;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.3;}}
 </style>
 </head>
 <body>
 <div class="header">
-<h1>🛒 <span id="welcome">Dukan</span></h1>
+<h1>🛒 <span id="welcome">Dukan</span> <span class="live-dot"></span></h1>
 <button onclick="logoutUser()">Logout</button>
 </div>
 
@@ -69,30 +71,39 @@ const EXTRA_PERCENT = 2;
 
 document.getElementById('welcome').textContent = 'Namaste, ' + (s.data.name || 'Customer');
 
-async function refreshAll() {
-  const uid = getAuthUid();
-  if (!uid) return;
-  const [products, me, myOrders, myUdhar] = await Promise.all([
-    getFreshProducts(), getFreshUser(uid), getFreshMyOrders(uid), getFreshMyUdhar(uid)
-  ]);
-  PRODUCTS = products;
-  ME = me || ME;
-  MY_ORDERS = myOrders;
-  MY_UDHAR = myUdhar;
-}
-
 async function init() {
   const ok = await waitForFirebase();
   if (!ok) { alert('Firebase ready nahi'); return; }
   const uid = await waitForAuth();
   if (!uid) { alert('Session expire'); location.replace('index.html'); return; }
-  
-  await refreshAll();
+
+  // Pehli baar data
+  const data = await loadMyData(uid);
+  PRODUCTS = data.products;
+  ME = data.me || { id: uid, name: s.data.name || 'Customer', phone: s.data.phone, price_type: 'retail', special_prices: {} };
+  MY_ORDERS = data.myOrders || [];
+  MY_UDHAR = data.myUdhar || [];
+
   saveSession('user', { id: ME.id, name: ME.name, phone: ME.phone, price_type: ME.price_type });
   document.getElementById('welcome').textContent = 'Namaste, ' + ME.name;
-  
+
   cleanCart();
   renderGrid(); renderCart(); renderOrders(); renderProfile(); updateCartBadge();
+
+  // ⭐⭐⭐ REAL-TIME SYNC START ⭐⭐⭐
+  startUserLiveSync(uid, (type, data) => {
+    if (type === 'products') PRODUCTS = data;
+    if (type === 'me') ME = data;
+    if (type === 'myOrders') MY_ORDERS = data;
+    if (type === 'myUdhar') MY_UDHAR = data;
+
+    const currentTab = document.querySelector('.bottom-nav a.active')?.dataset.tab || 'home';
+    if (currentTab === 'home') { cleanCart(); renderGrid(); }
+    if (currentTab === 'cart') { cleanCart(); renderCart(); }
+    if (currentTab === 'orders') renderOrders();
+    if (currentTab === 'profile') renderProfile();
+    updateCartBadge();
+  });
 }
 
 function cleanCart() {
@@ -106,24 +117,19 @@ function cleanCart() {
 }
 
 document.querySelectorAll('.bottom-nav a').forEach(a => {
-  a.onclick = async e => {
+  a.onclick = e => {
     e.preventDefault();
     document.querySelectorAll('.bottom-nav a').forEach(x => x.classList.remove('active'));
     a.classList.add('active');
     ['home','cart','orders','profile'].forEach(t => {
       document.getElementById('tab-'+t).classList.toggle('hidden', t !== a.dataset.tab);
     });
-    
-    // FRESH DATA
-    try {
-      await refreshAll();
-      cleanCart();
-      if (a.dataset.tab === 'home') renderGrid();
-      if (a.dataset.tab === 'cart') renderCart();
-      if (a.dataset.tab === 'orders') renderOrders();
-      if (a.dataset.tab === 'profile') renderProfile();
-      updateCartBadge();
-    } catch (err) { console.warn('Refresh fail:', err); }
+    cleanCart();
+    if (a.dataset.tab === 'home') renderGrid();
+    if (a.dataset.tab === 'cart') renderCart();
+    if (a.dataset.tab === 'orders') renderOrders();
+    if (a.dataset.tab === 'profile') renderProfile();
+    updateCartBadge();
   };
 });
 
@@ -163,25 +169,23 @@ function openPicker(pid) {
 function renderPicker() {
   const p = PRODUCTS.find(x => x.id === pickerState.productId);
   if (!p) { closePicker(); return; }
-  
+
   const price = p.retail || 0;
   const subtotal = price * pickerState.qty;
   const isLoose = p.type === 'loose';
-  
+
   let qtySelector = '';
-  
+
   if (isLoose) {
     let opts = [];
     if (p.unit === 'kg') opts = [0.25, 0.5, 1, 2, 5, 10, 25];
     else if (p.unit === 'gram') opts = [50, 100, 250, 500, 1000];
     else if (p.unit === 'liter') opts = [0.25, 0.5, 1, 2, 5];
     else if (p.unit === 'ml') opts = [100, 250, 500, 1000];
-    
+
     qtySelector = `
       <div style="margin-top:14px;padding-top:12px;border-top:1px solid #eee;">
-        <div style="font-size:13px;color:#666;text-align:center;margin-bottom:10px;">
-          Kitna ${p.unit}? (fixed quantity)
-        </div>
+        <div style="font-size:13px;color:#666;text-align:center;margin-bottom:10px;">Kitna ${p.unit}? (fixed)</div>
         <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:8px;">
           ${opts.map(q => {
             const disp = q >= 1 ? q : Math.round(q * 1000);
@@ -205,7 +209,7 @@ function renderPicker() {
         <div style="text-align:center;font-size:18px;margin-top:12px;">Total: <b style="color:#2e7d32;">${inr(subtotal)}</b></div>
       </div>`;
   }
-  
+
   document.getElementById('modalRoot').innerHTML = `
     <div class="modal-bg" onclick="if(event.target===this) closePicker()">
       <div class="modal">
@@ -225,10 +229,7 @@ function setQty(val) {
   if (!p) return;
   let v = parseFloat(val);
   if (!v || v <= 0) return;
-  if (p.type === 'packet') {
-    v = Math.round(v);
-    if (v < 1) v = 1;
-  }
+  if (p.type === 'packet') { v = Math.round(v); if (v < 1) v = 1; }
   pickerState.qty = v;
   renderPicker();
 }
@@ -268,7 +269,7 @@ function renderCart() {
   const list = document.getElementById('cartList');
   const keys = Object.keys(CART);
   if (!keys.length) { list.innerHTML = '<div class="card center">Cart khali</div>'; return; }
-  
+
   let total = 0;
   const html = keys.map(key => {
     const [pid, ul] = key.split('::');
@@ -299,7 +300,7 @@ function renderCart() {
         <div class="center" style="font-size:13px;color:#555;margin-top:4px;">Sub: <b>₹${(price*qty).toFixed(2)}</b></div>
       </div>`;
   }).join('');
-  
+
   if (!html) { list.innerHTML = '<div class="card center">Cart khali</div>'; return; }
   list.innerHTML = html + `<div class="card center" style="font-weight:bold;font-size:18px;">Total: ₹${total.toFixed(2)}</div>`;
   updateCartBadge();
@@ -434,7 +435,7 @@ async function confirmOrder() {
     items.push({ product_id: pid, product_name: p.name, unit: p.unit, size: '', qty: CART[key], price: p.retail });
   });
   if (!items.length) return toast('Cart khali');
-  
+
   const order = {
     id: uid(), user_id: ME.id, user_name: ME.name, user_phone: ME.phone,
     items, subtotal, extra_charge: extraCharge, total,
@@ -450,8 +451,6 @@ async function confirmOrder() {
     CART = {}; saveCart(); renderCart(); updateCartBadge();
     closePayment();
     toast('✅ Order place');
-    await refreshAll();
-    renderOrders();
     document.querySelector('.bottom-nav a[data-tab="orders"]').click();
   } catch (e) { toast('❌ ' + e.message); }
 }
@@ -531,8 +530,6 @@ async function saveMyProfile() {
     await fbSaveUser(ME);
     saveSession('user', ME);
     toast('✅ Save');
-    await refreshAll();
-    renderProfile();
   } catch (e) { toast('❌ ' + e.message); }
 }
 
