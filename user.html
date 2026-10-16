@@ -77,7 +77,6 @@ async function init() {
   const uid = await waitForAuth();
   if (!uid) { alert('Session expire'); location.replace('index.html'); return; }
 
-  // Pehli baar data
   const data = await loadMyData(uid);
   PRODUCTS = data.products;
   ME = data.me || { id: uid, name: s.data.name || 'Customer', phone: s.data.phone, price_type: 'retail', special_prices: {} };
@@ -90,7 +89,7 @@ async function init() {
   cleanCart();
   renderGrid(); renderCart(); renderOrders(); renderProfile(); updateCartBadge();
 
-  // ⭐⭐⭐ REAL-TIME SYNC START ⭐⭐⭐
+  // ⭐ REAL-TIME SYNC START
   startUserLiveSync(uid, (type, data) => {
     if (type === 'products') PRODUCTS = data;
     if (type === 'me') ME = data;
