@@ -85,6 +85,27 @@
 .cam-switch{background:#1976d2;padding:16px 20px;}
 
 #cameraCanvas{display:none;}
+
+/* Udhar styles */
+.ledger-entry{
+  padding:10px;
+  border-bottom:1px solid #eee;
+  background:#fff;
+  margin-bottom:4px;
+  border-radius:6px;
+}
+.ledger-entry.udhar{border-left:4px solid #e65100;}
+.ledger-entry.jama{border-left:4px solid #2e7d32;}
+
+.modal-udhar-bg{
+  position:fixed;inset:0;background:rgba(0,0,0,.55);
+  display:flex;align-items:center;justify-content:center;
+  z-index:500;padding:16px;
+}
+.modal-udhar{
+  background:#fff;border-radius:12px;padding:16px;
+  width:100%;max-width:480px;max-height:92vh;overflow-y:auto;
+}
 </style>
 </head>
 <body>
@@ -102,13 +123,13 @@
 <button class="primary tabBtn" data-tab="info" style="border-radius:0;background:#ccc;color:#333;font-size:12px;">ℹ️</button>
 </div>
 
+<!-- ==================== PRODUCTS TAB ==================== -->
 <div id="tab-products">
 <div class="card">
 <h3 id="pFormTitle">➕ Naya Product</h3>
 <input type="hidden" id="pId">
 <input id="pName" placeholder="Product name">
 
-<!-- ============ IMAGE PICKER — CAMERA + GALLERY ============ -->
 <div style="display:flex;gap:8px;margin-top:8px;">
   <button type="button" class="pick-btn" style="flex:1;background:#e8f5e9;border-color:#2e7d32;color:#2e7d32;margin-top:0;" onclick="openLiveCamera()">
     📷 Camera
@@ -118,14 +139,12 @@
   </label>
 </div>
 
-<!-- Gallery input (hidden) -->
 <input id="pImgGallery" type="file" accept="image/*" onchange="handleImageSelect(event)" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;">
 
 <div style="font-size:11px;color:#888;text-align:center;margin-top:6px;">
   📷 Camera = live photo kheencho • 🖼️ Gallery = purani photo
 </div>
 
-<!-- Live Camera Modal -->
 <div id="cameraModal">
   <video id="cameraVideo" autoplay playsinline muted></video>
   <div class="camera-controls">
@@ -135,12 +154,10 @@
   </div>
 </div>
 
-<!-- Hidden canvas for capture -->
 <canvas id="cameraCanvas"></canvas>
 
 <div id="imgStatus" class="img-status"></div>
 <img id="pPreview" alt="Preview">
-<!-- ============ END IMAGE PICKER ============ -->
 
 <input id="pCat" placeholder="Category">
 <label style="font-size:13px;font-weight:bold;color:#2e7d32;margin-top:8px;display:block;">Units & Price</label>
@@ -153,27 +170,50 @@
 <div id="productList"></div>
 </div>
 
+<!-- ==================== USERS TAB ==================== -->
 <div id="tab-users" class="hidden">
 <input class="search-bar" id="uSearch" placeholder="🔍 Customer (naam ya phone)">
 <div id="userList"></div>
 </div>
 
+<!-- ==================== ORDERS TAB ==================== -->
 <div id="tab-orders" class="hidden">
 <div id="orderList"></div>
 </div>
 
+<!-- ==================== UDHAR TAB ==================== -->
 <div id="tab-udhar" class="hidden">
-<div class="card">
-<h3>➕ Naya Udhar</h3>
-<select id="udUser" style="margin-bottom:6px;"></select>
-<input id="udAmount" type="number" placeholder="Amount ₹" inputmode="numeric">
-<input id="udNote" placeholder="Note (jaise: Aata 5kg udhar)">
-<button class="primary" onclick="addUdhar()">💾 Add Udhar</button>
-</div>
-<h3>📋 Udhar List</h3>
-<div id="udharList"></div>
+  
+  <div class="card" style="background:linear-gradient(135deg,#2e7d32,#1b5e20);color:#fff;">
+    <h3 style="color:#fff;margin-bottom:10px;">💰 Udhar Khata</h3>
+    <div style="display:flex;gap:10px;justify-content:space-around;text-align:center;">
+      <div>
+        <div style="font-size:22px;font-weight:bold;" id="udTotalPending">₹0</div>
+        <div style="font-size:11px;opacity:0.9;">📕 Total Baaki</div>
+      </div>
+      <div>
+        <div style="font-size:22px;font-weight:bold;" id="udTotalAdvance">₹0</div>
+        <div style="font-size:11px;opacity:0.9;">💚 Total Advance</div>
+      </div>
+      <div>
+        <div style="font-size:22px;font-weight:bold;" id="udTotalCustomers">0</div>
+        <div style="font-size:11px;opacity:0.9;">👥 Customers</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+      <h3 style="margin:0;">👥 Customers Khata</h3>
+      <button class="primary small" style="width:auto;padding:6px 12px;font-size:12px;background:#1976d2;" onclick="openAddUdharModal()">➕ Naya Udhar</button>
+    </div>
+    <input class="search-bar" id="udCustomerSearch" placeholder="🔍 Customer dhundo..." style="margin-bottom:10px;">
+    <div id="udharCustomerList"></div>
+  </div>
+
 </div>
 
+<!-- ==================== INFO TAB ==================== -->
 <div id="tab-info" class="hidden">
 <div class="card">
 <h3>ℹ️ Info</h3>
@@ -187,6 +227,9 @@
 </div>
 </div>
 </div>
+
+<!-- Udhar Modal Root -->
+<div id="udharModalRoot"></div>
 
 <script src="app.js"></script>
 <script>
@@ -203,7 +246,7 @@ async function init() {
   if (!uid) { alert('Session expire'); location.replace('index.html'); return; }
   DATA = await loadData();
   renderProducts(); renderUsers(); renderOrders(); renderUdhar(); renderInfo();
-  resetProductForm(); fillUserSelect();
+  resetProductForm();
 
   const modeInfo = document.getElementById('modeInfo');
   const modes = [];
@@ -263,14 +306,11 @@ async function enableNotifications() {
   }
 }
 
-/* ================= LIVE CAMERA (PWA + Browser) ================= */
+/* ================= LIVE CAMERA ================= */
 let cameraStream = null;
-let currentFacingMode = 'environment'; // 'environment' = back camera
+let currentFacingMode = 'environment';
 
 async function openLiveCamera() {
-  console.log('📷 Opening live camera...');
-
-  // Check support
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
     toast('❌ Camera support nahi. Gallery use karo.');
     document.getElementById('pImgGallery').click();
@@ -278,44 +318,29 @@ async function openLiveCamera() {
   }
 
   try {
-    // Stop previous stream if any
     if (cameraStream) {
       cameraStream.getTracks().forEach(t => t.stop());
       cameraStream = null;
     }
 
     cameraStream = await navigator.mediaDevices.getUserMedia({
-      video: {
-        facingMode: currentFacingMode,
-        width: { ideal: 1280 },
-        height: { ideal: 720 }
-      },
+      video: { facingMode: currentFacingMode, width: { ideal: 1280 }, height: { ideal: 720 } },
       audio: false
     });
-
-    console.log('✅ Camera stream obtained');
 
     const modal = document.getElementById('cameraModal');
     const video = document.getElementById('cameraVideo');
     modal.style.display = 'flex';
     video.srcObject = cameraStream;
     await video.play();
-    console.log('✅ Camera preview showing');
 
   } catch (err) {
     console.error('❌ Camera error:', err);
     let msg = 'Camera nahi khul paya';
-    if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-      msg = '❌ Camera permission denied. Browser/App settings me allow karo.';
-    } else if (err.name === 'NotFoundError') {
-      msg = '❌ Camera nahi mila';
-    } else if (err.name === 'NotReadableError') {
-      msg = '❌ Camera busy hai (doosri app band karo)';
-    } else if (err.name === 'OverconstrainedError') {
-      msg = '❌ Camera quality support nahi';
-    }
+    if (err.name === 'NotAllowedError') msg = '❌ Camera permission denied';
+    else if (err.name === 'NotFoundError') msg = '❌ Camera nahi mila';
+    else if (err.name === 'NotReadableError') msg = '❌ Camera busy hai';
     toast(msg);
-    // Fallback to gallery
     setTimeout(() => {
       if (confirm('Camera nahi khul paya. Gallery se photo chunna chahte ho?')) {
         document.getElementById('pImgGallery').click();
@@ -325,7 +350,6 @@ async function openLiveCamera() {
 }
 
 function closeCamera() {
-  console.log('📷 Closing camera...');
   if (cameraStream) {
     cameraStream.getTracks().forEach(t => t.stop());
     cameraStream = null;
@@ -337,8 +361,6 @@ function closeCamera() {
 }
 
 function capturePhoto() {
-  console.log('📸 Capturing photo...');
-
   const video = document.getElementById('cameraVideo');
   const canvas = document.getElementById('cameraCanvas');
 
@@ -349,42 +371,30 @@ function capturePhoto() {
 
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
-  const ctx = canvas.getContext('2d');
-  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
 
   canvas.toBlob((blob) => {
-    if (!blob) {
-      toast('❌ Photo capture fail');
-      return;
-    }
-    const fileName = 'camera-' + Date.now() + '.jpg';
-    const file = new File([blob], fileName, { type: 'image/jpeg' });
-    console.log('✅ Photo captured:', file.size, 'bytes');
+    if (!blob) { toast('❌ Photo capture fail'); return; }
+    const file = new File([blob], 'camera-' + Date.now() + '.jpg', { type: 'image/jpeg' });
     closeCamera();
     processCapturedPhoto(file);
   }, 'image/jpeg', 0.9);
 }
 
 async function switchCamera() {
-  console.log('🔄 Switching camera...');
   currentFacingMode = currentFacingMode === 'environment' ? 'user' : 'environment';
-
   if (cameraStream) {
     cameraStream.getTracks().forEach(t => t.stop());
     cameraStream = null;
   }
-
   try {
     cameraStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: currentFacingMode },
-      audio: false
+      video: { facingMode: currentFacingMode }, audio: false
     });
     const video = document.getElementById('cameraVideo');
     video.srcObject = cameraStream;
     await video.play();
-    console.log('✅ Switched to:', currentFacingMode);
   } catch (err) {
-    console.error('❌ Switch camera error:', err);
     toast('❌ Camera switch fail');
     closeCamera();
   }
@@ -408,10 +418,9 @@ function processCapturedPhoto(file) {
     prev.src = quickUrl;
     prev.style.display = 'block';
     status.textContent = `📷 ${(file.size/1024).toFixed(0)} KB — compressing...`;
-  } catch(e) { console.warn('Preview fail:', e); }
+  } catch(e) {}
 
   compressImage(file, 1000, 1000, 0.75).then(compressed => {
-    console.log('✅ Compressed:', compressed.size);
     compressedImageFile = compressed;
     const newUrl = URL.createObjectURL(compressed);
     prev.src = newUrl;
@@ -419,23 +428,19 @@ function processCapturedPhoto(file) {
     status.textContent = `✅ Ready (${(compressed.size/1024).toFixed(0)} KB)`;
     status.className = 'img-status success';
   }).catch(err => {
-    console.warn('Compress fail:', err);
     compressedImageFile = file;
     status.textContent = `📷 ${(file.size/1024).toFixed(0)} KB (original)`;
   });
 }
 
-/* ================= GALLERY HANDLER ================= */
 function handleImageSelect(event) {
-  console.log('✅ Gallery onchange fired!');
   const input = event.target;
   const file = input.files && input.files[0];
   const status = document.getElementById('imgStatus');
   const prev = document.getElementById('pPreview');
 
-  if (!file) { console.log('❌ No file'); return; }
+  if (!file) return;
 
-  console.log('🖼️ File:', file.name, file.type, file.size);
   status.className = 'img-status';
 
   if (file.size > 10 * 1024 * 1024) {
@@ -459,10 +464,9 @@ function handleImageSelect(event) {
     prev.src = quickUrl;
     prev.style.display = 'block';
     status.textContent = `📷 ${(file.size/1024).toFixed(0)} KB — compressing...`;
-  } catch(e) { console.warn('Preview fail:', e); }
+  } catch(e) {}
 
   compressImage(file, 1000, 1000, 0.75).then(compressed => {
-    console.log('✅ Compressed:', compressed.size);
     compressedImageFile = compressed;
     const newUrl = URL.createObjectURL(compressed);
     prev.src = newUrl;
@@ -470,16 +474,13 @@ function handleImageSelect(event) {
     status.textContent = `✅ Ready (${(compressed.size/1024).toFixed(0)} KB)`;
     status.className = 'img-status success';
   }).catch(err => {
-    console.warn('Compress fail:', err);
     compressedImageFile = file;
     status.textContent = `📷 ${(file.size/1024).toFixed(0)} KB (original)`;
   });
 
-  // Clear input so same file can be selected again
   setTimeout(() => { try { input.value = ''; } catch(e){} }, 500);
 }
 
-/* ================= COMPRESS IMAGE ================= */
 function compressImage(file, maxW, maxH, quality) {
   return new Promise((resolve) => {
     const fallback = () => resolve(file);
@@ -518,35 +519,62 @@ function compressImage(file, maxW, maxH, quality) {
 
 /* ================= PRODUCTS ================= */
 function addUnit(data) {
-  currentUnits.push(data || { label:'piece', retail:'', wholesale:'', stock:'' });
+  currentUnits.push(data || { label:'piece', retail:'', wholesale:'', stock:'', size:'' });
   renderUnits();
 }
 function removeUnit(i) { currentUnits.splice(i,1); renderUnits(); }
-function updateUnit(i,k,v) { currentUnits[i][k] = v; }
+function updateUnit(i,k,v) { 
+  currentUnits[i][k] = v;
+  if (k === 'label') currentUnits[i].size = '';
+}
 function renderUnits() {
   const box = document.getElementById('unitList');
   const OPT = ['kg','gram','liter','ml','piece','packet','box','dozen','strip','bottle'];
-  box.innerHTML = currentUnits.map((u,i) => `
-    <div style="background:#f9f9f9;padding:8px;border-radius:8px;margin-bottom:8px;border:1px solid #eee;">
+  const MEASURED_UNITS = ['kg','gram','liter','ml'];
+  const SIZE_OPTIONS = {
+    'kg': ['100gm','250gm','500gm','1kg','2kg','5kg','10kg'],
+    'gram': ['50gm','100gm','250gm','500gm','1kg'],
+    'liter': ['100ml','250ml','500ml','1L','2L','5L'],
+    'ml': ['50ml','100ml','250ml','500ml','1L']
+  };
+
+  box.innerHTML = currentUnits.map((u,i) => {
+    const isMeasured = MEASURED_UNITS.includes(u.label);
+    const sizeOptions = SIZE_OPTIONS[u.label] || [];
+
+    return `
+    <div style="background:#f9f9f9;padding:10px;border-radius:8px;margin-bottom:10px;border:1px solid #eee;">
       <div class="row">
-        <select onchange="updateUnit(${i},'label',this.value)">
+        <select onchange="updateUnit(${i},'label',this.value); renderUnits();">
           ${OPT.map(o => `<option value="${o}" ${u.label===o?'selected':''}>${o}</option>`).join('')}
         </select>
         <button class="primary small danger" style="flex:0;width:auto;" onclick="removeUnit(${i})">✕</button>
       </div>
-      <div class="row">
+
+      ${isMeasured ? `
+        <div style="margin-top:6px;">
+          <label style="font-size:12px;color:#666;font-weight:bold;">📏 Fixed Size (packet/bottle ka size):</label>
+          <select onchange="updateUnit(${i},'size',this.value)" style="margin-top:4px;">
+            <option value="">-- Koi fixed size nahi (loose) --</option>
+            ${sizeOptions.map(s => `<option value="${s}" ${u.size===s?'selected':''}>${s}</option>`).join('')}
+          </select>
+        </div>
+      ` : ''}
+
+      <div class="row" style="margin-top:6px;">
         <input placeholder="Retail ₹" inputmode="decimal" value="${u.retail}" onchange="updateUnit(${i},'retail',this.value)">
         <input placeholder="Whole ₹" inputmode="decimal" value="${u.wholesale}" onchange="updateUnit(${i},'wholesale',this.value)">
       </div>
       <input placeholder="Stock" inputmode="decimal" value="${u.stock}" onchange="updateUnit(${i},'stock',this.value)">
-    </div>
-  `).join('');
+
+      ${u.size ? `<div style="font-size:11px;color:#2e7d32;margin-top:4px;">✅ Har ${u.label} = ${u.size}</div>` : ''}
+    </div>`;
+  }).join('');
 }
 
 function resetProductForm() {
   ['pId','pName','pCat'].forEach(id => document.getElementById(id).value = '');
   try { document.getElementById('pImgGallery').value = ''; } catch(e){}
-  // Close camera if open
   closeCamera();
   const prev = document.getElementById('pPreview');
   prev.style.display = 'none';
@@ -556,7 +584,7 @@ function resetProductForm() {
   status.className = 'img-status';
   compressedImageFile = null;
   editingImageUrl = ''; currentUnits = [];
-  addUnit({ label:'piece', retail:'', wholesale:'', stock:'' });
+  addUnit({ label:'piece', retail:'', wholesale:'', stock:'', size:'' });
   document.getElementById('pFormTitle').textContent = '➕ Naya Product';
 }
 
@@ -569,7 +597,8 @@ async function saveProduct() {
 
   const units = currentUnits.map(u => ({
     label: u.label, retail: +u.retail || 0,
-    wholesale: +u.wholesale || +u.retail, stock: +u.stock || 0
+    wholesale: +u.wholesale || +u.retail, stock: +u.stock || 0,
+    size: u.size || ''
   }));
 
   try {
@@ -617,8 +646,8 @@ function editProduct(id) {
     status.textContent = '';
     status.className = 'img-status';
   }
-  currentUnits = (p.units||[]).map(u => ({...u}));
-  if (!currentUnits.length) currentUnits = [{label:'piece',retail:'',wholesale:'',stock:''}];
+  currentUnits = (p.units||[]).map(u => ({...u, size: u.size || ''}));
+  if (!currentUnits.length) currentUnits = [{label:'piece',retail:'',wholesale:'',stock:'',size:''}];
   renderUnits();
   document.getElementById('pFormTitle').textContent = '✏️ Edit';
   switchTab('products');
@@ -645,7 +674,7 @@ function renderProducts() {
   list.innerHTML = items.map(p => {
     const rows = (p.units||[]).map(u => `
       <div style="font-size:13px;padding:2px 0;">
-        <b>${u.label}</b>: ${inr(u.retail)} <span style="color:#777;">(W ${inr(u.wholesale)})</span> — Stock: ${u.stock}
+        <b>${u.label}${u.size ? ' (' + u.size + ')' : ''}</b>: ${inr(u.retail)} <span style="color:#777;">(W ${inr(u.wholesale)})</span> — Stock: ${u.stock}
       </div>`).join('');
     return `
     <div class="card">
@@ -804,68 +833,330 @@ function renderOrders() {
   }).join('');
 }
 
-/* ================= UDHAR ================= */
-function fillUserSelect() {
-  const sel = document.getElementById('udUser');
-  sel.innerHTML = '<option value="">-- Customer --</option>' +
-    DATA.users.map(u => `<option value="${u.id}">${u.name} (${u.phone})</option>`).join('');
+/* ================= UDHAR KHATA (Notebook Style) ================= */
+function openAddUdharModal(customerId) {
+  document.getElementById('udharModalRoot').innerHTML = `
+    <div class="modal-udhar-bg" onclick="if(event.target===this) closeUdharModal()">
+      <div class="modal-udhar">
+        <h3>📝 Naya Udhar Entry</h3>
+
+        <label style="font-size:13px;color:#666;font-weight:bold;margin-top:10px;display:block;">👤 Customer</label>
+        <select id="udUserSel" style="width:100%;padding:10px;margin:6px 0;border:1px solid #ccc;border-radius:6px;font-size:15px;">
+          <option value="">-- Customer select karo --</option>
+          ${DATA.users.map(u => `<option value="${u.id}" ${customerId === u.id ? 'selected' : ''}>${u.name} (${u.phone})</option>`).join('')}
+        </select>
+
+        <label style="font-size:13px;color:#666;font-weight:bold;margin-top:10px;display:block;">💵 Amount ₹</label>
+        <input id="udAmtInput" type="number" placeholder="Amount" inputmode="decimal" style="width:100%;padding:10px;margin:6px 0;border:1px solid #ccc;border-radius:6px;font-size:15px;">
+
+        <label style="font-size:13px;color:#666;font-weight:bold;margin-top:10px;display:block;">📝 Note (kya liya/diya)</label>
+        <input id="udNoteInput" placeholder="Jaise: Aata 5kg, Cheeni 2kg udhar" style="width:100%;padding:10px;margin:6px 0;border:1px solid #ccc;border-radius:6px;font-size:15px;">
+
+        <label style="font-size:13px;color:#666;font-weight:bold;margin-top:10px;display:block;">🔽 Type</label>
+        <div style="display:flex;gap:8px;margin-top:6px;">
+          <button type="button" id="typeUdhar" class="primary" style="flex:1;background:#e65100;font-size:14px;padding:10px;" onclick="selectUdharType('udhar')">
+            📕 Udhar (Saman liya)
+          </button>
+          <button type="button" id="typeJama" class="primary" style="flex:1;background:#ccc;color:#333;font-size:14px;padding:10px;" onclick="selectUdharType('jama')">
+            💚 Jama (Paisa diya)
+          </button>
+        </div>
+        <input type="hidden" id="udTypeInput" value="udhar">
+
+        <label style="font-size:13px;color:#666;font-weight:bold;margin-top:12px;display:block;">📅 Date</label>
+        <input id="udDateInput" type="date" style="width:100%;padding:10px;margin:6px 0;border:1px solid #ccc;border-radius:6px;font-size:15px;">
+
+        <div style="display:flex;gap:8px;margin-top:16px;">
+          <button class="primary" style="background:#777;" onclick="closeUdharModal()">Cancel</button>
+          <button class="primary" style="background:#2e7d32;" onclick="saveUdharEntry()">💾 Save</button>
+        </div>
+      </div>
+    </div>`;
+
+  document.getElementById('udDateInput').value = new Date().toISOString().split('T')[0];
 }
 
-async function addUdhar() {
-  const user_id = document.getElementById('udUser').value;
-  const amt = parseFloat(document.getElementById('udAmount').value) || 0;
-  const note = document.getElementById('udNote').value.trim();
+function selectUdharType(type) {
+  document.getElementById('udTypeInput').value = type;
+  if (type === 'udhar') {
+    document.getElementById('typeUdhar').style.background = '#e65100';
+    document.getElementById('typeUdhar').style.color = '#fff';
+    document.getElementById('typeJama').style.background = '#ccc';
+    document.getElementById('typeJama').style.color = '#333';
+  } else {
+    document.getElementById('typeJama').style.background = '#2e7d32';
+    document.getElementById('typeJama').style.color = '#fff';
+    document.getElementById('typeUdhar').style.background = '#ccc';
+    document.getElementById('typeUdhar').style.color = '#333';
+  }
+}
+
+function closeUdharModal() {
+  document.getElementById('udharModalRoot').innerHTML = '';
+}
+
+async function saveUdharEntry() {
+  const user_id = document.getElementById('udUserSel').value;
+  const amt = parseFloat(document.getElementById('udAmtInput').value) || 0;
+  const note = document.getElementById('udNoteInput').value.trim();
+  const type = document.getElementById('udTypeInput').value;
+  const dateVal = document.getElementById('udDateInput').value;
+
   if (!user_id) return toast('Customer select karo');
   if (!amt || amt <= 0) return toast('Amount daalo');
+
   const u = DATA.users.find(x => x.id === user_id);
+  const now = dateVal ? new Date(dateVal + 'T' + new Date().toTimeString().split(' ')[0]) : new Date();
+
   const rec = {
-    id: uid(), user_id: user_id, user_name: u.name, user_phone: u.phone,
-    amount: amt, note: note || 'Udhar', status: 'pending',
-    created_at: new Date().toISOString()
+    id: uid(),
+    user_id: user_id,
+    user_name: u.name,
+    user_phone: u.phone,
+    amount: amt,
+    note: note || (type === 'jama' ? 'Payment jama' : 'Udhar'),
+    type: type,
+    status: type === 'jama' ? 'paid' : 'pending',
+    created_at: now.toISOString(),
+    date_str: now.toISOString().split('T')[0],
+    time_str: now.toTimeString().slice(0,5),
+    year: now.getFullYear(),
+    month: now.getMonth() + 1,
+    day: now.getDate()
   };
+
   try {
     await fbSaveUdhar(rec);
     DATA = await loadData();
-    document.getElementById('udAmount').value = '';
-    document.getElementById('udNote').value = '';
-    toast('✅ Udhar add');
-    renderUdhar(); fillUserSelect();
-  } catch (e) { toast('❌ ' + e.message); }
-}
-
-async function markUdharPaid(id) {
-  if (!confirm('Paid mark?')) return;
-  try {
-    await FB.collection('udhar').doc(id).set({ status: 'paid', paid_at: new Date().toISOString() }, { merge: true });
-    DATA = await loadData(); toast('✅ Paid'); renderUdhar();
+    toast(type === 'jama' ? '✅ Jama likh diya' : '✅ Udhar likh diya');
+    closeUdharModal();
+    renderUdhar();
   } catch (e) { toast('❌ ' + e.message); }
 }
 
 function renderUdhar() {
-  const list = document.getElementById('udharList');
-  if (!DATA.udhar.length) { list.innerHTML = '<div class="card center">Koi udhar nahi</div>'; return; }
-  list.innerHTML = DATA.udhar.map(u => {
-    const isPaid = u.status === 'paid';
-    return `
-      <div class="card" style="border-left:4px solid ${isPaid?'#2e7d32':'#e65100'};">
-        <div style="display:flex;justify-content:space-between;align-items:center;">
+  const list = document.getElementById('udharCustomerList');
+  const searchEl = document.getElementById('udCustomerSearch');
+  const q = (searchEl.value || '').toLowerCase();
+
+  const byCustomer = {};
+  DATA.udhar.forEach(u => {
+    if (!byCustomer[u.user_id]) {
+      byCustomer[u.user_id] = {
+        user_id: u.user_id,
+        user_name: u.user_name,
+        user_phone: u.user_phone,
+        entries: [],
+        total_udhar: 0,
+        total_jama: 0
+      };
+    }
+    byCustomer[u.user_id].entries.push(u);
+    const isJama = u.type === 'jama' || u.status === 'paid';
+    if (isJama) {
+      byCustomer[u.user_id].total_jama += +u.amount || 0;
+    } else {
+      byCustomer[u.user_id].total_udhar += +u.amount || 0;
+    }
+  });
+
+  const customerList = Object.values(byCustomer).map(c => {
+    c.balance = c.total_udhar - c.total_jama;
+    return c;
+  }).filter(c => {
+    if (!q) return true;
+    return (c.user_name || '').toLowerCase().includes(q) || (c.user_phone || '').includes(q);
+  });
+
+  customerList.sort((a, b) => b.balance - a.balance);
+
+  if (!customerList.length) {
+    list.innerHTML = '<div class="center" style="padding:20px;color:#888;">Koi udhar nahi. ➕ Naya Udhar dabao.</div>';
+  } else {
+    list.innerHTML = customerList.map(c => {
+      const isAdvance = c.balance < 0;
+      const isClear = c.balance === 0;
+      const balanceColor = isAdvance ? '#2e7d32' : (isClear ? '#666' : '#c62828');
+      const balanceText = isAdvance 
+        ? `💚 ₹${Math.abs(c.balance).toFixed(2)} Advance` 
+        : (isClear ? '✅ Clear' : `📕 ₹${c.balance.toFixed(2)} Baaki`);
+
+      return `
+        <div style="padding:12px;border-bottom:1px solid #f0f0f0;cursor:pointer;" onclick="openCustomerLedger('${c.user_id}')">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div style="flex:1;">
+              <div style="font-weight:bold;font-size:15px;">${c.user_name}</div>
+              <div style="font-size:12px;color:#666;">📞 ${c.user_phone}</div>
+              <div style="font-size:11px;color:#999;margin-top:2px;">
+                📕 ₹${c.total_udhar.toFixed(0)} udhar • 💚 ₹${c.total_jama.toFixed(0)} jama
+              </div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-weight:bold;color:${balanceColor};font-size:15px;">${balanceText}</div>
+              <div style="font-size:11px;color:#888;margin-top:2px;">${c.entries.length} entries ›</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:6px;margin-top:8px;">
+            <button class="primary small" style="background:#e65100;font-size:12px;padding:6px;" onclick="event.stopPropagation(); openAddUdharModal('${c.user_id}')">📕 Udhar</button>
+            <button class="primary small" style="background:#2e7d32;font-size:12px;padding:6px;" onclick="event.stopPropagation(); openJamaModal('${c.user_id}')">💚 Jama</button>
+            <button class="primary small" style="background:#1976d2;font-size:12px;padding:6px;" onclick="event.stopPropagation(); callPhone('${c.user_phone}')">📞</button>
+            <button class="primary small" style="background:#25d366;font-size:12px;padding:6px;" onclick="event.stopPropagation(); whatsappPhone('${c.user_phone}', 'Namaste ${c.user_name}, aapka udhar ₹${c.balance.toFixed(2)} hai')">💬</button>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  const totals = Object.values(byCustomer).reduce((acc, c) => {
+    const bal = c.total_udhar - c.total_jama;
+    if (bal > 0) acc.pending += bal;
+    else acc.advance += Math.abs(bal);
+    return acc;
+  }, { pending: 0, advance: 0 });
+
+  document.getElementById('udTotalPending').textContent = '₹' + totals.pending.toFixed(0);
+  document.getElementById('udTotalAdvance').textContent = '₹' + totals.advance.toFixed(0);
+  document.getElementById('udTotalCustomers').textContent = Object.keys(byCustomer).length;
+}
+
+document.getElementById('udCustomerSearch').oninput = renderUdhar;
+
+function openCustomerLedger(userId) {
+  const u = DATA.users.find(x => x.id === userId);
+  if (!u) return;
+
+  const entries = DATA.udhar.filter(x => x.user_id === userId)
+    .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+
+  let runningBalance = 0;
+  const ledger = entries.map(e => {
+    const isJama = e.type === 'jama' || e.status === 'paid';
+    if (isJama) {
+      runningBalance -= +e.amount;
+    } else {
+      runningBalance += +e.amount;
+    }
+    return { ...e, running: runningBalance, isJama };
+  });
+
+  ledger.reverse();
+
+  const totalUdhar = entries.filter(e => !(e.type === 'jama' || e.status === 'paid')).reduce((a, e) => a + +e.amount, 0);
+  const totalJama = entries.filter(e => e.type === 'jama' || e.status === 'paid').reduce((a, e) => a + +e.amount, 0);
+  const finalBalance = totalUdhar - totalJama;
+
+  document.getElementById('udharModalRoot').innerHTML = `
+    <div class="modal-udhar-bg" onclick="if(event.target===this) closeUdharModal()">
+      <div class="modal-udhar">
+        
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
           <div>
-            <b>${u.user_name}</b>
-            <div style="font-size:11px;color:#666;">📞 ${u.user_phone}</div>
+            <h3 style="margin:0;">📔 ${u.name}</h3>
+            <div style="font-size:12px;color:#666;">📞 ${u.phone}</div>
           </div>
-          <div style="display:flex;gap:4px;">
-            <button class="icon-btn btn-call" onclick="callPhone('${u.user_phone}')">📞</button>
-            <button class="icon-btn btn-wa" onclick="whatsappPhone('${u.user_phone}', 'Namaste ${u.user_name}, aapka udhar ${inr(u.amount)} pending hai')">💬</button>
+          <button class="primary small" style="width:auto;background:#777;padding:6px 10px;" onclick="closeUdharModal()">✕</button>
+        </div>
+
+        <div style="background:${finalBalance > 0 ? '#ffebee' : finalBalance < 0 ? '#e8f5e9' : '#f5f5f5'};padding:12px;border-radius:8px;margin-bottom:12px;">
+          <div style="display:flex;justify-content:space-between;font-size:13px;color:#666;">
+            <span>📕 Total Udhar:</span><b>₹${totalUdhar.toFixed(2)}</b>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:13px;color:#666;margin-top:4px;">
+            <span>💚 Total Jama:</span><b>₹${totalJama.toFixed(2)}</b>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:18px;font-weight:bold;color:${finalBalance > 0 ? '#c62828' : finalBalance < 0 ? '#2e7d32' : '#333'};margin-top:8px;padding-top:8px;border-top:1px solid rgba(0,0,0,0.1);">
+            <span>${finalBalance > 0 ? '📕 Baaki:' : finalBalance < 0 ? '💚 Advance:' : '✅ Clear:'}</span>
+            <b>₹${Math.abs(finalBalance).toFixed(2)}</b>
           </div>
         </div>
-        <div style="margin-top:6px;">
-          <div style="font-size:14px;"><b>${inr(u.amount)}</b> — ${u.note}</div>
-          <div style="font-size:11px;color:#666;">${new Date(u.created_at).toLocaleString('hi-IN')}</div>
+
+        <div style="display:flex;gap:8px;margin-bottom:12px;">
+          <button class="primary small" style="background:#e65100;" onclick="openAddUdharModal('${userId}')">📕 Naya Udhar</button>
+          <button class="primary small" style="background:#2e7d32;" onclick="openJamaModal('${userId}')">💚 Jama Karo</button>
         </div>
-        <div style="font-size:13px;margin-top:6px;">Status: <b style="color:${isPaid?'#2e7d32':'#e65100'};">${isPaid?'✅ PAID':'⏳ PENDING'}</b></div>
-        ${!isPaid ? `<button class="primary small" style="background:#2e7d32;margin-top:6px;" onclick="markUdharPaid('${u.id}')">💰 Paid Karo</button>` : ''}
-      </div>`;
-  }).join('');
+
+        <div style="font-size:13px;font-weight:bold;color:#666;margin-bottom:8px;">📋 Poora Hisaab (Latest upar)</div>
+        <div style="background:#f9f9f9;border-radius:8px;padding:4px;">
+          ${ledger.length === 0 ? '<div style="padding:20px;text-align:center;color:#888;">Koi entry nahi</div>' : ledger.map(e => {
+            const d = new Date(e.created_at);
+            const dateStr = d.toLocaleDateString('hi-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+            const timeStr = d.toLocaleTimeString('hi-IN', { hour: '2-digit', minute: '2-digit' });
+            
+            return `
+              <div class="ledger-entry ${e.isJama ? 'jama' : 'udhar'}">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                  <div style="flex:1;">
+                    <div style="font-size:11px;color:#888;">
+                      📅 ${dateStr} • ⏰ ${timeStr}
+                    </div>
+                    <div style="font-size:13px;font-weight:600;margin-top:2px;">
+                      ${e.isJama ? '💚' : '📕'} ${e.note}
+                    </div>
+                  </div>
+                  <div style="text-align:right;">
+                    <div style="font-size:15px;font-weight:bold;color:${e.isJama ? '#2e7d32' : '#c62828'};">
+                      ${e.isJama ? '−' : '+'} ₹${(+e.amount).toFixed(2)}
+                    </div>
+                    <div style="font-size:11px;color:#666;margin-top:2px;">
+                      Balance: ₹${(+e.running).toFixed(2)}
+                    </div>
+                  </div>
+                </div>
+                <div style="margin-top:6px;display:flex;gap:6px;">
+                  <button class="primary small" style="background:#1976d2;font-size:11px;padding:4px 8px;width:auto;" onclick="editUdharEntry('${e.id}', '${userId}')">✏️ Edit</button>
+                  <button class="primary small danger" style="font-size:11px;padding:4px 8px;width:auto;" onclick="deleteUdharEntry('${e.id}', '${userId}')">🗑️</button>
+                </div>
+              </div>`;
+          }).join('')}
+        </div>
+
+        <button class="primary" style="background:#777;margin-top:12px;" onclick="closeUdharModal()">Close</button>
+      </div>
+    </div>`;
+}
+
+function openJamaModal(customerId) {
+  openAddUdharModal(customerId);
+  setTimeout(() => {
+    selectUdharType('jama');
+    const noteInput = document.getElementById('udNoteInput');
+    if (noteInput) noteInput.value = 'Payment jama';
+  }, 100);
+}
+
+async function editUdharEntry(id, userId) {
+  const e = DATA.udhar.find(x => x.id === id);
+  if (!e) return;
+  const newAmt = prompt('Amount badlo:', e.amount);
+  if (newAmt === null) return;
+  const newNote = prompt('Note badlo:', e.note);
+  if (newNote === null) return;
+
+  const amt = parseFloat(newAmt);
+  if (!amt || amt <= 0) return toast('Invalid amount');
+
+  try {
+    await FB.collection('udhar').doc(id).set({
+      amount: amt,
+      note: newNote,
+      updated_at: new Date().toISOString()
+    }, { merge: true });
+    DATA = await loadData();
+    toast('✅ Update ho gaya');
+    closeUdharModal();
+    setTimeout(() => openCustomerLedger(userId), 200);
+    renderUdhar();
+  } catch (err) { toast('❌ ' + err.message); }
+}
+
+async function deleteUdharEntry(id, userId) {
+  if (!confirm('Ye entry delete karni hai?')) return;
+  try {
+    await FB.collection('udhar').doc(id).delete();
+    DATA = await loadData();
+    toast('🗑️ Delete ho gaya');
+    closeUdharModal();
+    renderUdhar();
+  } catch (err) { toast('❌ ' + err.message); }
 }
 
 init();
