@@ -65,7 +65,7 @@
 const s = getSession();
 if (!s || s.role !== 'user') location.replace('index.html');
 
-let PRODUCTS = [], ME = null, MY_ORDERS = [], MY_UDHAR = [];
+let PRODUCTS = [], ME = null, MY_ORDERS = [];
 let CART = JSON.parse(localStorage.getItem('cart') || '{}');
 const EXTRA_PERCENT = 2;
 
@@ -81,7 +81,6 @@ async function init() {
   PRODUCTS = data.products;
   ME = data.me || { id: uid, name: s.data.name || 'Customer', phone: s.data.phone, price_type: 'retail', special_prices: {} };
   MY_ORDERS = data.myOrders || [];
-  MY_UDHAR = data.myUdhar || [];
 
   saveSession('user', { id: ME.id, name: ME.name, phone: ME.phone, price_type: ME.price_type });
   document.getElementById('welcome').textContent = 'Namaste, ' + ME.name;
@@ -89,12 +88,11 @@ async function init() {
   cleanCart();
   renderGrid(); renderCart(); renderOrders(); renderProfile(); updateCartBadge();
 
-  // ⭐ REAL-TIME SYNC START
-  startUserLiveSync(uid, (type, data) => {
+  // ⭐ AUTO-REFRESH every 5 sec
+  startUserPolling(uid, (type, data) => {
     if (type === 'products') PRODUCTS = data;
     if (type === 'me') ME = data;
     if (type === 'myOrders') MY_ORDERS = data;
-    if (type === 'myUdhar') MY_UDHAR = data;
 
     const currentTab = document.querySelector('.bottom-nav a.active')?.dataset.tab || 'home';
     if (currentTab === 'home') { cleanCart(); renderGrid(); }
@@ -477,24 +475,7 @@ function renderOrders() {
 }
 
 function renderProfile() {
-  const stats = calculateUserStats(ME.id, MY_ORDERS, MY_UDHAR);
-  const udharRows = MY_UDHAR.map(u => {
-    const isJama = u.type === 'jama' || u.status === 'paid';
-    const itemsList = (u.items && u.items.length) 
-      ? u.items.map(it => `<div style="font-size:11px;color:#666;padding-left:10px;">• ${it.name || it.product_name} — ${it.qty} ${it.unit} = ₹${(+it.amount).toFixed(2)}</div>`).join('')
-      : '';
-    return `
-    <div style="padding:8px 0;border-bottom:1px solid #f0f0f0;font-size:13px;">
-      <div style="display:flex;justify-content:space-between;">
-        <b>${new Date(u.created_at).toLocaleString('hi-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</b>
-        <span style="color:${isJama?'#2e7d32':'#e65100'};">${isJama ? '💚 Jama' : '📕 Udhar'}</span>
-      </div>
-      <div>${u.note || 'Udhar'}</div>
-      ${itemsList}
-      <div style="font-weight:bold;color:${isJama?'#2e7d32':'#c62828'};">${isJama?'−':'+'} ₹${(+u.amount).toFixed(2)}</div>
-    </div>`;
-  }).join('') || '<div style="font-size:13px;color:#888;">Koi udhar nahi</div>';
-
+  const stats = calculateUserStats(ME.id, MY_ORDERS);
   document.getElementById('profileBox').innerHTML = `
     <div class="card">
       <h3>Meri Info</h3>
@@ -513,10 +494,6 @@ function renderProfile() {
         <div><div style="font-size:20px;font-weight:bold;color:#2e7d32;">₹${stats.total_paid.toFixed(0)}</div><div style="font-size:12px;color:#666;">Paid</div></div>
         <div><div style="font-size:20px;font-weight:bold;color:${stats.total_pending>0?'#e65100':'#2e7d32'};">₹${stats.total_pending.toFixed(0)}</div><div style="font-size:12px;color:#666;">Bakaya</div></div>
       </div>
-    </div>
-    <div class="card">
-      <b style="font-size:14px;">📋 Udhar List</b>
-      <div class="mt">${udharRows}</div>
     </div>`;
 }
 
