@@ -87,7 +87,7 @@ function toast(msg) {
 function getImgbbKey() { return SECRET.imgbb_key || null; }
 function getUpi() { return { id: SECRET.upi_id || '', name: SECRET.upi_name || 'Dukan' }; }
 
-/* ================== FIREBASE HELPERS ================== */
+/* ================== FIREBASE HELPERS (OLD - keep) ================== */
 async function fbLoadAllProducts() {
   if (!FB_READY) return [];
   const snap = await FB.collection('products').get();
@@ -171,6 +171,49 @@ async function loadMyData(uid) {
   return { products, me, myOrders, myUdhar };
 }
 
+/* ================== FRESH DATA (NEW - turant refresh) ================== */
+async function getFreshProducts() {
+  if (!FB_READY) return [];
+  const snap = await FB.collection('products').get();
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+async function getFreshUsers() {
+  if (!FB_READY) return [];
+  const snap = await FB.collection('users').get();
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+async function getFreshUser(uid) {
+  if (!FB_READY) return null;
+  const doc = await FB.collection('users').doc(uid).get();
+  return doc.exists ? { id: doc.id, ...doc.data() } : null;
+}
+async function getFreshOrders() {
+  if (!FB_READY) return [];
+  const snap = await FB.collection('orders').orderBy('created_at', 'desc').get();
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+async function getFreshMyOrders(uid) {
+  if (!FB_READY) return [];
+  const snap = await FB.collection('orders').where('user_id', '==', uid).get();
+  const arr = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  arr.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+  return arr;
+}
+async function getFreshUdhar() {
+  if (!FB_READY) return [];
+  const snap = await FB.collection('udhar').get();
+  const arr = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  arr.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+  return arr;
+}
+async function getFreshMyUdhar(uid) {
+  if (!FB_READY) return [];
+  const snap = await FB.collection('udhar').where('user_id', '==', uid).get();
+  const arr = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  arr.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+  return arr;
+}
+
 /* ================== IMAGE UPLOAD ================== */
 async function uploadImage(file) {
   const key = getImgbbKey();
@@ -212,11 +255,11 @@ async function logoutUser() {
 /* ================== USER STATS ================== */
 function calculateUserStats(userId, orders, udhar) {
   const myOrders = orders.filter(o => o.user_id === userId);
-  const total_orders = myOrders.reduce((a, o) => a + o.total, 0);
-  const total_paid = myOrders.filter(o => o.payment_status === 'paid').reduce((a, o) => a + o.total, 0);
+  const total_orders = myOrders.reduce((a, o) => a + (o.total || 0), 0);
+  const total_paid = myOrders.filter(o => o.payment_status === 'paid').reduce((a, o) => a + (o.total || 0), 0);
   const order_pending = total_orders - total_paid;
-  const myUdhar = (udhar || []).filter(u => u.user_id === userId && u.status !== 'paid');
-  const udhar_pending = myUdhar.reduce((a, u) => a + u.amount, 0);
+  const myUdhar = (udhar || []).filter(u => u.user_id === userId && u.type !== 'jama' && u.status !== 'paid');
+  const udhar_pending = myUdhar.reduce((a, u) => a + (u.amount || 0), 0);
   return {
     total_orders, total_paid, order_pending, udhar_pending,
     total_pending: order_pending + udhar_pending,
@@ -240,6 +283,12 @@ const UNIT_STEP = {
 };
 
 function getUnitPrice(product, unitLabel, user) {
+  // NEW product format: unit is direct property
+  if (product.unit === unitLabel) {
+    if (user && user.price_type === 'wholesale') return product.wholesale || product.retail || 0;
+    return product.retail || 0;
+  }
+  // OLD product format: units array
   const u = product.units?.find(x => x.label === unitLabel);
   if (!u) return 0;
   if (user && user.special_prices) {
