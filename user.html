@@ -92,13 +92,11 @@ async function init() {
   saveSession('user', { id: ME.id, name: ME.name, phone: ME.phone, price_type: ME.price_type });
   document.getElementById('welcome').textContent = 'Namaste, ' + ME.name;
   
-  // Purane cart ko clean karo — koi product delete ho gaya ho to
   cleanCart();
   
   renderGrid(); renderCart(); renderOrders(); renderProfile(); updateCartBadge();
 }
 
-// Purane cart se delete-ho-chuke products hatao
 function cleanCart() {
   let changed = false;
   Object.keys(CART).forEach(key => {
@@ -120,6 +118,7 @@ document.querySelectorAll('.bottom-nav a').forEach(a => {
     ['home','cart','orders','profile'].forEach(t => {
       document.getElementById('tab-'+t).classList.toggle('hidden', t !== a.dataset.tab);
     });
+    if (a.dataset.tab === 'cart') renderCart();
     if (a.dataset.tab === 'orders') renderOrders();
     if (a.dataset.tab === 'profile') renderProfile();
   };
@@ -188,7 +187,12 @@ function renderPickerModal() {
   const isFixed = FIXED_UNITS.includes(u.label);
   const hasSize = !!u.size;
 
-  // Unit rows
+  // ============ LOGIC ============
+  // 1. isMeasured && !hasSize → LOOSE (kg, gram, liter, ml) → quick buttons
+  // 2. isMeasured && hasSize → FIXED PACKET (1L oil packet) → whole number
+  // 3. isFixed → PIECE/PACKET/BOTTLE → whole number
+  // ==============================
+
   const rows = p.units.map(un => {
     const up = getUnitPrice(p, un.label, ME);
     const sel = un.label === pickerState.unitLabel ? 'selected' : '';
@@ -206,12 +210,15 @@ function renderPickerModal() {
 
   let quantitySelector = '';
 
-  if (isFixed) {
-    // FIXED UNITS — sirf whole number
+  if (isFixed || (isMeasured && hasSize)) {
+    // ============ FIXED PACKET / PIECE ============
+    // 1L oil packet, biscuit packet (12 pcs), biscuit single piece
+    // Sirf whole number
+    const displayLabel = hasSize ? `${u.label} (${u.size})` : u.label;
     quantitySelector = `
       <div style="margin-top:14px;padding-top:12px;border-top:1px solid #eee;">
         <div style="font-size:13px;color:#666;text-align:center;margin-bottom:8px;">
-          Kitne ${u.label}? ${u.size ? '(' + u.size + ' each)' : ''}
+          Kitne ${displayLabel}? ${hasSize ? '(Har packet ' + u.size + ')' : ''}
         </div>
         <div class="row" style="align-items:center;">
           <button class="primary small qty-btn" onclick="changeQty(-1)">−</button>
@@ -221,12 +228,15 @@ function renderPickerModal() {
           <span style="flex:0;white-space:nowrap;font-weight:bold;">${u.label}</span>
           <button class="primary small qty-btn" onclick="changeQty(1)">+</button>
         </div>
+        ${hasSize ? `<div style="font-size:12px;color:#1976d2;text-align:center;margin-top:6px;">
+          📦 Total: ${pickerState.qty} × ${u.size}
+        </div>` : ''}
         <div style="text-align:center;font-size:16px;margin-top:10px;">
           Total: <b style="color:#2e7d32;">${inr(subtotal)}</b>
         </div>
       </div>`;
   } else if (isMeasured && !hasSize) {
-    // MEASURED + LOOSE — quick buttons
+    // ============ LOOSE (kg, gram, liter, ml) ============
     const QUICK_QTY = {
       'kg': [0.25, 0.5, 1, 2, 5, 10],
       'gram': [50, 100, 250, 500, 1000],
@@ -260,28 +270,6 @@ function renderPickerModal() {
                  onchange="setPickerQty(this.value)">
           <span style="flex:0;white-space:nowrap;font-weight:bold;">${u.label}</span>
           <button class="primary small qty-btn" onclick="changeQty(1)">+</button>
-        </div>
-        <div style="text-align:center;font-size:16px;margin-top:10px;">
-          Total: <b style="color:#2e7d32;">${inr(subtotal)}</b>
-        </div>
-      </div>`;
-  } else if (isMeasured && hasSize) {
-    // MEASURED + FIXED SIZE — packets/bottles of fixed size
-    quantitySelector = `
-      <div style="margin-top:14px;padding-top:12px;border-top:1px solid #eee;">
-        <div style="font-size:13px;color:#666;text-align:center;margin-bottom:8px;">
-          Kitne packet? (Har ek ${u.size})
-        </div>
-        <div class="row" style="align-items:center;">
-          <button class="primary small qty-btn" onclick="changeQty(-1)">−</button>
-          <input type="number" value="${pickerState.qty}" min="1" step="1" 
-                 style="text-align:center;margin:0;font-size:18px;font-weight:bold;" 
-                 onchange="setPickerQty(this.value)">
-          <span style="flex:0;white-space:nowrap;font-weight:bold;">packet</span>
-          <button class="primary small qty-btn" onclick="changeQty(1)">+</button>
-        </div>
-        <div style="font-size:12px;color:#1976d2;text-align:center;margin-top:6px;">
-          📦 Total: ${pickerState.qty} × ${u.size}
         </div>
         <div style="text-align:center;font-size:16px;margin-top:10px;">
           Total: <b style="color:#2e7d32;">${inr(subtotal)}</b>
@@ -356,15 +344,20 @@ function setPickerQty(val) {
   renderPickerModal();
 }
 
+// ⭐⭐⭐ ADD karne par CART TURANT UPDATE ⭐⭐⭐
 function confirmAdd() {
   const key = pickerState.productId + '::' + pickerState.unitLabel;
   CART[key] = Math.round(((CART[key]||0) + pickerState.qty) * 100) / 100;
-  saveCart(); closePicker(); toast('Cart me add');
+  saveCart(); 
+  renderCart();        // ⭐ CART TURANT UPDATE
+  updateCartBadge();   // ⭐ BADGE TURANT UPDATE
+  closePicker(); 
+  toast('✅ Cart me add ho gaya');
 }
 
 function closePicker() { document.getElementById('modalRoot').innerHTML = ''; pickerState = null; }
 
-function saveCart() { localStorage.setItem('cart', JSON.stringify(CART)); updateCartBadge(); }
+function saveCart() { localStorage.setItem('cart', JSON.stringify(CART)); }
 function updateCartBadge() { document.getElementById('cartCount').textContent = Object.keys(CART).length; }
 
 function cartTotal() {
@@ -377,7 +370,7 @@ function cartTotal() {
   return t;
 }
 
-/* ================= CART (FIXED) ================= */
+/* ================= CART (TURANT UPDATE) ================= */
 function renderCart() {
   const list = document.getElementById('cartList');
   const keys = Object.keys(CART);
@@ -432,8 +425,10 @@ function renderCart() {
   }
   
   list.innerHTML = html + `<div class="card center" style="font-weight:bold;font-size:18px;">Total: ${inr(total)}</div>`;
+  updateCartBadge();
 }
 
+// ⭐⭐⭐ CART ME +/- PAR TURANT UPDATE ⭐⭐⭐
 function changeCartQty(key, dir) {
   const [pid, ul] = key.split('::');
   const p = PRODUCTS.find(x => x.id === pid);
@@ -446,9 +441,12 @@ function changeCartQty(key, dir) {
   let v = (CART[key]||0) + dir*step; 
   v = Math.round(v*100)/100;
   if (v <= 0) delete CART[key]; else CART[key] = v;
-  saveCart(); renderCart();
+  saveCart(); 
+  renderCart();       // ⭐ TURANT UPDATE
+  updateCartBadge();  // ⭐ TURANT UPDATE
 }
 
+// ⭐⭐⭐ CART ME INPUT CHANGE PAR TURANT UPDATE ⭐⭐⭐
 function setCartQty(key, val) {
   const [pid, ul] = key.split('::');
   const p = PRODUCTS.find(x => x.id === pid);
@@ -459,7 +457,13 @@ function setCartQty(key, val) {
   const hasSize = u && u.size;
   
   let v = parseFloat(val);
-  if (!v || v <= 0) { delete CART[key]; saveCart(); renderCart(); return; }
+  if (!v || v <= 0) { 
+    delete CART[key]; 
+    saveCart(); 
+    renderCart(); 
+    updateCartBadge();
+    return; 
+  }
   
   if (!isMeasured || hasSize) {
     v = Math.round(v);
@@ -469,7 +473,9 @@ function setCartQty(key, val) {
   }
   
   CART[key] = v;
-  saveCart(); renderCart();
+  saveCart(); 
+  renderCart();       // ⭐ TURANT UPDATE
+  updateCartBadge();  // ⭐ TURANT UPDATE
 }
 
 /* ================= PAYMENT ================= */
@@ -493,7 +499,6 @@ function calcCharges() {
 
 function openPaymentModal() {
   if (!Object.keys(CART).length) return toast('Cart khali');
-  // Clean cart first
   cleanCart();
   if (!Object.keys(CART).length) return toast('Cart khali');
   payState = { mode: 'cash', cashPaid: cartTotal() };
@@ -571,7 +576,6 @@ function setCash(val) { payState.cashPaid = Math.max(0, parseFloat(val) || 0); r
 function closePayment() { document.getElementById('modalRoot').innerHTML = ''; }
 function openApp(link) { window.location.href = link; }
 
-/* ================= CONFIRM ORDER (FIXED) ================= */
 async function confirmOrder() {
   const keys = Object.keys(CART);
   if (!keys.length) return toast('Cart khali');
@@ -586,20 +590,13 @@ async function confirmOrder() {
     onlinePaid = onlineBase + (Math.round(onlineBase * EXTRA_PERCENT) / 100);
   }
   
-  // ⭐ SAFE items build karo
   const items = [];
   const missingItems = [];
   
   keys.forEach(key => {
     const [pid, ul] = key.split('::');
     const p = PRODUCTS.find(x => x.id === pid);
-    
-    if (!p) {
-      missingItems.push(ul);
-      delete CART[key];
-      return;
-    }
-    
+    if (!p) { missingItems.push(ul); delete CART[key]; return; }
     const u = p.units?.find(x => x.label === ul);
     items.push({ 
       product_id: pid, 
@@ -612,16 +609,12 @@ async function confirmOrder() {
   });
   
   if (missingItems.length > 0) {
-    saveCart();
-    renderCart();
+    saveCart(); renderCart();
     toast('❌ Kuch products shop se hat gaye. Cart update ho gaya.');
     return;
   }
   
-  if (!items.length) {
-    toast('❌ Cart khali');
-    return;
-  }
+  if (!items.length) { toast('❌ Cart khali'); return; }
   
   const order = {
     id: uid(), user_id: ME.id, user_name: ME.name, user_phone: ME.phone,
@@ -637,7 +630,7 @@ async function confirmOrder() {
     toast('Order place ho raha hai...');
     await fbSaveOrder(order);
     try { await sendOrderNotificationToOwner(order); } catch (e) { console.warn(e); }
-    CART = {}; saveCart(); renderCart();
+    CART = {}; saveCart(); renderCart(); updateCartBadge();
     closePayment();
     toast('✅ Order place — owner approval pending');
     document.querySelector('.bottom-nav a[data-tab="orders"]').click();
