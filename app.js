@@ -87,7 +87,7 @@ function toast(msg) {
 function getImgbbKey() { return SECRET.imgbb_key || null; }
 function getUpi() { return { id: SECRET.upi_id || '', name: SECRET.upi_name || 'Dukan' }; }
 
-/* ================== FIREBASE HELPERS (OLD - keep) ================== */
+/* ================== FIREBASE HELPERS ================== */
 async function fbLoadAllProducts() {
   if (!FB_READY) return [];
   const snap = await FB.collection('products').get();
@@ -171,7 +171,7 @@ async function loadMyData(uid) {
   return { products, me, myOrders, myUdhar };
 }
 
-/* ================== FRESH DATA (NEW - turant refresh) ================== */
+/* ================== FRESH DATA (one-time) ================== */
 async function getFreshProducts() {
   if (!FB_READY) return [];
   const snap = await FB.collection('products').get();
@@ -214,6 +214,77 @@ async function getFreshMyUdhar(uid) {
   return arr;
 }
 
+/* ================== REAL-TIME LISTENERS ================== */
+let LIVE_UNSUBS = {
+  products: null, users: null, orders: null, udhar: null,
+  myOrders: null, myUdhar: null, myUser: null
+};
+
+function startOwnerLiveSync(onUpdate) {
+  stopAllLive();
+  console.log('🔴 Owner live sync starting...');
+  
+  LIVE_UNSUBS.products = FB.collection('products').onSnapshot(snap => {
+    const products = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    onUpdate('products', products);
+  }, err => console.warn('products listener error:', err));
+  
+  LIVE_UNSUBS.users = FB.collection('users').onSnapshot(snap => {
+    const users = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    onUpdate('users', users);
+  }, err => console.warn('users listener error:', err));
+  
+  LIVE_UNSUBS.orders = FB.collection('orders').onSnapshot(snap => {
+    const orders = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    orders.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+    onUpdate('orders', orders);
+  }, err => console.warn('orders listener error:', err));
+  
+  LIVE_UNSUBS.udhar = FB.collection('udhar').onSnapshot(snap => {
+    const udhar = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    udhar.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+    onUpdate('udhar', udhar);
+  }, err => console.warn('udhar listener error:', err));
+}
+
+function startUserLiveSync(uid, onUpdate) {
+  stopAllLive();
+  console.log('🔴 User live sync starting...');
+  
+  LIVE_UNSUBS.products = FB.collection('products').onSnapshot(snap => {
+    const products = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    onUpdate('products', products);
+  }, err => console.warn('products listener error:', err));
+  
+  LIVE_UNSUBS.myUser = FB.collection('users').doc(uid).onSnapshot(doc => {
+    if (doc.exists) onUpdate('me', { id: doc.id, ...doc.data() });
+  }, err => console.warn('myUser listener error:', err));
+  
+  LIVE_UNSUBS.myOrders = FB.collection('orders').where('user_id', '==', uid).onSnapshot(snap => {
+    const orders = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    orders.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+    onUpdate('myOrders', orders);
+  }, err => console.warn('myOrders listener error:', err));
+  
+  LIVE_UNSUBS.myUdhar = FB.collection('udhar').where('user_id', '==', uid).onSnapshot(snap => {
+    const udhar = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    udhar.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+    onUpdate('myUdhar', udhar);
+  }, err => console.warn('myUdhar listener error:', err));
+}
+
+function stopAllLive() {
+  Object.keys(LIVE_UNSUBS).forEach(k => {
+    if (LIVE_UNSUBS[k]) {
+      try { LIVE_UNSUBS[k](); } catch(e) {}
+      LIVE_UNSUBS[k] = null;
+    }
+  });
+  console.log('🔴 All listeners stopped');
+}
+
+window.addEventListener('beforeunload', stopAllLive);
+
 /* ================== IMAGE UPLOAD ================== */
 async function uploadImage(file) {
   const key = getImgbbKey();
@@ -240,12 +311,14 @@ function getSession() {
   catch { return null; }
 }
 async function logout() {
+  stopAllLive();
   await authSignOut();
   localStorage.removeItem('role');
   localStorage.removeItem('session');
   location.replace('index.html');
 }
 async function logoutUser() {
+  stopAllLive();
   await authSignOut();
   localStorage.removeItem('role');
   localStorage.removeItem('session');
@@ -283,12 +356,10 @@ const UNIT_STEP = {
 };
 
 function getUnitPrice(product, unitLabel, user) {
-  // NEW product format: unit is direct property
   if (product.unit === unitLabel) {
     if (user && user.price_type === 'wholesale') return product.wholesale || product.retail || 0;
     return product.retail || 0;
   }
-  // OLD product format: units array
   const u = product.units?.find(x => x.label === unitLabel);
   if (!u) return 0;
   if (user && user.special_prices) {
@@ -355,40 +426,28 @@ async function initMessaging() {
   if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
     throw new Error('HTTPS zaroori hai');
   }
-
   let permission = Notification.permission;
-  if (permission === 'default') {
-    permission = await Notification.requestPermission();
-  }
-  console.log('🔔 Permission:', permission);
+  if (permission === 'default') permission = await Notification.requestPermission();
   if (permission !== 'granted') throw new Error('Permission denied');
-
   if (typeof firebase.messaging === 'undefined') {
     await loadScript('https://www.gstatic.com/firebasejs/10.7.0/firebase-messaging-compat.js');
   }
-
   MESSAGING = firebase.messaging();
   const vapidKey = SECRET.firebase?.vapidKey || '';
   if (!vapidKey) throw new Error('VAPID key missing');
-
   const reg = await navigator.serviceWorker.register('./service-worker.js', { scope: './' });
   await navigator.serviceWorker.ready;
-
   try {
     FCM_TOKEN = await MESSAGING.getToken({ vapidKey, serviceWorkerRegistration: reg });
   } catch (e) {
-    console.warn('Token with SW failed:', e);
     FCM_TOKEN = await MESSAGING.getToken({ vapidKey });
   }
   if (!FCM_TOKEN) throw new Error('FCM token nahi mila');
-  console.log('✅ FCM Token:', FCM_TOKEN.substring(0, 30) + '...');
-
   MESSAGING.onMessage(payload => {
     const title = payload.notification?.title || 'Dukan Order';
     const body = payload.notification?.body || 'Naya order aaya hai!';
     showLocalNotification(title, body, payload.data);
   });
-
   return FCM_TOKEN;
 }
 
@@ -416,7 +475,6 @@ async function saveFCMToken(uid, token) {
     await FB.collection('settings').doc('owner').set(
       { fcm_token: token, fcm_updated: new Date().toISOString(), owner_uid: uid }, { merge: true }
     );
-    console.log('✅ FCM token saved');
   } catch (e) { console.warn('Save FCM fail:', e); }
 }
 
