@@ -105,28 +105,12 @@ async function fbLoadMyUser(uid) {
 }
 async function fbLoadAllOrders() {
   if (!FB_READY) return [];
-  const snap = await FB.collection('orders').get();
-  const arr = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-  arr.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
-  return arr;
+  const snap = await FB.collection('orders').orderBy('created_at', 'desc').get();
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 async function fbLoadMyOrders(uid) {
   if (!FB_READY) return [];
   const snap = await FB.collection('orders').where('user_id', '==', uid).get();
-  const arr = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-  arr.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
-  return arr;
-}
-async function fbLoadAllUdhar() {
-  if (!FB_READY) return [];
-  const snap = await FB.collection('udhar').get();
-  const arr = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-  arr.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
-  return arr;
-}
-async function fbLoadMyUdhar(uid) {
-  if (!FB_READY) return [];
-  const snap = await FB.collection('udhar').where('user_id', '==', uid).get();
   const arr = snap.docs.map(d => ({ id: d.id, ...d.data() }));
   arr.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
   return arr;
@@ -151,120 +135,115 @@ async function fbSaveOrder(o) {
   return o;
 }
 async function fbUpdateOrder(id, patch) { await FB.collection('orders').doc(id).set(patch, { merge: true }); }
-async function fbSaveUdhar(u) {
-  if (!FB_READY) throw new Error('Firebase ready nahi');
-  if (!u.id) u.id = uid();
-  await FB.collection('udhar').doc(u.id).set(u, { merge: true });
-  return u;
-}
 
 async function loadData() {
-  if (!FB_READY) return { products: [], users: [], orders: [], udhar: [] };
-  const [products, users, orders, udhar] = await Promise.all([
-    fbLoadAllProducts(), fbLoadAllUsers(), fbLoadAllOrders(), fbLoadAllUdhar()
+  if (!FB_READY) return { products: [], users: [], orders: [] };
+  const [products, users, orders] = await Promise.all([
+    fbLoadAllProducts(), fbLoadAllUsers(), fbLoadAllOrders()
   ]);
-  return { products, users, orders, udhar };
+  return { products, users, orders };
 }
 async function loadMyData(uid) {
-  if (!FB_READY) return { products: [], me: null, myOrders: [], myUdhar: [] };
-  const [products, me, myOrders, myUdhar] = await Promise.all([
-    fbLoadAllProducts(), fbLoadMyUser(uid), fbLoadMyOrders(uid), fbLoadMyUdhar(uid)
+  if (!FB_READY) return { products: [], me: null, myOrders: [] };
+  const [products, me, myOrders] = await Promise.all([
+    fbLoadAllProducts(), fbLoadMyUser(uid), fbLoadMyOrders(uid)
   ]);
-  return { products, me, myOrders, myUdhar };
+  return { products, me, myOrders };
 }
 
-/* ================== REAL-TIME LISTENERS ================== */
-let LIVE_UNSUBS = {
-  products: null, users: null, orders: null, udhar: null,
-  myOrders: null, myUdhar: null, myUser: null
-};
-let LIVE_ACTIVE = false;
+/* ================== FRESH DATA ================== */
+async function getFreshProducts() {
+  if (!FB_READY) return [];
+  const snap = await FB.collection('products').get();
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+async function getFreshUsers() {
+  if (!FB_READY) return [];
+  const snap = await FB.collection('users').get();
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+async function getFreshUser(uid) {
+  if (!FB_READY) return null;
+  const doc = await FB.collection('users').doc(uid).get();
+  return doc.exists ? { id: doc.id, ...doc.data() } : null;
+}
+async function getFreshOrders() {
+  if (!FB_READY) return [];
+  const snap = await FB.collection('orders').orderBy('created_at', 'desc').get();
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+async function getFreshMyOrders(uid) {
+  if (!FB_READY) return [];
+  const snap = await FB.collection('orders').where('user_id', '==', uid).get();
+  const arr = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  arr.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
+  return arr;
+}
 
-function startOwnerLiveSync(onUpdate) {
-  stopAllLive();
-  LIVE_ACTIVE = true;
-  console.log('🔴 Owner live sync starting...');
-  
-  LIVE_UNSUBS.products = FB.collection('products').onSnapshot(snap => {
-    console.log('📦 Products updated:', snap.size);
-    const products = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+/* ================== AUTO-REFRESH (POLLING every 5s) ================== */
+let POLLING_TIMER = null;
+let POLL_INTERVAL = 5000;
+let POLL_ACTIVE = false;
+
+function startOwnerPolling(onUpdate) {
+  stopPolling();
+  POLL_ACTIVE = true;
+  console.log('🔴 Owner auto-refresh started (every 5s)');
+  pollOwnerData(onUpdate);
+  POLLING_TIMER = setInterval(() => pollOwnerData(onUpdate), POLL_INTERVAL);
+}
+
+async function pollOwnerData(onUpdate) {
+  if (!FB_READY) return;
+  try {
+    const [products, users, orders] = await Promise.all([
+      getFreshProducts(), getFreshUsers(), getFreshOrders()
+    ]);
     onUpdate('products', products);
-  }, err => console.warn('products listener error:', err));
-  
-  LIVE_UNSUBS.users = FB.collection('users').onSnapshot(snap => {
-    console.log('👥 Users updated:', snap.size);
-    const users = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     onUpdate('users', users);
-  }, err => console.warn('users listener error:', err));
-  
-  LIVE_UNSUBS.orders = FB.collection('orders').onSnapshot(snap => {
-    console.log('🛒 Orders updated:', snap.size);
-    const orders = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    orders.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
     onUpdate('orders', orders);
-  }, err => console.warn('orders listener error:', err));
-  
-  LIVE_UNSUBS.udhar = FB.collection('udhar').onSnapshot(snap => {
-    console.log('💰 Udhar updated:', snap.size);
-    const udhar = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    udhar.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
-    onUpdate('udhar', udhar);
-  }, err => console.warn('udhar listener error:', err));
+  } catch (e) { console.warn('Poll owner error:', e); }
 }
 
-function startUserLiveSync(uid, onUpdate) {
-  stopAllLive();
-  LIVE_ACTIVE = true;
-  console.log('🔴 User live sync starting for uid:', uid);
-  
-  LIVE_UNSUBS.products = FB.collection('products').onSnapshot(snap => {
-    console.log('📦 Products updated:', snap.size);
-    const products = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+function startUserPolling(uid, onUpdate) {
+  stopPolling();
+  POLL_ACTIVE = true;
+  console.log('🔴 User auto-refresh started (every 5s)');
+  pollUserData(uid, onUpdate);
+  POLLING_TIMER = setInterval(() => pollUserData(uid, onUpdate), POLL_INTERVAL);
+}
+
+async function pollUserData(uid, onUpdate) {
+  if (!FB_READY) return;
+  try {
+    const [products, me, myOrders] = await Promise.all([
+      getFreshProducts(), getFreshUser(uid), getFreshMyOrders(uid)
+    ]);
     onUpdate('products', products);
-  }, err => console.warn('products listener error:', err));
-  
-  LIVE_UNSUBS.myUser = FB.collection('users').doc(uid).onSnapshot(doc => {
-    if (doc.exists) onUpdate('me', { id: doc.id, ...doc.data() });
-  }, err => console.warn('myUser listener error:', err));
-  
-  LIVE_UNSUBS.myOrders = FB.collection('orders').where('user_id', '==', uid).onSnapshot(snap => {
-    console.log('🛒 My orders updated:', snap.size);
-    const orders = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    orders.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
-    onUpdate('myOrders', orders);
-  }, err => console.warn('myOrders listener error:', err));
-  
-  LIVE_UNSUBS.myUdhar = FB.collection('udhar').where('user_id', '==', uid).onSnapshot(snap => {
-    console.log('💰 My udhar updated:', snap.size);
-    const udhar = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    udhar.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
-    onUpdate('myUdhar', udhar);
-  }, err => console.warn('myUdhar listener error:', err));
+    if (me) onUpdate('me', me);
+    onUpdate('myOrders', myOrders);
+  } catch (e) { console.warn('Poll user error:', e); }
 }
 
-function stopAllLive() {
-  Object.keys(LIVE_UNSUBS).forEach(k => {
-    if (LIVE_UNSUBS[k]) {
-      try { LIVE_UNSUBS[k](); } catch(e) {}
-      LIVE_UNSUBS[k] = null;
-    }
-  });
-  LIVE_ACTIVE = false;
-  console.log('🔴 All listeners stopped');
+function stopPolling() {
+  if (POLLING_TIMER) {
+    clearInterval(POLLING_TIMER);
+    POLLING_TIMER = null;
+    POLL_ACTIVE = false;
+    console.log('🔴 Auto-refresh stopped');
+  }
 }
 
-window.addEventListener('beforeunload', stopAllLive);
+window.addEventListener('beforeunload', stopPolling);
 
 /* ================== IMAGE UPLOAD ================== */
 async function uploadImage(file) {
   const key = getImgbbKey();
   if (!key) throw new Error('ImgBB key nahi');
-  console.log('📤 Uploading to ImgBB...', file.size, 'bytes');
   const form = new FormData();
   form.append('image', file);
   const res = await fetch(`https://api.imgbb.com/1/upload?key=${key}`, { method: 'POST', body: form });
   const json = await res.json();
-  console.log('📥 ImgBB response:', json.success);
   if (!json.success) throw new Error('Image upload fail');
   return json.data.url;
 }
@@ -281,14 +260,14 @@ function getSession() {
   catch { return null; }
 }
 async function logout() {
-  stopAllLive();
+  stopPolling();
   await authSignOut();
   localStorage.removeItem('role');
   localStorage.removeItem('session');
   location.replace('index.html');
 }
 async function logoutUser() {
-  stopAllLive();
+  stopPolling();
   await authSignOut();
   localStorage.removeItem('role');
   localStorage.removeItem('session');
@@ -296,18 +275,15 @@ async function logoutUser() {
 }
 
 /* ================== USER STATS ================== */
-function calculateUserStats(userId, orders, udhar) {
+function calculateUserStats(userId, orders) {
   const myOrders = orders.filter(o => o.user_id === userId);
   const total_orders = myOrders.reduce((a, o) => a + (o.total || 0), 0);
   const total_paid = myOrders.filter(o => o.payment_status === 'paid').reduce((a, o) => a + (o.total || 0), 0);
   const order_pending = total_orders - total_paid;
-  const myUdhar = (udhar || []).filter(u => u.user_id === userId && u.type !== 'jama' && u.status !== 'paid');
-  const udhar_pending = myUdhar.reduce((a, u) => a + (u.amount || 0), 0);
   return {
-    total_orders, total_paid, order_pending, udhar_pending,
-    total_pending: order_pending + udhar_pending,
-    order_count: myOrders.length,
-    udhar_count: myUdhar.length
+    total_orders, total_paid, order_pending,
+    total_pending: order_pending,
+    order_count: myOrders.length
   };
 }
 
@@ -372,84 +348,6 @@ function getAppLinks(amount, note) {
 }
 
 /* ================== NOTIFICATIONS ================== */
-let MESSAGING = null, FCM_TOKEN = null;
-
-function isPWA() {
-  return window.matchMedia('(display-mode: standalone)').matches ||
-         window.navigator.standalone === true;
-}
-function isWebView() {
-  const ua = navigator.userAgent || '';
-  return /wv|WebView/.test(ua) && /Android/.test(ua);
-}
-
-async function initMessaging() {
-  if (!FB_READY || !AUTH) throw new Error('Firebase ready nahi');
-  if (!('Notification' in window)) throw new Error('Notifications support nahi');
-  if (!('serviceWorker' in navigator)) throw new Error('Service Worker support nahi');
-  if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
-    throw new Error('HTTPS zaroori hai');
-  }
-  let permission = Notification.permission;
-  if (permission === 'default') permission = await Notification.requestPermission();
-  if (permission !== 'granted') throw new Error('Permission denied');
-  if (typeof firebase.messaging === 'undefined') {
-    await loadScript('https://www.gstatic.com/firebasejs/10.7.0/firebase-messaging-compat.js');
-  }
-  MESSAGING = firebase.messaging();
-  const vapidKey = SECRET.firebase?.vapidKey || '';
-  if (!vapidKey) throw new Error('VAPID key missing');
-  const reg = await navigator.serviceWorker.register('./service-worker.js', { scope: './' });
-  await navigator.serviceWorker.ready;
-  try {
-    FCM_TOKEN = await MESSAGING.getToken({ vapidKey, serviceWorkerRegistration: reg });
-  } catch (e) {
-    FCM_TOKEN = await MESSAGING.getToken({ vapidKey });
-  }
-  if (!FCM_TOKEN) throw new Error('FCM token nahi mila');
-  MESSAGING.onMessage(payload => {
-    const title = payload.notification?.title || 'Dukan Order';
-    const body = payload.notification?.body || 'Naya order aaya hai!';
-    showLocalNotification(title, body, payload.data);
-  });
-  return FCM_TOKEN;
-}
-
-function showLocalNotification(title, body, data) {
-  if (Notification.permission !== 'granted') return;
-  const options = {
-    body: body, icon: './icon-192.png', badge: './icon-192.png',
-    vibrate: [200, 100, 200, 100, 200],
-    tag: (data && data.order_id) || 'order-' + Date.now(),
-    renotify: true, requireInteraction: true, data: data || {}
-  };
-  if (navigator.serviceWorker && navigator.serviceWorker.controller) {
-    navigator.serviceWorker.ready.then(reg => reg.showNotification(title, options));
-  } else {
-    try { new Notification(title, options); } catch (e) {}
-  }
-}
-
-async function saveFCMToken(uid, token) {
-  if (!uid || !token || !FB_READY) return;
-  try {
-    await FB.collection('users').doc(uid).set(
-      { fcm_token: token, fcm_updated: new Date().toISOString() }, { merge: true }
-    );
-    await FB.collection('settings').doc('owner').set(
-      { fcm_token: token, fcm_updated: new Date().toISOString(), owner_uid: uid }, { merge: true }
-    );
-  } catch (e) { console.warn('Save FCM fail:', e); }
-}
-
-async function setupOwnerNotifications() {
-  const uid = getAuthUid();
-  if (!uid) throw new Error('Login nahi');
-  const token = await initMessaging();
-  if (token) await saveFCMToken(uid, token);
-  return token;
-}
-
 async function sendOrderNotificationToOwner(order) {
   if (!FB_READY || !FB) return;
   try {
@@ -471,8 +369,6 @@ loadSecret().then(async () => {
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./service-worker.js', { scope: './' }).catch(e => {
-      console.warn('SW register fail:', e);
-    });
+    navigator.serviceWorker.register('./service-worker.js', { scope: './' }).catch(e => {});
   });
 }
